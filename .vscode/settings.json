@@ -1,0 +1,50 @@
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": true,
+    "source.organizeImports": true
+  },
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "files.exclude": {
+    "node_modules": true,
+    "dist": true,
+    "coverage": true
+  },
+  "search.exclude": {
+    "node_modules": true,
+    "dist": true,
+    "coverage": true,
+    "*.log": true
+  },
+  "eslint.validate": [
+    "typescript",
+    "javascript"
+  ],
+  "eslint.workingDirectories": [
+    {
+      "mode": "auto"
+    }
+  ],
+  "prettier.configPath": ".prettierrc",
+  "prettier.ignorePath": ".prettierignore",
+  "cSpell.words": [
+    "bcryptjs",
+    "cuid",
+    "dompurify",
+    "jsonwebtoken",
+    "middlewares",
+    "nodemailer",
+    "passwordless",
+    "prisma",
+    "speakeasy",
+    "totp",
+    "webauthn"
+  ],
+  "[prisma]": {
+    "editor.defaultFormatter": "Prisma.prisma"
+  },
+  "prisma.format.enabled": true
+}
