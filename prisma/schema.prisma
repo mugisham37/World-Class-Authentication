@@ -1,0 +1,219 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+generator docs {
+  provider = "prisma-docs-generator"
+}
+
+generator erd {
+  provider = "prisma-erd-generator"
+  output   = "../docs/ERD.svg"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model - Core entity for authentication
+model User {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  username          String?  @unique
+  emailVerified     Boolean  @default(false)
+  active            Boolean  @default(true)
+  lastLoginAt       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Profile information
+  profile           UserProfile?
+  
+  // Authentication
+  credentials       Credential[]
+  sessions          Session[]
+  
+  // MFA
+  mfaFactors        MfaFactor[]
+  mfaChallenges     MfaChallenge[]
+  
+  // Account Recovery
+  recoveryTokens    RecoveryToken[]
+  
+  // OAuth
+  oauthAccounts     OAuthAccount[]
+  
+  // Audit and Risk
+  auditLogs         AuditLog[]
+  riskAssessments   RiskAssessment[]
+
+  @@map("users")
+}
+
+// User Profile - Extended user information
+model UserProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  firstName String?
+  lastName  String?
+  avatar    String?
+  timezone  String?
+  locale    String?
+  phone     String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("user_profiles")
+}
+
+// Credential - User authentication credentials
+model Credential {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type          String   // password, api_key, etc.
+  name          String?  // For multiple credentials of the same type
+  secret        String   // Hashed password or key
+  algorithm     String   @default("bcrypt")
+  
+  lastUsedAt    DateTime?
+  expiresAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([userId, type, name])
+  @@map("credentials")
+}
+
+// Session - User sessions
+model Session {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  token         String   @unique
+  refreshToken  String?  @unique
+  userAgent     String?
+  ipAddress     String?
+  expiresAt     DateTime
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("sessions")
+}
+
+// MFA Factor - Multi-factor authentication methods
+model MfaFactor {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type          String   // totp, sms, email, etc.
+  secret        String?  // Encrypted secret for TOTP
+  phoneNumber   String?  // For SMS
+  verified      Boolean  @default(false)
+  default       Boolean  @default(false)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("mfa_factors")
+}
+
+// MFA Challenge - Records of MFA challenges
+model MfaChallenge {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  factorId      String?
+  code          String?  // For verification codes
+  verified      Boolean  @default(false)
+  expiresAt     DateTime
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("mfa_challenges")
+}
+
+// Recovery Token - For password reset and account recovery
+model RecoveryToken {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  token         String   @unique
+  type          String   // password_reset, account_recovery, etc.
+  used          Boolean  @default(false)
+  expiresAt     DateTime
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("recovery_tokens")
+}
+
+// OAuth Account - For social login
+model OAuthAccount {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  provider      String   // google, facebook, github, etc.
+  providerAccountId String
+  accessToken   String
+  refreshToken  String?
+  expiresAt     Int?
+  tokenType     String?
+  scope         String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([provider, providerAccountId])
+  @@map("oauth_accounts")
+}
+
+// Audit Log - For security and compliance
+model AuditLog {
+  id            String   @id @default(cuid())
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  action        String
+  category      String
+  target        String?
+  metadata      Json?
+  ipAddress     String?
+  userAgent     String?
+  status        String
+  
+  createdAt     DateTime @default(now())
+  
+  @@map("audit_logs")
+}
+
+// Risk Assessment - For adaptive authentication
+model RiskAssessment {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  riskScore     Float
+  factors       Json
+  ipAddress     String?
+  userAgent     String?
+  location      String?
+  deviceId      String?
+  
+  createdAt     DateTime @default(now())
+  
+  @@map("risk_assessments")
+}
