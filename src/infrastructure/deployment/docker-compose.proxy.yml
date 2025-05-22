@@ -1,0 +1,163 @@
+version: '3.8'
+
+services:
+  # Main application
+  app:
+    build: ../../..
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:password@db:5432/auth_system
+      - REDIS_URL=redis://redis:6379
+      - PORT=3000
+    networks:
+      - auth-network
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3000/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    # For horizontal scaling, you can create multiple instances
+    # deploy:
+    #   replicas: 3
+
+  # Nginx - Lightning-fast reverse proxy and load balancer
+  nginx:
+    image: nginx:mainline-alpine
+    volumes:
+      - ./servers/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/letsencrypt:ro
+      - ./www:/var/www/html:ro
+      - ./logs/nginx:/var/log/nginx
+    ports:
+      - '80:80'
+      - '443:443'
+    depends_on:
+      - app
+    networks:
+      - auth-network
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'nginx', '-t']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Apache HTTP Server - Robust and feature-rich alternative
+  apache:
+    image: httpd:2.4-alpine
+    volumes:
+      - ./servers/apache.conf:/usr/local/apache2/conf/httpd.conf:ro
+      - ./ssl:/etc/letsencrypt:ro
+      - ./www:/var/www/html:ro
+      - ./logs/apache:/usr/local/apache2/logs
+    ports:
+      - '8080:80'
+      - '8443:443'
+    depends_on:
+      - app
+    networks:
+      - auth-network
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'httpd', '-t']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Caddy - Modern web server with automatic HTTPS
+  caddy:
+    image: caddy:2-alpine
+    volumes:
+      - ./servers/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy_data:/data
+      - ./caddy_config:/config
+      - ./www:/var/www/html:ro
+      - ./logs/caddy:/var/log/caddy
+    ports:
+      - '9080:80'
+      - '9443:443'
+    depends_on:
+      - app
+    networks:
+      - auth-network
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'caddy', 'validate', '--config', '/etc/caddy/Caddyfile']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # HAProxy - Enterprise-grade load balancer for high availability
+  haproxy:
+    image: haproxy:2.6-alpine
+    volumes:
+      - ./servers/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ./ssl:/etc/ssl/certs:ro
+      - ./logs/haproxy:/var/log/haproxy
+    ports:
+      - '10080:80'
+      - '10443:443'
+      - '8404:8404' # Stats page
+    depends_on:
+      - app
+    networks:
+      - auth-network
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'haproxy', '-c', '-f', '/usr/local/etc/haproxy/haproxy.cfg']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Database
+  db:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_DB: auth_system
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - auth-network
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    networks:
+      - auth-network
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Certbot for SSL certificate management
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./ssl:/etc/letsencrypt
+      - ./www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    depends_on:
+      - nginx
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  auth-network:
+    driver: bridge
