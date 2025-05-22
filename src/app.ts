@@ -50,7 +50,7 @@ app.get('/health', (req: Request, res: Response) => {
     status: 'OK',
     timestamp: new Date().toISOString(),
     environment: env.NODE_ENV,
-    version: process.env.npm_package_version || 'unknown',
+    version: process.env['npm_package_version'] || 'unknown',
   });
 });
 
