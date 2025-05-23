@@ -1,80 +1,151 @@
 import dotenv from 'dotenv';
-import { z } from 'zod';
 import path from 'path';
 import fs from 'fs';
+import { logger } from '../infrastructure/logging/logger';
 
-// Determine which .env file to load based on NODE_ENV
-const envFile = process.env['NODE_ENV'] === 'test' ? '.env.test' : '.env';
-const envPath = path.resolve(process.cwd(), envFile);
+/**
+ * Environment configuration manager
+ * Handles loading environment variables from different sources
+ * with support for environment-specific configuration
+ */
+export class Environment {
+  private static instance: Environment;
+  private envCache: Record<string, string> = {};
+  private initialized = false;
 
-// Check if the file exists, if not, fall back to .env.example
-if (!fs.existsSync(envPath)) {
-  const examplePath = path.resolve(process.cwd(), '.env.example');
-  if (fs.existsSync(examplePath)) {
-    console.warn(`${envFile} not found, using .env.example instead`);
-    dotenv.config({ path: examplePath });
-  } else {
-    console.warn(`Neither ${envFile} nor .env.example found`);
-    dotenv.config();
+  private constructor() {
+    // Private constructor to enforce singleton pattern
   }
-} else {
-  dotenv.config({ path: envPath });
+
+  /**
+   * Get the singleton instance
+   */
+  public static getInstance(): Environment {
+    if (!Environment.instance) {
+      Environment.instance = new Environment();
+    }
+    return Environment.instance;
+  }
+
+  /**
+   * Initialize the environment configuration
+   * Loads variables from .env files based on current NODE_ENV
+   */
+  public initialize(): void {
+    if (this.initialized) {
+      return;
+    }
+
+    const nodeEnv = process.env.NODE_ENV || 'development';
+    const envFiles = [
+      path.resolve(process.cwd(), '.env'),
+      path.resolve(process.cwd(), `.env.${nodeEnv}`),
+      path.resolve(process.cwd(), `.env.${nodeEnv}.local`),
+    ];
+
+    // Load each env file if it exists
+    envFiles.forEach(file => {
+      if (fs.existsSync(file)) {
+        const result = dotenv.config({ path: file });
+        if (result.error) {
+          logger.error(`Error loading environment file ${file}`, { error: result.error });
+        } else {
+          logger.info(`Loaded environment from ${file}`);
+        }
+      }
+    });
+
+    // Cache all environment variables
+    this.envCache = { ...process.env };
+    this.initialized = true;
+  }
+
+  /**
+   * Get an environment variable
+   * @param key The environment variable key
+   * @param defaultValue Optional default value if the key doesn't exist
+   * @returns The environment variable value or the default value
+   */
+  public get(key: string, defaultValue?: string): string | undefined {
+    if (!this.initialized) {
+      this.initialize();
+    }
+    return this.envCache[key] || defaultValue;
+  }
+
+  /**
+   * Get an environment variable as a number
+   * @param key The environment variable key
+   * @param defaultValue Optional default value if the key doesn't exist or isn't a valid number
+   * @returns The environment variable as a number or the default value
+   */
+  public getNumber(key: string, defaultValue?: number): number | undefined {
+    const value = this.get(key);
+    if (value === undefined) {
+      return defaultValue;
+    }
+    const num = Number(value);
+    return isNaN(num) ? defaultValue : num;
+  }
+
+  /**
+   * Get an environment variable as a boolean
+   * @param key The environment variable key
+   * @param defaultValue Optional default value if the key doesn't exist
+   * @returns The environment variable as a boolean or the default value
+   */
+  public getBoolean(key: string, defaultValue?: boolean): boolean | undefined {
+    const value = this.get(key);
+    if (value === undefined) {
+      return defaultValue;
+    }
+    return value.toLowerCase() === 'true';
+  }
+
+  /**
+   * Check if an environment variable exists
+   * @param key The environment variable key
+   * @returns True if the environment variable exists, false otherwise
+   */
+  public has(key: string): boolean {
+    if (!this.initialized) {
+      this.initialize();
+    }
+    return key in this.envCache;
+  }
+
+  /**
+   * Get the current environment (development, test, production)
+   * @returns The current environment
+   */
+  public getEnvironment(): string {
+    return this.get('NODE_ENV', 'development');
+  }
+
+  /**
+   * Check if the current environment is production
+   * @returns True if the current environment is production, false otherwise
+   */
+  public isProduction(): boolean {
+    return this.getEnvironment() === 'production';
+  }
+
+  /**
+   * Check if the current environment is development
+   * @returns True if the current environment is development, false otherwise
+   */
+  public isDevelopment(): boolean {
+    return this.getEnvironment() === 'development';
+  }
+
+  /**
+   * Check if the current environment is test
+   * @returns True if the current environment is test, false otherwise
+   */
+  public isTest(): boolean {
+    return this.getEnvironment() === 'test';
+  }
 }
 
-// Define environment schema with validation
-const envSchema = z.object({
-  // Application
-  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  PORT: z.coerce.number().default(3000),
-  API_VERSION: z.string().default('v1'),
-  APP_NAME: z.string().default('WorldClassAuth'),
-  APP_URL: z.string().url(),
-  
-  // Database
-  DATABASE_URL: z.string().url(),
-  REDIS_URL: z.string().url(),
-  
-  // JWT
-  JWT_SECRET: z.string().min(32),
-  JWT_REFRESH_SECRET: z.string().min(32),
-  JWT_EXPIRES_IN: z.string().default('15m'),
-  JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
-  
-  // Email
-  EMAIL_SERVICE: z.string(),
-  EMAIL_API_KEY: z.string(),
-  EMAIL_FROM: z.string().email(),
-  
-  // Security
-  BCRYPT_ROUNDS: z.coerce.number().default(12),
-  RATE_LIMIT_WINDOW_MS: z.coerce.number().default(900000),
-  RATE_LIMIT_MAX_REQUESTS: z.coerce.number().default(100),
-  CORS_ORIGINS: z.string().transform(val => val.split(',')).default('http://localhost:3000'),
-  
-  // Monitoring
-  LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
-  SENTRY_DSN: z.string().optional(),
-});
-
-// Parse and validate environment variables
-export type Environment = z.infer<typeof envSchema>;
-
-// Define env variable outside the try block
-export let env: Environment;
-
-// Try to parse environment variables, with helpful error messages
-try {
-  env = envSchema.parse(process.env);
-} catch (error) {
-  if (error instanceof z.ZodError) {
-    const missingVars = error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('\n');
-    console.error(`❌ Invalid environment variables:\n${missingVars}`);
-    process.exit(1);
-  }
-  throw error;
-}
-
-// Helper functions
-export const isDevelopment = env.NODE_ENV === 'development';
-export const isProduction = env.NODE_ENV === 'production';
-export const isTest = env.NODE_ENV === 'test';
+// Export a singleton instance
+export const env = Environment.getInstance();
