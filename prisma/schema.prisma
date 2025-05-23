@@ -1,14 +1,8 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
-}
-
-generator docs {
-  provider = "prisma-docs-generator"
-}
-
-generator erd {
-  provider = "prisma-erd-generator"
-  output   = "../docs/ERD.svg"
 }
 
 datasource db {
@@ -16,204 +10,371 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User model - Core entity for authentication
+// User model
 model User {
-  id                String   @id @default(cuid())
-  email             String   @unique
-  username          String?  @unique
-  emailVerified     Boolean  @default(false)
-  active            Boolean  @default(true)
+  id                String            @id @default(uuid())
+  email             String            @unique
+  emailVerified     Boolean           @default(false)
+  username          String?           @unique
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
   lastLoginAt       DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  // Profile information
+  status            UserStatus        @default(PENDING)
+  role              UserRole          @default(USER)
   profile           UserProfile?
-  
-  // Authentication
   credentials       Credential[]
   sessions          Session[]
-  
-  // MFA
-  mfaFactors        MfaFactor[]
-  mfaChallenges     MfaChallenge[]
-  
-  // Account Recovery
-  recoveryTokens    RecoveryToken[]
-  
-  // OAuth
-  oauthAccounts     OAuthAccount[]
-  
-  // Audit and Risk
   auditLogs         AuditLog[]
-  riskAssessments   RiskAssessment[]
+  passwordHistory   PasswordHistory[]
+  mfaFactors        MfaFactor[]
+  recoveryMethods   RecoveryMethod[]
+  securityQuestions SecurityQuestion[]
+  trustedContacts   TrustedContact[]
+  recoveryRequests  RecoveryRequest[]
+  adminApprovals    AdminApproval[]
 
   @@map("users")
 }
 
-// User Profile - Extended user information
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+  LOCKED
+  SUSPENDED
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+// User profile model
 model UserProfile {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id        String    @id @default(uuid())
+  userId    String    @unique
   firstName String?
   lastName  String?
-  avatar    String?
-  timezone  String?
-  locale    String?
   phone     String?
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
+  address   String?
+  city      String?
+  state     String?
+  country   String?
+  zipCode   String?
+  birthDate DateTime?
+  bio       String?
+  avatarUrl String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("user_profiles")
 }
 
-// Credential - User authentication credentials
+// Credential model
 model Credential {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  type          String   // password, api_key, etc.
-  name          String?  // For multiple credentials of the same type
-  secret        String   // Hashed password or key
-  algorithm     String   @default("bcrypt")
-  
-  lastUsedAt    DateTime?
-  expiresAt     DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  @@unique([userId, type, name])
+  id                String            @id @default(uuid())
+  userId            String
+  type              CredentialType
+  identifier        String
+  secret            String
+  algorithm         String?
+  salt              String?
+  iterations        Int?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  lastUsedAt        DateTime?
+  expiresAt         DateTime?
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  passwordHistory   PasswordHistory[]
+
+  @@unique([userId, type])
+  @@index([identifier])
   @@map("credentials")
 }
 
-// Session - User sessions
+enum CredentialType {
+  PASSWORD
+  API_KEY
+  OAUTH
+}
+
+// Password history model
+model PasswordHistory {
+  id           String     @id @default(uuid())
+  userId       String
+  credentialId String
+  passwordHash String
+  createdAt    DateTime   @default(now())
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credential   Credential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+
+  @@map("password_history")
+}
+
+// Session model
 model Session {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  token         String   @unique
-  refreshToken  String?  @unique
-  userAgent     String?
-  ipAddress     String?
-  expiresAt     DateTime
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
+  id             String    @id @default(uuid())
+  userId         String
+  token          String    @unique
+  refreshToken   String?   @unique
+  ipAddress      String?
+  userAgent      String?
+  deviceId       String?
+  deviceType     String?
+  location       String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  expiresAt      DateTime
+  lastActiveAt   DateTime  @default(now())
+  revokedAt      DateTime?
+  revocationReason String?
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
   @@map("sessions")
 }
 
-// MFA Factor - Multi-factor authentication methods
-model MfaFactor {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  type          String   // totp, sms, email, etc.
-  secret        String?  // Encrypted secret for TOTP
-  phoneNumber   String?  // For SMS
-  verified      Boolean  @default(false)
-  default       Boolean  @default(false)
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  @@map("mfa_factors")
-}
-
-// MFA Challenge - Records of MFA challenges
-model MfaChallenge {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  factorId      String?
-  code          String?  // For verification codes
-  verified      Boolean  @default(false)
-  expiresAt     DateTime
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  @@map("mfa_challenges")
-}
-
-// Recovery Token - For password reset and account recovery
-model RecoveryToken {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  token         String   @unique
-  type          String   // password_reset, account_recovery, etc.
-  used          Boolean  @default(false)
-  expiresAt     DateTime
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  @@map("recovery_tokens")
-}
-
-// OAuth Account - For social login
-model OAuthAccount {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  provider      String   // google, facebook, github, etc.
-  providerAccountId String
-  accessToken   String
-  refreshToken  String?
-  expiresAt     Int?
-  tokenType     String?
-  scope         String?
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  @@unique([provider, providerAccountId])
-  @@map("oauth_accounts")
-}
-
-// Audit Log - For security and compliance
+// Audit log model
 model AuditLog {
-  id            String   @id @default(cuid())
-  userId        String?
-  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  
-  action        String
-  category      String
-  target        String?
-  metadata      Json?
-  ipAddress     String?
-  userAgent     String?
-  status        String
-  
-  createdAt     DateTime @default(now())
-  
+  id          String       @id @default(uuid())
+  userId      String?
+  action      String
+  entityType  String?
+  entityId    String?
+  ipAddress   String?
+  userAgent   String?
+  metadata    Json?
+  createdAt   DateTime     @default(now())
+  status      AuditStatus  @default(SUCCESS)
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
   @@map("audit_logs")
 }
 
-// Risk Assessment - For adaptive authentication
-model RiskAssessment {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  riskScore     Float
-  factors       Json
-  ipAddress     String?
-  userAgent     String?
-  location      String?
-  deviceId      String?
-  
-  createdAt     DateTime @default(now())
-  
-  @@map("risk_assessments")
+enum AuditStatus {
+  SUCCESS
+  FAILURE
+  WARNING
+  INFO
+}
+
+// Recovery token model
+model RecoveryToken {
+  id        String    @id @default(uuid())
+  token     String    @unique
+  type      RecoveryTokenType
+  userId    String?
+  email     String?
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  metadata  Json?
+
+  @@index([token])
+  @@index([userId])
+  @@index([email])
+  @@map("recovery_tokens")
+}
+
+enum RecoveryTokenType {
+  PASSWORD_RESET
+  EMAIL_VERIFICATION
+  ACCOUNT_RECOVERY
+  MFA_RECOVERY
+}
+
+// MFA Factor model
+model MfaFactor {
+  id              String          @id @default(uuid())
+  userId          String
+  type            MfaFactorType
+  name            String
+  secret          String?
+  credentialId    String?
+  phoneNumber     String?
+  email           String?
+  deviceToken     String?
+  metadata        Json?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  lastUsedAt      DateTime?
+  verifiedAt      DateTime?
+  status          MfaFactorStatus @default(PENDING)
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mfaChallenges   MfaChallenge[]
+
+  @@index([userId])
+  @@map("mfa_factors")
+}
+
+enum MfaFactorType {
+  TOTP
+  WEBAUTHN
+  SMS
+  EMAIL
+  RECOVERY_CODE
+  PUSH_NOTIFICATION
+}
+
+enum MfaFactorStatus {
+  ACTIVE
+  PENDING
+  DISABLED
+  REVOKED
+}
+
+// MFA Challenge model
+model MfaChallenge {
+  id              String                @id @default(uuid())
+  factorId        String
+  challenge       String
+  response        String?
+  expiresAt       DateTime
+  createdAt       DateTime              @default(now())
+  completedAt     DateTime?
+  status          MfaChallengeStatus    @default(PENDING)
+  attempts        Int                   @default(0)
+  metadata        Json?
+  factor          MfaFactor             @relation(fields: [factorId], references: [id], onDelete: Cascade)
+
+  @@index([factorId])
+  @@map("mfa_challenges")
+}
+
+enum MfaChallengeStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  EXPIRED
+}
+
+// Recovery Method model
+model RecoveryMethod {
+  id              String                @id @default(uuid())
+  userId          String
+  type            RecoveryMethodType
+  name            String
+  status          RecoveryMethodStatus  @default(ACTIVE)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  lastUsedAt      DateTime?
+  metadata        Json?
+  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("recovery_methods")
+}
+
+enum RecoveryMethodType {
+  EMAIL
+  SECURITY_QUESTIONS
+  TRUSTED_CONTACTS
+  RECOVERY_CODES
+  ADMIN_RECOVERY
+}
+
+enum RecoveryMethodStatus {
+  ACTIVE
+  DISABLED
+  PENDING
+}
+
+// Security Question model
+model SecurityQuestion {
+  id              String    @id @default(uuid())
+  userId          String
+  question        String
+  answerHash      String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("security_questions")
+}
+
+// Trusted Contact model
+model TrustedContact {
+  id              String    @id @default(uuid())
+  userId          String
+  name            String
+  email           String
+  phone           String?
+  relationship    String?
+  status          TrustedContactStatus @default(PENDING)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  verifiedAt      DateTime?
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("trusted_contacts")
+}
+
+enum TrustedContactStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+}
+
+// Recovery Request model
+model RecoveryRequest {
+  id              String                @id @default(uuid())
+  userId          String
+  type            RecoveryRequestType
+  status          RecoveryRequestStatus @default(PENDING)
+  initiatedAt     DateTime              @default(now())
+  completedAt     DateTime?
+  ipAddress       String?
+  userAgent       String?
+  metadata        Json?
+  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adminApprovals  AdminApproval[]
+
+  @@index([userId])
+  @@map("recovery_requests")
+}
+
+enum RecoveryRequestType {
+  PASSWORD_RESET
+  ACCOUNT_RECOVERY
+  MFA_RESET
+}
+
+enum RecoveryRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+  COMPLETED
+  EXPIRED
+  CANCELLED
+}
+
+// Admin Approval model
+model AdminApproval {
+  id                String    @id @default(uuid())
+  recoveryRequestId String
+  adminId           String
+  status            AdminApprovalStatus @default(PENDING)
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  recoveryRequest   RecoveryRequest @relation(fields: [recoveryRequestId], references: [id], onDelete: Cascade)
+  admin             User      @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([recoveryRequestId])
+  @@index([adminId])
+  @@map("admin_approvals")
+}
+
+enum AdminApprovalStatus {
+  PENDING
+  APPROVED
+  DENIED
 }
