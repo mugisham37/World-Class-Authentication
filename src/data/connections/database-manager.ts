@@ -6,6 +6,9 @@ import {
   checkDatabaseHealth as checkPrismaHealth,
 } from '../prisma/client';
 import { connectPostgres, disconnectPostgres, getPostgresStatus } from './postgres';
+import { connectRedis, disconnectRedis, getRedisStatus } from './redis';
+import { metricsCollector } from './metrics-collector';
+import { connectionMonitor } from './connection-monitor';
 
 /**
  * Database connection manager
@@ -32,6 +35,17 @@ export class DatabaseManager {
 
       // Connect to PostgreSQL
       await connectPostgres();
+
+      // Connect to Redis
+      await connectRedis();
+
+      // Start metrics collection
+      metricsCollector.startCollecting();
+      logger.info('Database metrics collection started');
+
+      // Start connection monitoring
+      connectionMonitor.start();
+      logger.info('Database connection monitoring started');
 
       DatabaseManager.isInitialized = true;
       logger.info('All database connections initialized successfully');
@@ -64,6 +78,17 @@ export class DatabaseManager {
       // Disconnect from PostgreSQL
       await disconnectPostgres();
 
+      // Disconnect from Redis
+      await disconnectRedis();
+
+      // Stop metrics collection
+      metricsCollector.stopCollecting();
+      logger.info('Database metrics collection stopped');
+
+      // Stop connection monitoring
+      connectionMonitor.stop();
+      logger.info('Database connection monitoring stopped');
+
       DatabaseManager.isInitialized = false;
       logger.info('All database connections shut down successfully');
     } catch (error) {
@@ -84,6 +109,7 @@ export class DatabaseManager {
     status: string;
     prisma: { status: string; details?: string };
     postgres: { status: string; details?: string };
+    redis: { status: string; details?: string };
   }> {
     try {
       // Check Prisma health
@@ -92,14 +118,22 @@ export class DatabaseManager {
       // Check PostgreSQL health
       const postgresStatus = await getPostgresStatus();
 
+      // Check Redis health
+      const redisStatus = await getRedisStatus();
+
       // Determine overall status
       const overallStatus =
-        prismaStatus.status === 'ok' && postgresStatus.status === 'ok' ? 'ok' : 'error';
+        prismaStatus.status === 'ok' &&
+        postgresStatus.status === 'ok' &&
+        redisStatus.status === 'ok'
+          ? 'ok'
+          : 'error';
 
       return {
         status: overallStatus,
         prisma: prismaStatus,
         postgres: postgresStatus,
+        redis: redisStatus,
       };
     } catch (error) {
       logger.error('Error checking database health', { error });
@@ -107,6 +141,7 @@ export class DatabaseManager {
         status: 'error',
         prisma: { status: 'error', details: 'Failed to check Prisma health' },
         postgres: { status: 'error', details: 'Failed to check PostgreSQL health' },
+        redis: { status: 'error', details: 'Failed to check Redis health' },
       };
     }
   }

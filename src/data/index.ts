@@ -16,6 +16,32 @@ import {
 } from './connections/postgres';
 
 import {
+  connectRedis,
+  disconnectRedis,
+  getRedisStatus,
+  isRedisConnected,
+  redisCache,
+} from './connections/redis';
+
+import { metricsCollector } from './connections/metrics-collector';
+
+import {
+  createQueryBuilder,
+  db as queryBuilder,
+  QueryBuilder,
+  QueryBuilderOptions,
+} from './connections/query-builder';
+
+import { ConnectionWrapper, db } from './connections/connection-wrapper';
+
+import {
+  ConnectionMonitor,
+  connectionMonitor,
+  ConnectionHealth,
+  ConnectionMonitorOptions,
+} from './connections/connection-monitor';
+
+import {
   initializeDatabase,
   shutdownDatabase,
   getDatabaseHealth,
@@ -43,6 +69,32 @@ export {
   query,
   transaction,
   pool,
+
+  // Redis
+  connectRedis,
+  disconnectRedis,
+  getRedisStatus,
+  isRedisConnected,
+  redisCache,
+
+  // Metrics
+  metricsCollector,
+
+  // Query Builder
+  createQueryBuilder,
+  queryBuilder,
+  QueryBuilder,
+  QueryBuilderOptions,
+
+  // Connection Wrapper
+  ConnectionWrapper,
+  db,
+
+  // Connection Monitor
+  ConnectionMonitor,
+  connectionMonitor,
+  ConnectionHealth,
+  ConnectionMonitorOptions,
 
   // Database manager
   initializeDatabase,
@@ -81,6 +133,7 @@ export async function checkDataLayerHealth(): Promise<{
   status: string;
   prisma: { status: string; details?: string };
   postgres: { status: string; details?: string };
+  redis: { status: string; details?: string };
 }> {
   return await getDatabaseHealth();
 }
