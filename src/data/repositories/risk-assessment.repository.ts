@@ -10,6 +10,7 @@ import {
 } from '../models/risk-assessment.model';
 import { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
+import { prisma } from '../prisma/client';
 
 /**
  * Risk assessment repository interface
@@ -18,83 +19,118 @@ import { PrismaBaseRepository } from './prisma-base.repository';
 export interface RiskAssessmentRepository extends BaseRepository<RiskAssessment, string> {
   /**
    * Find risk assessments by user ID
-   * @param userId The user ID
-   * @returns Array of risk assessments
+   * @param userId User ID
+   * @param options Filter options
+   * @returns List of risk assessments
    */
-  findByUserId(userId: string): Promise<RiskAssessment[]>;
+  findByUserId(userId: string, options?: RiskAssessmentFilterOptions): Promise<RiskAssessment[]>;
 
   /**
    * Find risk assessments by session ID
-   * @param sessionId The session ID
-   * @returns Array of risk assessments
+   * @param sessionId Session ID
+   * @param options Filter options
+   * @returns List of risk assessments
    */
-  findBySessionId(sessionId: string): Promise<RiskAssessment[]>;
+  findBySessionId(
+    sessionId: string,
+    options?: RiskAssessmentFilterOptions
+  ): Promise<RiskAssessment[]>;
 
   /**
    * Find risk assessments by IP address
-   * @param ipAddress The IP address
-   * @returns Array of risk assessments
+   * @param ipAddress IP address
+   * @param options Filter options
+   * @returns List of risk assessments
    */
-  findByIpAddress(ipAddress: string): Promise<RiskAssessment[]>;
+  findByIpAddress(
+    ipAddress: string,
+    options?: RiskAssessmentFilterOptions
+  ): Promise<RiskAssessment[]>;
 
   /**
    * Find risk assessments by device ID
-   * @param deviceId The device ID
-   * @returns Array of risk assessments
+   * @param deviceId Device ID
+   * @param options Filter options
+   * @returns List of risk assessments
    */
-  findByDeviceId(deviceId: string): Promise<RiskAssessment[]>;
+  findByDeviceId(
+    deviceId: string,
+    options?: RiskAssessmentFilterOptions
+  ): Promise<RiskAssessment[]>;
 
   /**
    * Find risk assessments by risk level
-   * @param riskLevel The risk level
-   * @returns Array of risk assessments
+   * @param riskLevel Risk level
+   * @param options Filter options
+   * @returns List of risk assessments
    */
-  findByRiskLevel(riskLevel: RiskLevel): Promise<RiskAssessment[]>;
+  findByRiskLevel(
+    riskLevel: RiskLevel,
+    options?: RiskAssessmentFilterOptions
+  ): Promise<RiskAssessment[]>;
 
   /**
    * Find unresolved risk assessments
-   * @returns Array of unresolved risk assessments
+   * @param options Filter options
+   * @returns List of unresolved risk assessments
    */
-  findUnresolved(): Promise<RiskAssessment[]>;
+  findUnresolved(options?: RiskAssessmentFilterOptions): Promise<RiskAssessment[]>;
 
   /**
-   * Find unresolved risk assessments by user ID
-   * @param userId The user ID
-   * @returns Array of unresolved risk assessments
+   * Find resolved risk assessments
+   * @param options Filter options
+   * @returns List of resolved risk assessments
    */
-  findUnresolvedByUserId(userId: string): Promise<RiskAssessment[]>;
+  findResolved(options?: RiskAssessmentFilterOptions): Promise<RiskAssessment[]>;
 
   /**
-   * Find high risk assessments (HIGH or CRITICAL)
-   * @returns Array of high risk assessments
+   * Find high-risk assessments
+   * @param options Filter options
+   * @returns List of high-risk assessments
    */
-  findHighRisk(): Promise<RiskAssessment[]>;
+  findHighRisk(options?: RiskAssessmentFilterOptions): Promise<RiskAssessment[]>;
 
   /**
    * Mark a risk assessment as resolved
-   * @param id The risk assessment ID
-   * @param resolution The resolution description
-   * @returns The updated risk assessment
+   * @param id Risk assessment ID
+   * @param resolution Resolution description
+   * @returns Updated risk assessment
    */
   markAsResolved(id: string, resolution: string): Promise<RiskAssessment>;
 
   /**
-   * Delete risk assessments by user ID
-   * @param userId The user ID
-   * @returns Number of deleted risk assessments
+   * Count risk assessments by user ID
+   * @param userId User ID
+   * @param options Filter options
+   * @returns Number of risk assessments
    */
-  deleteByUserId(userId: string): Promise<number>;
+  countByUserId(userId: string, options?: RiskAssessmentFilterOptions): Promise<number>;
 
   /**
-   * Delete risk assessments by session ID
-   * @param sessionId The session ID
+   * Count risk assessments by risk level
+   * @param riskLevel Risk level
+   * @param options Filter options
+   * @returns Number of risk assessments
+   */
+  countByRiskLevel(riskLevel: RiskLevel, options?: RiskAssessmentFilterOptions): Promise<number>;
+
+  /**
+   * Count unresolved risk assessments
+   * @param options Filter options
+   * @returns Number of unresolved risk assessments
+   */
+  countUnresolved(options?: RiskAssessmentFilterOptions): Promise<number>;
+
+  /**
+   * Delete risk assessments older than a specified date
+   * @param date Date threshold
    * @returns Number of deleted risk assessments
    */
-  deleteBySessionId(sessionId: string): Promise<number>;
+  deleteOlderThan(date: Date): Promise<number>;
 
   /**
    * Delete resolved risk assessments older than a specified date
-   * @param date The cutoff date
+   * @param date Date threshold
    * @returns Number of deleted risk assessments
    */
   deleteResolvedOlderThan(date: Date): Promise<number>;
@@ -114,18 +150,23 @@ export class PrismaRiskAssessmentRepository
 
   /**
    * Find risk assessments by user ID
-   * @param userId The user ID
-   * @returns Array of risk assessments
+   * @param userId User ID
+   * @param options Filter options
+   * @returns List of risk assessments
    */
-  async findByUserId(userId: string): Promise<RiskAssessment[]> {
+  async findByUserId(
+    userId: string,
+    options?: RiskAssessmentFilterOptions
+  ): Promise<RiskAssessment[]> {
     try {
+      const where = this.buildWhereClause({ ...options, userId });
       const assessments = await this.prisma.riskAssessment.findMany({
-        where: { userId },
+        where,
         orderBy: { createdAt: 'desc' },
       });
       return assessments;
     } catch (error) {
-      logger.error('Error finding risk assessments by user ID', { userId, error });
+      logger.error('Error finding risk assessments by user ID', { userId, options, error });
       throw new DatabaseError(
         'Error finding risk assessments by user ID',
         'RISK_ASSESSMENT_FIND_BY_USER_ID_ERROR',
@@ -136,18 +177,23 @@ export class PrismaRiskAssessmentRepository
 
   /**
    * Find risk assessments by session ID
-   * @param sessionId The session ID
-   * @returns Array of risk assessments
+   * @param sessionId Session ID
+   * @param options Filter options
+   * @returns List of risk assessments
    */
-  async findBySessionId(sessionId: string): Promise<RiskAssessment[]> {
+  async findBySessionId(
+    sessionId: string,
+    options?: RiskAssessmentFilterOptions
+  ): Promise<RiskAssessment[]> {
     try {
+      const where = this.buildWhereClause({ ...options, sessionId });
       const assessments = await this.prisma.riskAssessment.findMany({
-        where: { sessionId },
+        where,
         orderBy: { createdAt: 'desc' },
       });
       return assessments;
     } catch (error) {
-      logger.error('Error finding risk assessments by session ID', { sessionId, error });
+      logger.error('Error finding risk assessments by session ID', { sessionId, options, error });
       throw new DatabaseError(
         'Error finding risk assessments by session ID',
         'RISK_ASSESSMENT_FIND_BY_SESSION_ID_ERROR',
@@ -158,18 +204,23 @@ export class PrismaRiskAssessmentRepository
 
   /**
    * Find risk assessments by IP address
-   * @param ipAddress The IP address
-   * @returns Array of risk assessments
+   * @param ipAddress IP address
+   * @param options Filter options
+   * @returns List of risk assessments
    */
-  async findByIpAddress(ipAddress: string): Promise<RiskAssessment[]> {
+  async findByIpAddress(
+    ipAddress: string,
+    options?: RiskAssessmentFilterOptions
+  ): Promise<RiskAssessment[]> {
     try {
+      const where = this.buildWhereClause({ ...options, ipAddress });
       const assessments = await this.prisma.riskAssessment.findMany({
-        where: { ipAddress },
+        where,
         orderBy: { createdAt: 'desc' },
       });
       return assessments;
     } catch (error) {
-      logger.error('Error finding risk assessments by IP address', { ipAddress, error });
+      logger.error('Error finding risk assessments by IP address', { ipAddress, options, error });
       throw new DatabaseError(
         'Error finding risk assessments by IP address',
         'RISK_ASSESSMENT_FIND_BY_IP_ADDRESS_ERROR',
@@ -180,18 +231,23 @@ export class PrismaRiskAssessmentRepository
 
   /**
    * Find risk assessments by device ID
-   * @param deviceId The device ID
-   * @returns Array of risk assessments
+   * @param deviceId Device ID
+   * @param options Filter options
+   * @returns List of risk assessments
    */
-  async findByDeviceId(deviceId: string): Promise<RiskAssessment[]> {
+  async findByDeviceId(
+    deviceId: string,
+    options?: RiskAssessmentFilterOptions
+  ): Promise<RiskAssessment[]> {
     try {
+      const where = this.buildWhereClause({ ...options, deviceId });
       const assessments = await this.prisma.riskAssessment.findMany({
-        where: { deviceId },
+        where,
         orderBy: { createdAt: 'desc' },
       });
       return assessments;
     } catch (error) {
-      logger.error('Error finding risk assessments by device ID', { deviceId, error });
+      logger.error('Error finding risk assessments by device ID', { deviceId, options, error });
       throw new DatabaseError(
         'Error finding risk assessments by device ID',
         'RISK_ASSESSMENT_FIND_BY_DEVICE_ID_ERROR',
@@ -202,18 +258,23 @@ export class PrismaRiskAssessmentRepository
 
   /**
    * Find risk assessments by risk level
-   * @param riskLevel The risk level
-   * @returns Array of risk assessments
+   * @param riskLevel Risk level
+   * @param options Filter options
+   * @returns List of risk assessments
    */
-  async findByRiskLevel(riskLevel: RiskLevel): Promise<RiskAssessment[]> {
+  async findByRiskLevel(
+    riskLevel: RiskLevel,
+    options?: RiskAssessmentFilterOptions
+  ): Promise<RiskAssessment[]> {
     try {
+      const where = this.buildWhereClause({ ...options, riskLevel });
       const assessments = await this.prisma.riskAssessment.findMany({
-        where: { riskLevel },
+        where,
         orderBy: { createdAt: 'desc' },
       });
       return assessments;
     } catch (error) {
-      logger.error('Error finding risk assessments by risk level', { riskLevel, error });
+      logger.error('Error finding risk assessments by risk level', { riskLevel, options, error });
       throw new DatabaseError(
         'Error finding risk assessments by risk level',
         'RISK_ASSESSMENT_FIND_BY_RISK_LEVEL_ERROR',
@@ -224,17 +285,19 @@ export class PrismaRiskAssessmentRepository
 
   /**
    * Find unresolved risk assessments
-   * @returns Array of unresolved risk assessments
+   * @param options Filter options
+   * @returns List of unresolved risk assessments
    */
-  async findUnresolved(): Promise<RiskAssessment[]> {
+  async findUnresolved(options?: RiskAssessmentFilterOptions): Promise<RiskAssessment[]> {
     try {
+      const where = this.buildWhereClause({ ...options, isResolved: false });
       const assessments = await this.prisma.riskAssessment.findMany({
-        where: { resolvedAt: null },
+        where,
         orderBy: { createdAt: 'desc' },
       });
       return assessments;
     } catch (error) {
-      logger.error('Error finding unresolved risk assessments', { error });
+      logger.error('Error finding unresolved risk assessments', { options, error });
       throw new DatabaseError(
         'Error finding unresolved risk assessments',
         'RISK_ASSESSMENT_FIND_UNRESOLVED_ERROR',
@@ -244,49 +307,48 @@ export class PrismaRiskAssessmentRepository
   }
 
   /**
-   * Find unresolved risk assessments by user ID
-   * @param userId The user ID
-   * @returns Array of unresolved risk assessments
+   * Find resolved risk assessments
+   * @param options Filter options
+   * @returns List of resolved risk assessments
    */
-  async findUnresolvedByUserId(userId: string): Promise<RiskAssessment[]> {
+  async findResolved(options?: RiskAssessmentFilterOptions): Promise<RiskAssessment[]> {
     try {
+      const where = this.buildWhereClause({ ...options, isResolved: true });
       const assessments = await this.prisma.riskAssessment.findMany({
-        where: {
-          userId,
-          resolvedAt: null,
-        },
+        where,
         orderBy: { createdAt: 'desc' },
       });
       return assessments;
     } catch (error) {
-      logger.error('Error finding unresolved risk assessments by user ID', { userId, error });
+      logger.error('Error finding resolved risk assessments', { options, error });
       throw new DatabaseError(
-        'Error finding unresolved risk assessments by user ID',
-        'RISK_ASSESSMENT_FIND_UNRESOLVED_BY_USER_ID_ERROR',
+        'Error finding resolved risk assessments',
+        'RISK_ASSESSMENT_FIND_RESOLVED_ERROR',
         error instanceof Error ? error : undefined
       );
     }
   }
 
   /**
-   * Find high risk assessments (HIGH or CRITICAL)
-   * @returns Array of high risk assessments
+   * Find high-risk assessments
+   * @param options Filter options
+   * @returns List of high-risk assessments
    */
-  async findHighRisk(): Promise<RiskAssessment[]> {
+  async findHighRisk(options?: RiskAssessmentFilterOptions): Promise<RiskAssessment[]> {
     try {
+      // Create a custom where clause for high risk levels
+      const where = this.buildWhereClause(options);
+      // Add the risk level condition directly
+      where.riskLevel = { in: [RiskLevel.HIGH, RiskLevel.CRITICAL] };
       const assessments = await this.prisma.riskAssessment.findMany({
-        where: {
-          riskLevel: {
-            in: [RiskLevel.HIGH, RiskLevel.CRITICAL],
-          },
-        },
+        where,
         orderBy: { createdAt: 'desc' },
       });
       return assessments;
     } catch (error) {
-      logger.error('Error finding high risk assessments', { error });
+      logger.error('Error finding high-risk assessments', { options, error });
       throw new DatabaseError(
-        'Error finding high risk assessments',
+        'Error finding high-risk assessments',
         'RISK_ASSESSMENT_FIND_HIGH_RISK_ERROR',
         error instanceof Error ? error : undefined
       );
@@ -295,9 +357,9 @@ export class PrismaRiskAssessmentRepository
 
   /**
    * Mark a risk assessment as resolved
-   * @param id The risk assessment ID
-   * @param resolution The resolution description
-   * @returns The updated risk assessment
+   * @param id Risk assessment ID
+   * @param resolution Resolution description
+   * @returns Updated risk assessment
    */
   async markAsResolved(id: string, resolution: string): Promise<RiskAssessment> {
     try {
@@ -310,7 +372,7 @@ export class PrismaRiskAssessmentRepository
       });
       return assessment;
     } catch (error) {
-      logger.error('Error marking risk assessment as resolved', { id, error });
+      logger.error('Error marking risk assessment as resolved', { id, resolution, error });
       throw new DatabaseError(
         'Error marking risk assessment as resolved',
         'RISK_ASSESSMENT_MARK_AS_RESOLVED_ERROR',
@@ -320,42 +382,94 @@ export class PrismaRiskAssessmentRepository
   }
 
   /**
-   * Delete risk assessments by user ID
-   * @param userId The user ID
-   * @returns Number of deleted risk assessments
+   * Count risk assessments by user ID
+   * @param userId User ID
+   * @param options Filter options
+   * @returns Number of risk assessments
    */
-  async deleteByUserId(userId: string): Promise<number> {
+  async countByUserId(userId: string, options?: RiskAssessmentFilterOptions): Promise<number> {
     try {
-      const result = await this.prisma.riskAssessment.deleteMany({
-        where: { userId },
+      const where = this.buildWhereClause({ ...options, userId });
+      const count = await this.prisma.riskAssessment.count({
+        where,
       });
-      return result.count;
+      return count;
     } catch (error) {
-      logger.error('Error deleting risk assessments by user ID', { userId, error });
+      logger.error('Error counting risk assessments by user ID', { userId, options, error });
       throw new DatabaseError(
-        'Error deleting risk assessments by user ID',
-        'RISK_ASSESSMENT_DELETE_BY_USER_ID_ERROR',
+        'Error counting risk assessments by user ID',
+        'RISK_ASSESSMENT_COUNT_BY_USER_ID_ERROR',
         error instanceof Error ? error : undefined
       );
     }
   }
 
   /**
-   * Delete risk assessments by session ID
-   * @param sessionId The session ID
+   * Count risk assessments by risk level
+   * @param riskLevel Risk level
+   * @param options Filter options
+   * @returns Number of risk assessments
+   */
+  async countByRiskLevel(
+    riskLevel: RiskLevel,
+    options?: RiskAssessmentFilterOptions
+  ): Promise<number> {
+    try {
+      const where = this.buildWhereClause({ ...options, riskLevel });
+      const count = await this.prisma.riskAssessment.count({
+        where,
+      });
+      return count;
+    } catch (error) {
+      logger.error('Error counting risk assessments by risk level', { riskLevel, options, error });
+      throw new DatabaseError(
+        'Error counting risk assessments by risk level',
+        'RISK_ASSESSMENT_COUNT_BY_RISK_LEVEL_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Count unresolved risk assessments
+   * @param options Filter options
+   * @returns Number of unresolved risk assessments
+   */
+  async countUnresolved(options?: RiskAssessmentFilterOptions): Promise<number> {
+    try {
+      const where = this.buildWhereClause({ ...options, isResolved: false });
+      const count = await this.prisma.riskAssessment.count({
+        where,
+      });
+      return count;
+    } catch (error) {
+      logger.error('Error counting unresolved risk assessments', { options, error });
+      throw new DatabaseError(
+        'Error counting unresolved risk assessments',
+        'RISK_ASSESSMENT_COUNT_UNRESOLVED_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Delete risk assessments older than a specified date
+   * @param date Date threshold
    * @returns Number of deleted risk assessments
    */
-  async deleteBySessionId(sessionId: string): Promise<number> {
+  async deleteOlderThan(date: Date): Promise<number> {
     try {
       const result = await this.prisma.riskAssessment.deleteMany({
-        where: { sessionId },
+        where: {
+          createdAt: { lt: date },
+        },
       });
       return result.count;
     } catch (error) {
-      logger.error('Error deleting risk assessments by session ID', { sessionId, error });
+      logger.error('Error deleting risk assessments older than date', { date, error });
       throw new DatabaseError(
-        'Error deleting risk assessments by session ID',
-        'RISK_ASSESSMENT_DELETE_BY_SESSION_ID_ERROR',
+        'Error deleting risk assessments older than date',
+        'RISK_ASSESSMENT_DELETE_OLDER_THAN_ERROR',
         error instanceof Error ? error : undefined
       );
     }
@@ -363,17 +477,14 @@ export class PrismaRiskAssessmentRepository
 
   /**
    * Delete resolved risk assessments older than a specified date
-   * @param date The cutoff date
+   * @param date Date threshold
    * @returns Number of deleted risk assessments
    */
   async deleteResolvedOlderThan(date: Date): Promise<number> {
     try {
       const result = await this.prisma.riskAssessment.deleteMany({
         where: {
-          resolvedAt: {
-            not: null,
-            lt: date,
-          },
+          resolvedAt: { not: null, lt: date },
         },
       });
       return result.count;
@@ -392,7 +503,7 @@ export class PrismaRiskAssessmentRepository
    * @param filter The filter options
    * @returns The Prisma where clause
    */
-  protected override toWhereClause(filter?: RiskAssessmentFilterOptions): any {
+  private buildWhereClause(filter?: RiskAssessmentFilterOptions): any {
     if (!filter) {
       return {};
     }
@@ -423,11 +534,10 @@ export class PrismaRiskAssessmentRepository
       where.riskLevel = filter.riskLevel;
     }
 
+    // Boolean filters
     if (filter.isResolved !== undefined) {
       if (filter.isResolved) {
-        where.resolvedAt = {
-          not: null,
-        };
+        where.resolvedAt = { not: null };
       } else {
         where.resolvedAt = null;
       }
@@ -478,7 +588,7 @@ export class PrismaRiskAssessmentRepository
    * @param tx The transaction client
    * @returns A new repository instance with the transaction client
    */
-  protected override withTransaction(tx: PrismaClient): BaseRepository<RiskAssessment, string> {
+  protected withTransaction(tx: PrismaClient): BaseRepository<RiskAssessment, string> {
     return new PrismaRiskAssessmentRepository(tx);
   }
 }

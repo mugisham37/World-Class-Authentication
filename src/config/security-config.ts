@@ -78,6 +78,8 @@ const securityConfigSchema = z.object({
     algorithm: z.string().default('aes-256-gcm'),
     secretKey: z.string().min(32),
     ivLength: z.number().int().positive().default(16),
+    masterKey: z.string().min(64).optional(),
+    keyDerivationIterations: z.number().int().positive().default(100000),
   }),
   csrf: z.object({
     enabled: z.boolean().default(true),

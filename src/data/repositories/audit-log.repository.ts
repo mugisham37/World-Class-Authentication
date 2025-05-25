@@ -9,6 +9,7 @@ import {
 } from '../models/audit-log.model';
 import { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
+import { prisma } from '../prisma/client';
 
 /**
  * Audit log repository interface
@@ -17,67 +18,100 @@ import { PrismaBaseRepository } from './prisma-base.repository';
 export interface AuditLogRepository extends BaseRepository<AuditLog, string> {
   /**
    * Find audit logs by user ID
-   * @param userId The user ID
-   * @param limit Maximum number of logs to return (optional)
-   * @returns Array of audit logs
+   * @param userId User ID
+   * @param options Filter options
+   * @returns List of audit logs
    */
-  findByUserId(userId: string, limit?: number): Promise<AuditLog[]>;
+  findByUserId(userId: string, options?: AuditLogFilterOptions): Promise<AuditLog[]>;
 
   /**
    * Find audit logs by action
-   * @param action The action
-   * @param limit Maximum number of logs to return (optional)
-   * @returns Array of audit logs
+   * @param action Action
+   * @param options Filter options
+   * @returns List of audit logs
    */
-  findByAction(action: string, limit?: number): Promise<AuditLog[]>;
+  findByAction(action: string, options?: AuditLogFilterOptions): Promise<AuditLog[]>;
 
   /**
-   * Find audit logs by entity
-   * @param entityType The entity type
-   * @param entityId The entity ID
-   * @param limit Maximum number of logs to return (optional)
-   * @returns Array of audit logs
+   * Find audit logs by entity type and ID
+   * @param entityType Entity type
+   * @param entityId Entity ID
+   * @param options Filter options
+   * @returns List of audit logs
    */
-  findByEntity(entityType: string, entityId: string, limit?: number): Promise<AuditLog[]>;
+  findByEntity(
+    entityType: string,
+    entityId: string,
+    options?: AuditLogFilterOptions
+  ): Promise<AuditLog[]>;
 
   /**
    * Find audit logs by IP address
-   * @param ipAddress The IP address
-   * @param limit Maximum number of logs to return (optional)
-   * @returns Array of audit logs
+   * @param ipAddress IP address
+   * @param options Filter options
+   * @returns List of audit logs
    */
-  findByIpAddress(ipAddress: string, limit?: number): Promise<AuditLog[]>;
+  findByIpAddress(ipAddress: string, options?: AuditLogFilterOptions): Promise<AuditLog[]>;
 
   /**
    * Find audit logs by status
-   * @param status The audit status
-   * @param limit Maximum number of logs to return (optional)
-   * @returns Array of audit logs
+   * @param status Audit status
+   * @param options Filter options
+   * @returns List of audit logs
    */
-  findByStatus(status: AuditStatus, limit?: number): Promise<AuditLog[]>;
+  findByStatus(status: AuditStatus, options?: AuditLogFilterOptions): Promise<AuditLog[]>;
 
   /**
    * Find audit logs by time range
-   * @param startDate The start date
-   * @param endDate The end date
-   * @param limit Maximum number of logs to return (optional)
-   * @returns Array of audit logs
+   * @param startDate Start date
+   * @param endDate End date
+   * @param options Filter options
+   * @returns List of audit logs
    */
-  findByTimeRange(startDate: Date, endDate: Date, limit?: number): Promise<AuditLog[]>;
+  findByTimeRange(
+    startDate: Date,
+    endDate: Date,
+    options?: AuditLogFilterOptions
+  ): Promise<AuditLog[]>;
+
+  /**
+   * Count audit logs by user ID
+   * @param userId User ID
+   * @param options Filter options
+   * @returns Number of audit logs
+   */
+  countByUserId(userId: string, options?: AuditLogFilterOptions): Promise<number>;
+
+  /**
+   * Count audit logs by action
+   * @param action Action
+   * @param options Filter options
+   * @returns Number of audit logs
+   */
+  countByAction(action: string, options?: AuditLogFilterOptions): Promise<number>;
+
+  /**
+   * Count audit logs by status
+   * @param status Audit status
+   * @param options Filter options
+   * @returns Number of audit logs
+   */
+  countByStatus(status: AuditStatus, options?: AuditLogFilterOptions): Promise<number>;
 
   /**
    * Delete audit logs older than a specified date
-   * @param date The cutoff date
+   * @param date Date threshold
    * @returns Number of deleted audit logs
    */
   deleteOlderThan(date: Date): Promise<number>;
 
   /**
    * Delete audit logs by user ID
-   * @param userId The user ID
+   * @param userId User ID
+   * @param options Filter options
    * @returns Number of deleted audit logs
    */
-  deleteByUserId(userId: string): Promise<number>;
+  deleteByUserId(userId: string, options?: AuditLogFilterOptions): Promise<number>;
 }
 
 /**
@@ -94,20 +128,20 @@ export class PrismaAuditLogRepository
 
   /**
    * Find audit logs by user ID
-   * @param userId The user ID
-   * @param limit Maximum number of logs to return (optional)
-   * @returns Array of audit logs
+   * @param userId User ID
+   * @param options Filter options
+   * @returns List of audit logs
    */
-  async findByUserId(userId: string, limit?: number): Promise<AuditLog[]> {
+  async findByUserId(userId: string, options?: AuditLogFilterOptions): Promise<AuditLog[]> {
     try {
+      const where = this.buildWhereClause({ ...options, userId });
       const logs = await this.prisma.auditLog.findMany({
-        where: { userId },
+        where,
         orderBy: { createdAt: 'desc' },
-        ...(limit ? { take: limit } : {}),
       });
       return logs;
     } catch (error) {
-      logger.error('Error finding audit logs by user ID', { userId, error });
+      logger.error('Error finding audit logs by user ID', { userId, options, error });
       throw new DatabaseError(
         'Error finding audit logs by user ID',
         'AUDIT_LOG_FIND_BY_USER_ID_ERROR',
@@ -118,20 +152,20 @@ export class PrismaAuditLogRepository
 
   /**
    * Find audit logs by action
-   * @param action The action
-   * @param limit Maximum number of logs to return (optional)
-   * @returns Array of audit logs
+   * @param action Action
+   * @param options Filter options
+   * @returns List of audit logs
    */
-  async findByAction(action: string, limit?: number): Promise<AuditLog[]> {
+  async findByAction(action: string, options?: AuditLogFilterOptions): Promise<AuditLog[]> {
     try {
+      const where = this.buildWhereClause({ ...options, action });
       const logs = await this.prisma.auditLog.findMany({
-        where: { action },
+        where,
         orderBy: { createdAt: 'desc' },
-        ...(limit ? { take: limit } : {}),
       });
       return logs;
     } catch (error) {
-      logger.error('Error finding audit logs by action', { action, error });
+      logger.error('Error finding audit logs by action', { action, options, error });
       throw new DatabaseError(
         'Error finding audit logs by action',
         'AUDIT_LOG_FIND_BY_ACTION_ERROR',
@@ -141,25 +175,26 @@ export class PrismaAuditLogRepository
   }
 
   /**
-   * Find audit logs by entity
-   * @param entityType The entity type
-   * @param entityId The entity ID
-   * @param limit Maximum number of logs to return (optional)
-   * @returns Array of audit logs
+   * Find audit logs by entity type and ID
+   * @param entityType Entity type
+   * @param entityId Entity ID
+   * @param options Filter options
+   * @returns List of audit logs
    */
-  async findByEntity(entityType: string, entityId: string, limit?: number): Promise<AuditLog[]> {
+  async findByEntity(
+    entityType: string,
+    entityId: string,
+    options?: AuditLogFilterOptions
+  ): Promise<AuditLog[]> {
     try {
+      const where = this.buildWhereClause({ ...options, entityType, entityId });
       const logs = await this.prisma.auditLog.findMany({
-        where: {
-          entityType,
-          entityId,
-        },
+        where,
         orderBy: { createdAt: 'desc' },
-        ...(limit ? { take: limit } : {}),
       });
       return logs;
     } catch (error) {
-      logger.error('Error finding audit logs by entity', { entityType, entityId, error });
+      logger.error('Error finding audit logs by entity', { entityType, entityId, options, error });
       throw new DatabaseError(
         'Error finding audit logs by entity',
         'AUDIT_LOG_FIND_BY_ENTITY_ERROR',
@@ -170,20 +205,20 @@ export class PrismaAuditLogRepository
 
   /**
    * Find audit logs by IP address
-   * @param ipAddress The IP address
-   * @param limit Maximum number of logs to return (optional)
-   * @returns Array of audit logs
+   * @param ipAddress IP address
+   * @param options Filter options
+   * @returns List of audit logs
    */
-  async findByIpAddress(ipAddress: string, limit?: number): Promise<AuditLog[]> {
+  async findByIpAddress(ipAddress: string, options?: AuditLogFilterOptions): Promise<AuditLog[]> {
     try {
+      const where = this.buildWhereClause({ ...options, ipAddress });
       const logs = await this.prisma.auditLog.findMany({
-        where: { ipAddress },
+        where,
         orderBy: { createdAt: 'desc' },
-        ...(limit ? { take: limit } : {}),
       });
       return logs;
     } catch (error) {
-      logger.error('Error finding audit logs by IP address', { ipAddress, error });
+      logger.error('Error finding audit logs by IP address', { ipAddress, options, error });
       throw new DatabaseError(
         'Error finding audit logs by IP address',
         'AUDIT_LOG_FIND_BY_IP_ADDRESS_ERROR',
@@ -194,20 +229,20 @@ export class PrismaAuditLogRepository
 
   /**
    * Find audit logs by status
-   * @param status The audit status
-   * @param limit Maximum number of logs to return (optional)
-   * @returns Array of audit logs
+   * @param status Audit status
+   * @param options Filter options
+   * @returns List of audit logs
    */
-  async findByStatus(status: AuditStatus, limit?: number): Promise<AuditLog[]> {
+  async findByStatus(status: AuditStatus, options?: AuditLogFilterOptions): Promise<AuditLog[]> {
     try {
+      const where = this.buildWhereClause({ ...options, status });
       const logs = await this.prisma.auditLog.findMany({
-        where: { status },
+        where,
         orderBy: { createdAt: 'desc' },
-        ...(limit ? { take: limit } : {}),
       });
       return logs;
     } catch (error) {
-      logger.error('Error finding audit logs by status', { status, error });
+      logger.error('Error finding audit logs by status', { status, options, error });
       throw new DatabaseError(
         'Error finding audit logs by status',
         'AUDIT_LOG_FIND_BY_STATUS_ERROR',
@@ -218,26 +253,34 @@ export class PrismaAuditLogRepository
 
   /**
    * Find audit logs by time range
-   * @param startDate The start date
-   * @param endDate The end date
-   * @param limit Maximum number of logs to return (optional)
-   * @returns Array of audit logs
+   * @param startDate Start date
+   * @param endDate End date
+   * @param options Filter options
+   * @returns List of audit logs
    */
-  async findByTimeRange(startDate: Date, endDate: Date, limit?: number): Promise<AuditLog[]> {
+  async findByTimeRange(
+    startDate: Date,
+    endDate: Date,
+    options?: AuditLogFilterOptions
+  ): Promise<AuditLog[]> {
     try {
+      const where = this.buildWhereClause({
+        ...options,
+        createdAtAfter: startDate,
+        createdAtBefore: endDate,
+      });
       const logs = await this.prisma.auditLog.findMany({
-        where: {
-          createdAt: {
-            gte: startDate,
-            lte: endDate,
-          },
-        },
+        where,
         orderBy: { createdAt: 'desc' },
-        ...(limit ? { take: limit } : {}),
       });
       return logs;
     } catch (error) {
-      logger.error('Error finding audit logs by time range', { startDate, endDate, error });
+      logger.error('Error finding audit logs by time range', {
+        startDate,
+        endDate,
+        options,
+        error,
+      });
       throw new DatabaseError(
         'Error finding audit logs by time range',
         'AUDIT_LOG_FIND_BY_TIME_RANGE_ERROR',
@@ -247,17 +290,84 @@ export class PrismaAuditLogRepository
   }
 
   /**
+   * Count audit logs by user ID
+   * @param userId User ID
+   * @param options Filter options
+   * @returns Number of audit logs
+   */
+  async countByUserId(userId: string, options?: AuditLogFilterOptions): Promise<number> {
+    try {
+      const where = this.buildWhereClause({ ...options, userId });
+      const count = await this.prisma.auditLog.count({
+        where,
+      });
+      return count;
+    } catch (error) {
+      logger.error('Error counting audit logs by user ID', { userId, options, error });
+      throw new DatabaseError(
+        'Error counting audit logs by user ID',
+        'AUDIT_LOG_COUNT_BY_USER_ID_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Count audit logs by action
+   * @param action Action
+   * @param options Filter options
+   * @returns Number of audit logs
+   */
+  async countByAction(action: string, options?: AuditLogFilterOptions): Promise<number> {
+    try {
+      const where = this.buildWhereClause({ ...options, action });
+      const count = await this.prisma.auditLog.count({
+        where,
+      });
+      return count;
+    } catch (error) {
+      logger.error('Error counting audit logs by action', { action, options, error });
+      throw new DatabaseError(
+        'Error counting audit logs by action',
+        'AUDIT_LOG_COUNT_BY_ACTION_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Count audit logs by status
+   * @param status Audit status
+   * @param options Filter options
+   * @returns Number of audit logs
+   */
+  async countByStatus(status: AuditStatus, options?: AuditLogFilterOptions): Promise<number> {
+    try {
+      const where = this.buildWhereClause({ ...options, status });
+      const count = await this.prisma.auditLog.count({
+        where,
+      });
+      return count;
+    } catch (error) {
+      logger.error('Error counting audit logs by status', { status, options, error });
+      throw new DatabaseError(
+        'Error counting audit logs by status',
+        'AUDIT_LOG_COUNT_BY_STATUS_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
    * Delete audit logs older than a specified date
-   * @param date The cutoff date
+   * @param date Date threshold
    * @returns Number of deleted audit logs
    */
   async deleteOlderThan(date: Date): Promise<number> {
     try {
       const result = await this.prisma.auditLog.deleteMany({
         where: {
-          createdAt: {
-            lt: date,
-          },
+          createdAt: { lt: date },
         },
       });
       return result.count;
@@ -273,17 +383,19 @@ export class PrismaAuditLogRepository
 
   /**
    * Delete audit logs by user ID
-   * @param userId The user ID
+   * @param userId User ID
+   * @param options Filter options
    * @returns Number of deleted audit logs
    */
-  async deleteByUserId(userId: string): Promise<number> {
+  async deleteByUserId(userId: string, options?: AuditLogFilterOptions): Promise<number> {
     try {
+      const where = this.buildWhereClause({ ...options, userId });
       const result = await this.prisma.auditLog.deleteMany({
-        where: { userId },
+        where,
       });
       return result.count;
     } catch (error) {
-      logger.error('Error deleting audit logs by user ID', { userId, error });
+      logger.error('Error deleting audit logs by user ID', { userId, options, error });
       throw new DatabaseError(
         'Error deleting audit logs by user ID',
         'AUDIT_LOG_DELETE_BY_USER_ID_ERROR',
@@ -297,7 +409,7 @@ export class PrismaAuditLogRepository
    * @param filter The filter options
    * @returns The Prisma where clause
    */
-  protected override toWhereClause(filter?: AuditLogFilterOptions): any {
+  private buildWhereClause(filter?: AuditLogFilterOptions): any {
     if (!filter) {
       return {};
     }
@@ -353,7 +465,7 @@ export class PrismaAuditLogRepository
    * @param tx The transaction client
    * @returns A new repository instance with the transaction client
    */
-  protected override withTransaction(tx: PrismaClient): BaseRepository<AuditLog, string> {
+  protected withTransaction(tx: PrismaClient): BaseRepository<AuditLog, string> {
     return new PrismaAuditLogRepository(tx);
   }
 }

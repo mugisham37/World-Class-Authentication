@@ -43,6 +43,8 @@ const performanceConfigSchema = z.object({
       logging: z.boolean().default(false),
       caching: z.boolean().default(true),
       timeout: z.number().int().positive().default(5000), // 5 seconds
+      slowQueryThreshold: z.number().int().positive().default(1000), // 1 second
+      cacheTtl: z.number().int().positive().default(300), // 5 minutes
     }),
   }),
   rateLimiting: z.object({
@@ -66,6 +68,7 @@ const performanceConfigSchema = z.object({
     errorLogging: z.boolean().default(true),
     metricsCollection: z.boolean().default(true),
     healthCheck: z.boolean().default(true),
+    slowRequestThreshold: z.number().int().positive().default(1000), // 1 second
   }),
 });
 
@@ -107,6 +110,8 @@ const rawConfig = {
       logging: env.getBoolean('PERF_DB_QUERY_LOGGING'),
       caching: env.getBoolean('PERF_DB_QUERY_CACHING'),
       timeout: env.getNumber('PERF_DB_QUERY_TIMEOUT'),
+      slowQueryThreshold: env.getNumber('PERF_DB_QUERY_SLOW_THRESHOLD'),
+      cacheTtl: env.getNumber('PERF_DB_QUERY_CACHE_TTL'),
     },
   },
   rateLimiting: {
@@ -130,6 +135,7 @@ const rawConfig = {
     errorLogging: env.getBoolean('PERF_MONITORING_ERROR_LOGGING'),
     metricsCollection: env.getBoolean('PERF_MONITORING_METRICS_COLLECTION'),
     healthCheck: env.getBoolean('PERF_MONITORING_HEALTH_CHECK'),
+    slowRequestThreshold: env.getNumber('PERF_MONITORING_SLOW_REQUEST_THRESHOLD'),
   },
 };
 

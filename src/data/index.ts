@@ -23,7 +23,7 @@ import {
   redisCache,
 } from './connections/redis';
 
-import { metricsCollector } from './connections/metrics-collector';
+import { MetricsCollector } from './connections/metrics-collector';
 
 import {
   createQueryBuilder,
@@ -37,7 +37,7 @@ import { ConnectionWrapper, db } from './connections/connection-wrapper';
 import {
   ConnectionMonitor,
   connectionMonitor,
-  ConnectionHealth,
+  HealthStatus,
   ConnectionMonitorOptions,
 } from './connections/connection-monitor';
 
@@ -53,6 +53,18 @@ import { repositories } from './repositories';
 
 // Export models
 import * as UserModels from './models/user.model';
+import * as CredentialModels from './models/credential.model';
+import * as PasswordHistoryModels from './models/password-history.model';
+import * as SessionModels from './models/session.model';
+import * as MfaFactorModels from './models/mfa-factor.model';
+import * as MfaChallengeModels from './models/mfa-challenge.model';
+import * as RecoveryTokenModels from './models/recovery-token.model';
+import * as RecoveryMethodModels from './models/recovery-method.model';
+import * as RecoveryRequestModels from './models/recovery-request.model';
+import * as SecurityQuestionModels from './models/security-question.model';
+import * as TrustedContactModels from './models/trusted-contact.model';
+import * as AuditLogModels from './models/audit-log.model';
+import * as RiskAssessmentModels from './models/risk-assessment.model';
 
 // Database connections
 export {
@@ -78,7 +90,7 @@ export {
   redisCache,
 
   // Metrics
-  metricsCollector,
+  MetricsCollector,
 
   // Query Builder
   createQueryBuilder,
@@ -93,7 +105,7 @@ export {
   // Connection Monitor
   ConnectionMonitor,
   connectionMonitor,
-  ConnectionHealth,
+  HealthStatus,
   ConnectionMonitorOptions,
 
   // Database manager
@@ -107,7 +119,21 @@ export {
 export { repositories };
 
 // Models
-export { UserModels };
+export {
+  UserModels,
+  CredentialModels,
+  PasswordHistoryModels,
+  SessionModels,
+  MfaFactorModels,
+  MfaChallengeModels,
+  RecoveryTokenModels,
+  RecoveryMethodModels,
+  RecoveryRequestModels,
+  SecurityQuestionModels,
+  TrustedContactModels,
+  AuditLogModels,
+  RiskAssessmentModels,
+};
 
 /**
  * Initialize the data layer

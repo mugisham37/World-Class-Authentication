@@ -11,6 +11,7 @@ import {
 } from '../models/mfa-factor.model';
 import { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
+import { prisma } from '../prisma/client';
 
 /**
  * MFA factor repository interface
@@ -19,92 +20,99 @@ import { PrismaBaseRepository } from './prisma-base.repository';
 export interface MfaFactorRepository extends BaseRepository<MfaFactor, string> {
   /**
    * Find MFA factors by user ID
-   * @param userId The user ID
-   * @returns Array of MFA factors
+   * @param userId User ID
+   * @param options Filter options
+   * @returns List of MFA factors
    */
-  findByUserId(userId: string): Promise<MfaFactor[]>;
+  findByUserId(userId: string, options?: MfaFactorFilterOptions): Promise<MfaFactor[]>;
 
   /**
    * Find active MFA factors by user ID
-   * @param userId The user ID
-   * @returns Array of active MFA factors
+   * @param userId User ID
+   * @returns List of active MFA factors
    */
   findActiveByUserId(userId: string): Promise<MfaFactor[]>;
 
   /**
    * Find MFA factors by user ID and type
-   * @param userId The user ID
-   * @param type The MFA factor type
-   * @returns Array of MFA factors
+   * @param userId User ID
+   * @param type MFA factor type
+   * @returns List of MFA factors
    */
   findByUserIdAndType(userId: string, type: MfaFactorType): Promise<MfaFactor[]>;
 
   /**
-   * Find a verified MFA factor by user ID and type
-   * @param userId The user ID
-   * @param type The MFA factor type
-   * @returns The MFA factor or null if not found
+   * Find an MFA factor by credential ID
+   * @param credentialId Credential ID
+   * @returns MFA factor or null if not found
    */
-  findVerifiedByUserIdAndType(userId: string, type: MfaFactorType): Promise<MfaFactor | null>;
+  findByCredentialId(credentialId: string): Promise<MfaFactor | null>;
+
+  /**
+   * Find an MFA factor by phone number
+   * @param phoneNumber Phone number
+   * @returns MFA factor or null if not found
+   */
+  findByPhoneNumber(phoneNumber: string): Promise<MfaFactor | null>;
+
+  /**
+   * Find an MFA factor by email
+   * @param email Email
+   * @returns MFA factor or null if not found
+   */
+  findByEmail(email: string): Promise<MfaFactor | null>;
+
+  /**
+   * Find an MFA factor by device token
+   * @param deviceToken Device token
+   * @returns MFA factor or null if not found
+   */
+  findByDeviceToken(deviceToken: string): Promise<MfaFactor | null>;
+
+  /**
+   * Update an MFA factor's status
+   * @param id MFA factor ID
+   * @param status New status
+   * @returns Updated MFA factor
+   */
+  updateStatus(id: string, status: MfaFactorStatus): Promise<MfaFactor>;
+
+  /**
+   * Mark an MFA factor as verified
+   * @param id MFA factor ID
+   * @returns Updated MFA factor
+   */
+  markAsVerified(id: string): Promise<MfaFactor>;
 
   /**
    * Update an MFA factor's last used time
-   * @param id The MFA factor ID
-   * @returns The updated MFA factor
+   * @param id MFA factor ID
+   * @returns Updated MFA factor
    */
   updateLastUsed(id: string): Promise<MfaFactor>;
 
   /**
-   * Verify an MFA factor
-   * @param id The MFA factor ID
-   * @returns The updated MFA factor
-   */
-  verify(id: string): Promise<MfaFactor>;
-
-  /**
-   * Change an MFA factor's status
-   * @param id The MFA factor ID
-   * @param status The new status
-   * @returns The updated MFA factor
-   */
-  changeStatus(id: string, status: MfaFactorStatus): Promise<MfaFactor>;
-
-  /**
    * Delete MFA factors by user ID
-   * @param userId The user ID
+   * @param userId User ID
+   * @param options Filter options
    * @returns Number of deleted MFA factors
    */
-  deleteByUserId(userId: string): Promise<number>;
-
-  /**
-   * Delete MFA factors by user ID and type
-   * @param userId The user ID
-   * @param type The MFA factor type
-   * @returns Number of deleted MFA factors
-   */
-  deleteByUserIdAndType(userId: string, type: MfaFactorType): Promise<number>;
+  deleteByUserId(userId: string, options?: MfaFactorFilterOptions): Promise<number>;
 
   /**
    * Count MFA factors by user ID
-   * @param userId The user ID
+   * @param userId User ID
+   * @param options Filter options
    * @returns Number of MFA factors
    */
-  countByUserId(userId: string): Promise<number>;
+  countByUserId(userId: string, options?: MfaFactorFilterOptions): Promise<number>;
 
   /**
-   * Count active MFA factors by user ID
-   * @param userId The user ID
-   * @returns Number of active MFA factors
+   * Check if a user has any active MFA factors
+   * @param userId User ID
+   * @returns True if the user has active MFA factors, false otherwise
    */
-  countActiveByUserId(userId: string): Promise<number>;
-
-  /**
-   * Check if a user has a verified MFA factor of a specific type
-   * @param userId The user ID
-   * @param type The MFA factor type
-   * @returns True if the user has a verified MFA factor of the specified type, false otherwise
-   */
-  hasVerifiedFactorOfType(userId: string, type: MfaFactorType): Promise<boolean>;
+  hasActiveMfaFactors(userId: string): Promise<boolean>;
 }
 
 /**
@@ -121,18 +129,20 @@ export class PrismaMfaFactorRepository
 
   /**
    * Find MFA factors by user ID
-   * @param userId The user ID
-   * @returns Array of MFA factors
+   * @param userId User ID
+   * @param options Filter options
+   * @returns List of MFA factors
    */
-  async findByUserId(userId: string): Promise<MfaFactor[]> {
+  async findByUserId(userId: string, options?: MfaFactorFilterOptions): Promise<MfaFactor[]> {
     try {
+      const where = this.buildWhereClause({ ...options, userId });
       const factors = await this.prisma.mfaFactor.findMany({
-        where: { userId },
+        where,
         orderBy: { createdAt: 'desc' },
       });
       return factors;
     } catch (error) {
-      logger.error('Error finding MFA factors by user ID', { userId, error });
+      logger.error('Error finding MFA factors by user ID', { userId, options, error });
       throw new DatabaseError(
         'Error finding MFA factors by user ID',
         'MFA_FACTOR_FIND_BY_USER_ID_ERROR',
@@ -143,8 +153,8 @@ export class PrismaMfaFactorRepository
 
   /**
    * Find active MFA factors by user ID
-   * @param userId The user ID
-   * @returns Array of active MFA factors
+   * @param userId User ID
+   * @returns List of active MFA factors
    */
   async findActiveByUserId(userId: string): Promise<MfaFactor[]> {
     try {
@@ -168,9 +178,9 @@ export class PrismaMfaFactorRepository
 
   /**
    * Find MFA factors by user ID and type
-   * @param userId The user ID
-   * @param type The MFA factor type
-   * @returns Array of MFA factors
+   * @param userId User ID
+   * @param type MFA factor type
+   * @returns List of MFA factors
    */
   async findByUserIdAndType(userId: string, type: MfaFactorType): Promise<MfaFactor[]> {
     try {
@@ -193,37 +203,132 @@ export class PrismaMfaFactorRepository
   }
 
   /**
-   * Find a verified MFA factor by user ID and type
-   * @param userId The user ID
-   * @param type The MFA factor type
-   * @returns The MFA factor or null if not found
+   * Find an MFA factor by credential ID
+   * @param credentialId Credential ID
+   * @returns MFA factor or null if not found
    */
-  async findVerifiedByUserIdAndType(
-    userId: string,
-    type: MfaFactorType
-  ): Promise<MfaFactor | null> {
+  async findByCredentialId(credentialId: string): Promise<MfaFactor | null> {
     try {
       const factor = await this.prisma.mfaFactor.findFirst({
-        where: {
-          userId,
-          type,
-          status: MfaFactorStatus.ACTIVE,
-          verifiedAt: {
-            not: null,
-          },
-        },
-        orderBy: { lastUsedAt: 'desc' },
+        where: { credentialId },
       });
       return factor;
     } catch (error) {
-      logger.error('Error finding verified MFA factor by user ID and type', {
-        userId,
-        type,
-        error,
-      });
+      logger.error('Error finding MFA factor by credential ID', { credentialId, error });
       throw new DatabaseError(
-        'Error finding verified MFA factor by user ID and type',
-        'MFA_FACTOR_FIND_VERIFIED_BY_USER_ID_AND_TYPE_ERROR',
+        'Error finding MFA factor by credential ID',
+        'MFA_FACTOR_FIND_BY_CREDENTIAL_ID_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Find an MFA factor by phone number
+   * @param phoneNumber Phone number
+   * @returns MFA factor or null if not found
+   */
+  async findByPhoneNumber(phoneNumber: string): Promise<MfaFactor | null> {
+    try {
+      const factor = await this.prisma.mfaFactor.findFirst({
+        where: { phoneNumber },
+      });
+      return factor;
+    } catch (error) {
+      logger.error('Error finding MFA factor by phone number', { phoneNumber, error });
+      throw new DatabaseError(
+        'Error finding MFA factor by phone number',
+        'MFA_FACTOR_FIND_BY_PHONE_NUMBER_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Find an MFA factor by email
+   * @param email Email
+   * @returns MFA factor or null if not found
+   */
+  async findByEmail(email: string): Promise<MfaFactor | null> {
+    try {
+      const factor = await this.prisma.mfaFactor.findFirst({
+        where: { email },
+      });
+      return factor;
+    } catch (error) {
+      logger.error('Error finding MFA factor by email', { email, error });
+      throw new DatabaseError(
+        'Error finding MFA factor by email',
+        'MFA_FACTOR_FIND_BY_EMAIL_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Find an MFA factor by device token
+   * @param deviceToken Device token
+   * @returns MFA factor or null if not found
+   */
+  async findByDeviceToken(deviceToken: string): Promise<MfaFactor | null> {
+    try {
+      const factor = await this.prisma.mfaFactor.findFirst({
+        where: { deviceToken },
+      });
+      return factor;
+    } catch (error) {
+      logger.error('Error finding MFA factor by device token', { deviceToken, error });
+      throw new DatabaseError(
+        'Error finding MFA factor by device token',
+        'MFA_FACTOR_FIND_BY_DEVICE_TOKEN_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Update an MFA factor's status
+   * @param id MFA factor ID
+   * @param status New status
+   * @returns Updated MFA factor
+   */
+  async updateStatus(id: string, status: MfaFactorStatus): Promise<MfaFactor> {
+    try {
+      const factor = await this.prisma.mfaFactor.update({
+        where: { id },
+        data: { status },
+      });
+      return factor;
+    } catch (error) {
+      logger.error('Error updating MFA factor status', { id, status, error });
+      throw new DatabaseError(
+        'Error updating MFA factor status',
+        'MFA_FACTOR_UPDATE_STATUS_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Mark an MFA factor as verified
+   * @param id MFA factor ID
+   * @returns Updated MFA factor
+   */
+  async markAsVerified(id: string): Promise<MfaFactor> {
+    try {
+      const factor = await this.prisma.mfaFactor.update({
+        where: { id },
+        data: {
+          verifiedAt: new Date(),
+          status: MfaFactorStatus.ACTIVE,
+        },
+      });
+      return factor;
+    } catch (error) {
+      logger.error('Error marking MFA factor as verified', { id, error });
+      throw new DatabaseError(
+        'Error marking MFA factor as verified',
+        'MFA_FACTOR_MARK_AS_VERIFIED_ERROR',
         error instanceof Error ? error : undefined
       );
     }
@@ -231,8 +336,8 @@ export class PrismaMfaFactorRepository
 
   /**
    * Update an MFA factor's last used time
-   * @param id The MFA factor ID
-   * @returns The updated MFA factor
+   * @param id MFA factor ID
+   * @returns Updated MFA factor
    */
   async updateLastUsed(id: string): Promise<MfaFactor> {
     try {
@@ -254,66 +359,20 @@ export class PrismaMfaFactorRepository
   }
 
   /**
-   * Verify an MFA factor
-   * @param id The MFA factor ID
-   * @returns The updated MFA factor
-   */
-  async verify(id: string): Promise<MfaFactor> {
-    try {
-      const factor = await this.prisma.mfaFactor.update({
-        where: { id },
-        data: {
-          verifiedAt: new Date(),
-          status: MfaFactorStatus.ACTIVE,
-        },
-      });
-      return factor;
-    } catch (error) {
-      logger.error('Error verifying MFA factor', { id, error });
-      throw new DatabaseError(
-        'Error verifying MFA factor',
-        'MFA_FACTOR_VERIFY_ERROR',
-        error instanceof Error ? error : undefined
-      );
-    }
-  }
-
-  /**
-   * Change an MFA factor's status
-   * @param id The MFA factor ID
-   * @param status The new status
-   * @returns The updated MFA factor
-   */
-  async changeStatus(id: string, status: MfaFactorStatus): Promise<MfaFactor> {
-    try {
-      const factor = await this.prisma.mfaFactor.update({
-        where: { id },
-        data: { status },
-      });
-      return factor;
-    } catch (error) {
-      logger.error('Error changing MFA factor status', { id, status, error });
-      throw new DatabaseError(
-        'Error changing MFA factor status',
-        'MFA_FACTOR_CHANGE_STATUS_ERROR',
-        error instanceof Error ? error : undefined
-      );
-    }
-  }
-
-  /**
    * Delete MFA factors by user ID
-   * @param userId The user ID
+   * @param userId User ID
+   * @param options Filter options
    * @returns Number of deleted MFA factors
    */
-  async deleteByUserId(userId: string): Promise<number> {
+  async deleteByUserId(userId: string, options?: MfaFactorFilterOptions): Promise<number> {
     try {
+      const where = this.buildWhereClause({ ...options, userId });
       const result = await this.prisma.mfaFactor.deleteMany({
-        where: { userId },
+        where,
       });
       return result.count;
     } catch (error) {
-      logger.error('Error deleting MFA factors by user ID', { userId, error });
+      logger.error('Error deleting MFA factors by user ID', { userId, options, error });
       throw new DatabaseError(
         'Error deleting MFA factors by user ID',
         'MFA_FACTOR_DELETE_BY_USER_ID_ERROR',
@@ -323,43 +382,20 @@ export class PrismaMfaFactorRepository
   }
 
   /**
-   * Delete MFA factors by user ID and type
-   * @param userId The user ID
-   * @param type The MFA factor type
-   * @returns Number of deleted MFA factors
-   */
-  async deleteByUserIdAndType(userId: string, type: MfaFactorType): Promise<number> {
-    try {
-      const result = await this.prisma.mfaFactor.deleteMany({
-        where: {
-          userId,
-          type,
-        },
-      });
-      return result.count;
-    } catch (error) {
-      logger.error('Error deleting MFA factors by user ID and type', { userId, type, error });
-      throw new DatabaseError(
-        'Error deleting MFA factors by user ID and type',
-        'MFA_FACTOR_DELETE_BY_USER_ID_AND_TYPE_ERROR',
-        error instanceof Error ? error : undefined
-      );
-    }
-  }
-
-  /**
    * Count MFA factors by user ID
-   * @param userId The user ID
+   * @param userId User ID
+   * @param options Filter options
    * @returns Number of MFA factors
    */
-  async countByUserId(userId: string): Promise<number> {
+  async countByUserId(userId: string, options?: MfaFactorFilterOptions): Promise<number> {
     try {
+      const where = this.buildWhereClause({ ...options, userId });
       const count = await this.prisma.mfaFactor.count({
-        where: { userId },
+        where,
       });
       return count;
     } catch (error) {
-      logger.error('Error counting MFA factors by user ID', { userId, error });
+      logger.error('Error counting MFA factors by user ID', { userId, options, error });
       throw new DatabaseError(
         'Error counting MFA factors by user ID',
         'MFA_FACTOR_COUNT_BY_USER_ID_ERROR',
@@ -369,57 +405,24 @@ export class PrismaMfaFactorRepository
   }
 
   /**
-   * Count active MFA factors by user ID
-   * @param userId The user ID
-   * @returns Number of active MFA factors
+   * Check if a user has any active MFA factors
+   * @param userId User ID
+   * @returns True if the user has active MFA factors, false otherwise
    */
-  async countActiveByUserId(userId: string): Promise<number> {
+  async hasActiveMfaFactors(userId: string): Promise<boolean> {
     try {
       const count = await this.prisma.mfaFactor.count({
         where: {
           userId,
           status: MfaFactorStatus.ACTIVE,
-        },
-      });
-      return count;
-    } catch (error) {
-      logger.error('Error counting active MFA factors by user ID', { userId, error });
-      throw new DatabaseError(
-        'Error counting active MFA factors by user ID',
-        'MFA_FACTOR_COUNT_ACTIVE_BY_USER_ID_ERROR',
-        error instanceof Error ? error : undefined
-      );
-    }
-  }
-
-  /**
-   * Check if a user has a verified MFA factor of a specific type
-   * @param userId The user ID
-   * @param type The MFA factor type
-   * @returns True if the user has a verified MFA factor of the specified type, false otherwise
-   */
-  async hasVerifiedFactorOfType(userId: string, type: MfaFactorType): Promise<boolean> {
-    try {
-      const count = await this.prisma.mfaFactor.count({
-        where: {
-          userId,
-          type,
-          status: MfaFactorStatus.ACTIVE,
-          verifiedAt: {
-            not: null,
-          },
         },
       });
       return count > 0;
     } catch (error) {
-      logger.error('Error checking if user has verified MFA factor of type', {
-        userId,
-        type,
-        error,
-      });
+      logger.error('Error checking if user has active MFA factors', { userId, error });
       throw new DatabaseError(
-        'Error checking if user has verified MFA factor of type',
-        'MFA_FACTOR_HAS_VERIFIED_OF_TYPE_ERROR',
+        'Error checking if user has active MFA factors',
+        'MFA_FACTOR_HAS_ACTIVE_ERROR',
         error instanceof Error ? error : undefined
       );
     }
@@ -430,7 +433,7 @@ export class PrismaMfaFactorRepository
    * @param filter The filter options
    * @returns The Prisma where clause
    */
-  protected override toWhereClause(filter?: MfaFactorFilterOptions): any {
+  private buildWhereClause(filter?: MfaFactorFilterOptions): any {
     if (!filter) {
       return {};
     }
@@ -454,9 +457,7 @@ export class PrismaMfaFactorRepository
     }
 
     if (filter.verifiedOnly) {
-      where.verifiedAt = {
-        not: null,
-      };
+      where.verifiedAt = { not: null };
     }
 
     // Date range filters
@@ -516,7 +517,7 @@ export class PrismaMfaFactorRepository
    * @param tx The transaction client
    * @returns A new repository instance with the transaction client
    */
-  protected override withTransaction(tx: PrismaClient): BaseRepository<MfaFactor, string> {
+  protected withTransaction(tx: PrismaClient): BaseRepository<MfaFactor, string> {
     return new PrismaMfaFactorRepository(tx);
   }
 }

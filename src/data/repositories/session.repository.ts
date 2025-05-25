@@ -9,6 +9,7 @@ import {
 } from '../models/session.model';
 import { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
+import { prisma } from '../prisma/client';
 
 /**
  * Session repository interface
@@ -17,89 +18,55 @@ import { PrismaBaseRepository } from './prisma-base.repository';
 export interface SessionRepository extends BaseRepository<Session, string> {
   /**
    * Find a session by token
-   * @param token The session token
-   * @returns The session or null if not found
+   * @param token Session token
+   * @returns Session or null if not found
    */
   findByToken(token: string): Promise<Session | null>;
 
   /**
    * Find a session by refresh token
-   * @param refreshToken The refresh token
-   * @returns The session or null if not found
+   * @param refreshToken Refresh token
+   * @returns Session or null if not found
    */
   findByRefreshToken(refreshToken: string): Promise<Session | null>;
 
   /**
    * Find sessions by user ID
-   * @param userId The user ID
-   * @returns Array of sessions
+   * @param userId User ID
+   * @param options Filter options
+   * @returns List of sessions
    */
-  findByUserId(userId: string): Promise<Session[]>;
+  findByUserId(userId: string, options?: SessionFilterOptions): Promise<Session[]>;
 
   /**
    * Find active sessions by user ID
-   * @param userId The user ID
-   * @returns Array of active sessions
+   * @param userId User ID
+   * @returns List of active sessions
    */
   findActiveByUserId(userId: string): Promise<Session[]>;
 
   /**
-   * Find sessions by device ID
-   * @param deviceId The device ID
-   * @returns Array of sessions
+   * Update a session by token
+   * @param token Session token
+   * @param data Session data to update
+   * @returns Updated session
    */
-  findByDeviceId(deviceId: string): Promise<Session[]>;
+  updateByToken(token: string, data: UpdateSessionData): Promise<Session>;
 
   /**
-   * Update a session's last active time
-   * @param id The session ID
-   * @returns The updated session
+   * Delete a session by token
+   * @param token Session token
+   * @returns True if the session was deleted, false otherwise
    */
-  updateLastActive(id: string): Promise<Session>;
+  deleteByToken(token: string): Promise<boolean>;
 
   /**
-   * Update a session's last active time by token
-   * @param token The session token
-   * @returns The updated session or null if not found
+   * Delete sessions by user ID
+   * @param userId User ID
+   * @param options Filter options
+   * @returns Number of deleted sessions
    */
-  updateLastActiveByToken(token: string): Promise<Session | null>;
-
-  /**
-   * Revoke a session
-   * @param id The session ID
-   * @param reason The revocation reason
-   * @returns The updated session
-   */
-  revoke(id: string, reason?: string): Promise<Session>;
-
-  /**
-   * Revoke a session by token
-   * @param token The session token
-   * @param reason The revocation reason
-   * @returns The updated session or null if not found
-   */
-  revokeByToken(token: string, reason?: string): Promise<Session | null>;
-
-  /**
-   * Revoke all sessions for a user
-   * @param userId The user ID
-   * @param reason The revocation reason
-   * @returns Number of revoked sessions
-   */
-  revokeAllForUser(userId: string, reason?: string): Promise<number>;
-
-  /**
-   * Revoke all sessions for a user except the current one
-   * @param userId The user ID
-   * @param currentSessionId The current session ID to exclude
-   * @param reason The revocation reason
-   * @returns Number of revoked sessions
-   */
-  revokeAllForUserExceptCurrent(
-    userId: string,
-    currentSessionId: string,
-    reason?: string
-  ): Promise<number>;
+  deleteByUserId(userId: string, options?: SessionFilterOptions): Promise<number>;
 
   /**
    * Delete expired sessions
@@ -108,31 +75,50 @@ export interface SessionRepository extends BaseRepository<Session, string> {
   deleteExpired(): Promise<number>;
 
   /**
-   * Delete revoked sessions
-   * @returns Number of deleted sessions
+   * Revoke a session
+   * @param id Session ID
+   * @param reason Revocation reason
+   * @returns Updated session
    */
-  deleteRevoked(): Promise<number>;
+  revoke(id: string, reason?: string): Promise<Session>;
+
+  /**
+   * Revoke a session by token
+   * @param token Session token
+   * @param reason Revocation reason
+   * @returns Updated session
+   */
+  revokeByToken(token: string, reason?: string): Promise<Session>;
+
+  /**
+   * Revoke all sessions for a user
+   * @param userId User ID
+   * @param reason Revocation reason
+   * @param excludeSessionId Session ID to exclude from revocation
+   * @returns Number of revoked sessions
+   */
+  revokeAllForUser(userId: string, reason?: string, excludeSessionId?: string): Promise<number>;
+
+  /**
+   * Update last active time for a session
+   * @param id Session ID
+   * @returns Updated session
+   */
+  updateLastActive(id: string): Promise<Session>;
+
+  /**
+   * Update last active time for a session by token
+   * @param token Session token
+   * @returns Updated session
+   */
+  updateLastActiveByToken(token: string): Promise<Session>;
 
   /**
    * Count active sessions for a user
-   * @param userId The user ID
+   * @param userId User ID
    * @returns Number of active sessions
    */
   countActiveByUserId(userId: string): Promise<number>;
-
-  /**
-   * Check if a session is active
-   * @param id The session ID
-   * @returns True if the session is active, false otherwise
-   */
-  isActive(id: string): Promise<boolean>;
-
-  /**
-   * Check if a session is active by token
-   * @param token The session token
-   * @returns True if the session is active, false otherwise
-   */
-  isActiveByToken(token: string): Promise<boolean>;
 }
 
 /**
@@ -149,8 +135,8 @@ export class PrismaSessionRepository
 
   /**
    * Find a session by token
-   * @param token The session token
-   * @returns The session or null if not found
+   * @param token Session token
+   * @returns Session or null if not found
    */
   async findByToken(token: string): Promise<Session | null> {
     try {
@@ -170,8 +156,8 @@ export class PrismaSessionRepository
 
   /**
    * Find a session by refresh token
-   * @param refreshToken The refresh token
-   * @returns The session or null if not found
+   * @param refreshToken Refresh token
+   * @returns Session or null if not found
    */
   async findByRefreshToken(refreshToken: string): Promise<Session | null> {
     try {
@@ -191,18 +177,20 @@ export class PrismaSessionRepository
 
   /**
    * Find sessions by user ID
-   * @param userId The user ID
-   * @returns Array of sessions
+   * @param userId User ID
+   * @param options Filter options
+   * @returns List of sessions
    */
-  async findByUserId(userId: string): Promise<Session[]> {
+  async findByUserId(userId: string, options?: SessionFilterOptions): Promise<Session[]> {
     try {
+      const where = this.buildWhereClause({ ...options, userId });
       const sessions = await this.prisma.session.findMany({
-        where: { userId },
+        where,
         orderBy: { lastActiveAt: 'desc' },
       });
       return sessions;
     } catch (error) {
-      logger.error('Error finding sessions by user ID', { userId, error });
+      logger.error('Error finding sessions by user ID', { userId, options, error });
       throw new DatabaseError(
         'Error finding sessions by user ID',
         'SESSION_FIND_BY_USER_ID_ERROR',
@@ -213,8 +201,8 @@ export class PrismaSessionRepository
 
   /**
    * Find active sessions by user ID
-   * @param userId The user ID
-   * @returns Array of active sessions
+   * @param userId User ID
+   * @returns List of active sessions
    */
   async findActiveByUserId(userId: string): Promise<Session[]> {
     try {
@@ -239,195 +227,73 @@ export class PrismaSessionRepository
   }
 
   /**
-   * Find sessions by device ID
-   * @param deviceId The device ID
-   * @returns Array of sessions
+   * Update a session by token
+   * @param token Session token
+   * @param data Session data to update
+   * @returns Updated session
    */
-  async findByDeviceId(deviceId: string): Promise<Session[]> {
-    try {
-      const sessions = await this.prisma.session.findMany({
-        where: { deviceId },
-        orderBy: { lastActiveAt: 'desc' },
-      });
-      return sessions;
-    } catch (error) {
-      logger.error('Error finding sessions by device ID', { deviceId, error });
-      throw new DatabaseError(
-        'Error finding sessions by device ID',
-        'SESSION_FIND_BY_DEVICE_ID_ERROR',
-        error instanceof Error ? error : undefined
-      );
-    }
-  }
-
-  /**
-   * Update a session's last active time
-   * @param id The session ID
-   * @returns The updated session
-   */
-  async updateLastActive(id: string): Promise<Session> {
+  async updateByToken(token: string, data: UpdateSessionData): Promise<Session> {
     try {
       const session = await this.prisma.session.update({
-        where: { id },
-        data: {
-          lastActiveAt: new Date(),
-        },
+        where: { token },
+        data,
       });
       return session;
     } catch (error) {
-      logger.error('Error updating session last active time', { id, error });
+      logger.error('Error updating session by token', { token, error });
       throw new DatabaseError(
-        'Error updating session last active time',
-        'SESSION_UPDATE_LAST_ACTIVE_ERROR',
+        'Error updating session by token',
+        'SESSION_UPDATE_BY_TOKEN_ERROR',
         error instanceof Error ? error : undefined
       );
     }
   }
 
   /**
-   * Update a session's last active time by token
-   * @param token The session token
-   * @returns The updated session or null if not found
+   * Delete a session by token
+   * @param token Session token
+   * @returns True if the session was deleted, false otherwise
    */
-  async updateLastActiveByToken(token: string): Promise<Session | null> {
+  async deleteByToken(token: string): Promise<boolean> {
     try {
-      const session = await this.prisma.session.findUnique({
+      await this.prisma.session.delete({
         where: { token },
       });
+      return true;
+    } catch (error) {
+      logger.error('Error deleting session by token', { token, error });
 
-      if (!session) {
-        return null;
+      // Check if the error is a record not found error
+      if (error instanceof Error && error.message.includes('Record to delete does not exist')) {
+        return false;
       }
 
-      return await this.updateLastActive(session.id);
-    } catch (error) {
-      logger.error('Error updating session last active time by token', { token, error });
       throw new DatabaseError(
-        'Error updating session last active time by token',
-        'SESSION_UPDATE_LAST_ACTIVE_BY_TOKEN_ERROR',
+        'Error deleting session by token',
+        'SESSION_DELETE_BY_TOKEN_ERROR',
         error instanceof Error ? error : undefined
       );
     }
   }
 
   /**
-   * Revoke a session
-   * @param id The session ID
-   * @param reason The revocation reason
-   * @returns The updated session
+   * Delete sessions by user ID
+   * @param userId User ID
+   * @param options Filter options
+   * @returns Number of deleted sessions
    */
-  async revoke(id: string, reason?: string): Promise<Session> {
+  async deleteByUserId(userId: string, options?: SessionFilterOptions): Promise<number> {
     try {
-      const session = await this.prisma.session.update({
-        where: { id },
-        data: {
-          revokedAt: new Date(),
-          revocationReason: reason,
-        },
-      });
-      return session;
-    } catch (error) {
-      logger.error('Error revoking session', { id, error });
-      throw new DatabaseError(
-        'Error revoking session',
-        'SESSION_REVOKE_ERROR',
-        error instanceof Error ? error : undefined
-      );
-    }
-  }
-
-  /**
-   * Revoke a session by token
-   * @param token The session token
-   * @param reason The revocation reason
-   * @returns The updated session or null if not found
-   */
-  async revokeByToken(token: string, reason?: string): Promise<Session | null> {
-    try {
-      const session = await this.prisma.session.findUnique({
-        where: { token },
-      });
-
-      if (!session) {
-        return null;
-      }
-
-      return await this.revoke(session.id, reason);
-    } catch (error) {
-      logger.error('Error revoking session by token', { token, error });
-      throw new DatabaseError(
-        'Error revoking session by token',
-        'SESSION_REVOKE_BY_TOKEN_ERROR',
-        error instanceof Error ? error : undefined
-      );
-    }
-  }
-
-  /**
-   * Revoke all sessions for a user
-   * @param userId The user ID
-   * @param reason The revocation reason
-   * @returns Number of revoked sessions
-   */
-  async revokeAllForUser(userId: string, reason?: string): Promise<number> {
-    try {
-      const now = new Date();
-      const result = await this.prisma.session.updateMany({
-        where: {
-          userId,
-          revokedAt: null,
-        },
-        data: {
-          revokedAt: now,
-          revocationReason: reason,
-        },
+      const where = this.buildWhereClause({ ...options, userId });
+      const result = await this.prisma.session.deleteMany({
+        where,
       });
       return result.count;
     } catch (error) {
-      logger.error('Error revoking all sessions for user', { userId, error });
+      logger.error('Error deleting sessions by user ID', { userId, options, error });
       throw new DatabaseError(
-        'Error revoking all sessions for user',
-        'SESSION_REVOKE_ALL_FOR_USER_ERROR',
-        error instanceof Error ? error : undefined
-      );
-    }
-  }
-
-  /**
-   * Revoke all sessions for a user except the current one
-   * @param userId The user ID
-   * @param currentSessionId The current session ID to exclude
-   * @param reason The revocation reason
-   * @returns Number of revoked sessions
-   */
-  async revokeAllForUserExceptCurrent(
-    userId: string,
-    currentSessionId: string,
-    reason?: string
-  ): Promise<number> {
-    try {
-      const now = new Date();
-      const result = await this.prisma.session.updateMany({
-        where: {
-          userId,
-          id: { not: currentSessionId },
-          revokedAt: null,
-        },
-        data: {
-          revokedAt: now,
-          revocationReason: reason,
-        },
-      });
-      return result.count;
-    } catch (error) {
-      logger.error('Error revoking all sessions for user except current', {
-        userId,
-        currentSessionId,
-        error,
-      });
-      throw new DatabaseError(
-        'Error revoking all sessions for user except current',
-        'SESSION_REVOKE_ALL_FOR_USER_EXCEPT_CURRENT_ERROR',
+        'Error deleting sessions by user ID',
+        'SESSION_DELETE_BY_USER_ID_ERROR',
         error instanceof Error ? error : undefined
       );
     }
@@ -457,22 +323,146 @@ export class PrismaSessionRepository
   }
 
   /**
-   * Delete revoked sessions
-   * @returns Number of deleted sessions
+   * Revoke a session
+   * @param id Session ID
+   * @param reason Revocation reason
+   * @returns Updated session
    */
-  async deleteRevoked(): Promise<number> {
+  async revoke(id: string, reason?: string): Promise<Session> {
     try {
-      const result = await this.prisma.session.deleteMany({
-        where: {
-          revokedAt: { not: null },
+      const session = await this.prisma.session.update({
+        where: { id },
+        data: {
+          revokedAt: new Date(),
+          revocationReason: reason || 'Manually revoked',
         },
       });
+      return session;
+    } catch (error) {
+      logger.error('Error revoking session', { id, reason, error });
+      throw new DatabaseError(
+        'Error revoking session',
+        'SESSION_REVOKE_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Revoke a session by token
+   * @param token Session token
+   * @param reason Revocation reason
+   * @returns Updated session
+   */
+  async revokeByToken(token: string, reason?: string): Promise<Session> {
+    try {
+      const session = await this.prisma.session.update({
+        where: { token },
+        data: {
+          revokedAt: new Date(),
+          revocationReason: reason || 'Manually revoked',
+        },
+      });
+      return session;
+    } catch (error) {
+      logger.error('Error revoking session by token', { token, reason, error });
+      throw new DatabaseError(
+        'Error revoking session by token',
+        'SESSION_REVOKE_BY_TOKEN_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Revoke all sessions for a user
+   * @param userId User ID
+   * @param reason Revocation reason
+   * @param excludeSessionId Session ID to exclude from revocation
+   * @returns Number of revoked sessions
+   */
+  async revokeAllForUser(
+    userId: string,
+    reason?: string,
+    excludeSessionId?: string
+  ): Promise<number> {
+    try {
+      const where: any = {
+        userId,
+        revokedAt: null,
+      };
+
+      if (excludeSessionId) {
+        where.id = { not: excludeSessionId };
+      }
+
+      const result = await this.prisma.session.updateMany({
+        where,
+        data: {
+          revokedAt: new Date(),
+          revocationReason: reason || 'Revoked as part of user-wide revocation',
+        },
+      });
+
       return result.count;
     } catch (error) {
-      logger.error('Error deleting revoked sessions', { error });
+      logger.error('Error revoking all sessions for user', {
+        userId,
+        reason,
+        excludeSessionId,
+        error,
+      });
       throw new DatabaseError(
-        'Error deleting revoked sessions',
-        'SESSION_DELETE_REVOKED_ERROR',
+        'Error revoking all sessions for user',
+        'SESSION_REVOKE_ALL_FOR_USER_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Update last active time for a session
+   * @param id Session ID
+   * @returns Updated session
+   */
+  async updateLastActive(id: string): Promise<Session> {
+    try {
+      const session = await this.prisma.session.update({
+        where: { id },
+        data: {
+          lastActiveAt: new Date(),
+        },
+      });
+      return session;
+    } catch (error) {
+      logger.error('Error updating session last active time', { id, error });
+      throw new DatabaseError(
+        'Error updating session last active time',
+        'SESSION_UPDATE_LAST_ACTIVE_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Update last active time for a session by token
+   * @param token Session token
+   * @returns Updated session
+   */
+  async updateLastActiveByToken(token: string): Promise<Session> {
+    try {
+      const session = await this.prisma.session.update({
+        where: { token },
+        data: {
+          lastActiveAt: new Date(),
+        },
+      });
+      return session;
+    } catch (error) {
+      logger.error('Error updating session last active time by token', { token, error });
+      throw new DatabaseError(
+        'Error updating session last active time by token',
+        'SESSION_UPDATE_LAST_ACTIVE_BY_TOKEN_ERROR',
         error instanceof Error ? error : undefined
       );
     }
@@ -480,7 +470,7 @@ export class PrismaSessionRepository
 
   /**
    * Count active sessions for a user
-   * @param userId The user ID
+   * @param userId User ID
    * @returns Number of active sessions
    */
   async countActiveByUserId(userId: string): Promise<number> {
@@ -505,69 +495,16 @@ export class PrismaSessionRepository
   }
 
   /**
-   * Check if a session is active
-   * @param id The session ID
-   * @returns True if the session is active, false otherwise
-   */
-  async isActive(id: string): Promise<boolean> {
-    try {
-      const now = new Date();
-      const count = await this.prisma.session.count({
-        where: {
-          id,
-          expiresAt: { gt: now },
-          revokedAt: null,
-        },
-      });
-      return count > 0;
-    } catch (error) {
-      logger.error('Error checking if session is active', { id, error });
-      throw new DatabaseError(
-        'Error checking if session is active',
-        'SESSION_IS_ACTIVE_ERROR',
-        error instanceof Error ? error : undefined
-      );
-    }
-  }
-
-  /**
-   * Check if a session is active by token
-   * @param token The session token
-   * @returns True if the session is active, false otherwise
-   */
-  async isActiveByToken(token: string): Promise<boolean> {
-    try {
-      const now = new Date();
-      const count = await this.prisma.session.count({
-        where: {
-          token,
-          expiresAt: { gt: now },
-          revokedAt: null,
-        },
-      });
-      return count > 0;
-    } catch (error) {
-      logger.error('Error checking if session is active by token', { token, error });
-      throw new DatabaseError(
-        'Error checking if session is active by token',
-        'SESSION_IS_ACTIVE_BY_TOKEN_ERROR',
-        error instanceof Error ? error : undefined
-      );
-    }
-  }
-
-  /**
    * Build a where clause from filter options
    * @param filter The filter options
    * @returns The Prisma where clause
    */
-  protected override toWhereClause(filter?: SessionFilterOptions): any {
+  private buildWhereClause(filter?: SessionFilterOptions): any {
     if (!filter) {
       return {};
     }
 
     const where: any = {};
-    const now = new Date();
 
     if (filter.id) {
       where.id = filter.id;
@@ -593,7 +530,9 @@ export class PrismaSessionRepository
       where.ipAddress = filter.ipAddress;
     }
 
+    // Boolean filters
     if (filter.isActive !== undefined) {
+      const now = new Date();
       if (filter.isActive) {
         where.expiresAt = { gt: now };
         where.revokedAt = null;
@@ -679,7 +618,7 @@ export class PrismaSessionRepository
    * @param tx The transaction client
    * @returns A new repository instance with the transaction client
    */
-  protected override withTransaction(tx: PrismaClient): BaseRepository<Session, string> {
+  protected withTransaction(tx: PrismaClient): BaseRepository<Session, string> {
     return new PrismaSessionRepository(tx);
   }
 }

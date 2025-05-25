@@ -157,6 +157,22 @@ export class RateLimitError extends AppError {
 }
 
 /**
+ * Too many requests error
+ * Thrown when too many requests are made in a short period
+ */
+export class TooManyRequestsError extends AppError {
+  /**
+   * Constructor
+   * @param message Error message
+   * @param code Error code
+   * @param originalError Original error
+   */
+  constructor(message: string, code: string = 'TOO_MANY_REQUESTS', originalError?: Error) {
+    super(message, code, originalError);
+  }
+}
+
+/**
  * External service error
  * Thrown when an external service fails
  */

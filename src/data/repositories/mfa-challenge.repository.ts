@@ -11,6 +11,7 @@ import {
 } from '../models/mfa-challenge.model';
 import { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
+import { prisma } from '../prisma/client';
 
 /**
  * MFA challenge repository interface
@@ -19,60 +20,84 @@ import { PrismaBaseRepository } from './prisma-base.repository';
 export interface MfaChallengeRepository extends BaseRepository<MfaChallenge, string> {
   /**
    * Find MFA challenges by factor ID
-   * @param factorId The MFA factor ID
-   * @returns Array of MFA challenges
+   * @param factorId Factor ID
+   * @param options Filter options
+   * @returns List of MFA challenges
    */
-  findByFactorId(factorId: string): Promise<MfaChallenge[]>;
+  findByFactorId(factorId: string, options?: MfaChallengeFilterOptions): Promise<MfaChallenge[]>;
 
   /**
    * Find active MFA challenges by factor ID
-   * @param factorId The MFA factor ID
-   * @returns Array of active MFA challenges
+   * @param factorId Factor ID
+   * @returns List of active MFA challenges
    */
   findActiveByFactorId(factorId: string): Promise<MfaChallenge[]>;
 
   /**
-   * Find the latest MFA challenge by factor ID
-   * @param factorId The MFA factor ID
-   * @returns The latest MFA challenge or null if not found
+   * Find an MFA challenge by challenge string
+   * @param challenge Challenge string
+   * @returns MFA challenge or null if not found
    */
-  findLatestByFactorId(factorId: string): Promise<MfaChallenge | null>;
+  findByChallenge(challenge: string): Promise<MfaChallenge | null>;
 
   /**
-   * Verify an MFA challenge
-   * @param id The MFA challenge ID
-   * @param response The response to verify
-   * @returns The verification result
+   * Update an MFA challenge's status
+   * @param id MFA challenge ID
+   * @param status New status
+   * @returns Updated MFA challenge
    */
-  verifyChallenge(id: string, response: string): Promise<MfaChallengeVerificationResult>;
+  updateStatus(id: string, status: MfaChallengeStatus): Promise<MfaChallenge>;
 
   /**
-   * Increment the attempts count for an MFA challenge
-   * @param id The MFA challenge ID
-   * @returns The updated MFA challenge
+   * Mark an MFA challenge as completed
+   * @param id MFA challenge ID
+   * @param response Challenge response
+   * @returns Updated MFA challenge
+   */
+  markAsCompleted(id: string, response?: string): Promise<MfaChallenge>;
+
+  /**
+   * Mark an MFA challenge as failed
+   * @param id MFA challenge ID
+   * @returns Updated MFA challenge
+   */
+  markAsFailed(id: string): Promise<MfaChallenge>;
+
+  /**
+   * Mark an MFA challenge as expired
+   * @param id MFA challenge ID
+   * @returns Updated MFA challenge
+   */
+  markAsExpired(id: string): Promise<MfaChallenge>;
+
+  /**
+   * Increment the attempts counter for an MFA challenge
+   * @param id MFA challenge ID
+   * @returns Updated MFA challenge
    */
   incrementAttempts(id: string): Promise<MfaChallenge>;
 
   /**
-   * Complete an MFA challenge
-   * @param id The MFA challenge ID
-   * @param success Whether the challenge was successful
-   * @returns The updated MFA challenge
+   * Verify an MFA challenge response
+   * @param id MFA challenge ID
+   * @param response Challenge response
+   * @returns Verification result
    */
-  completeChallenge(id: string, success: boolean): Promise<MfaChallenge>;
+  verifyChallenge(id: string, response: string): Promise<MfaChallengeVerificationResult>;
 
   /**
-   * Expire MFA challenges
-   * @returns Number of expired MFA challenges
+   * Delete expired MFA challenges
+   * @returns Number of deleted challenges
    */
-  expireOldChallenges(): Promise<number>;
+  deleteExpired(): Promise<number>;
 
   /**
    * Delete MFA challenges by factor ID
-   * @param factorId The MFA factor ID
-   * @returns Number of deleted MFA challenges
+   * @param factorId Factor ID
+   * @param options Filter options
+   * @returns Number of deleted challenges
    */
-  deleteByFactorId(factorId: string): Promise<number>;
+  deleteByFactorId(factorId: string, options?: MfaChallengeFilterOptions): Promise<number>;
 }
 
 /**
@@ -89,18 +114,23 @@ export class PrismaMfaChallengeRepository
 
   /**
    * Find MFA challenges by factor ID
-   * @param factorId The MFA factor ID
-   * @returns Array of MFA challenges
+   * @param factorId Factor ID
+   * @param options Filter options
+   * @returns List of MFA challenges
    */
-  async findByFactorId(factorId: string): Promise<MfaChallenge[]> {
+  async findByFactorId(
+    factorId: string,
+    options?: MfaChallengeFilterOptions
+  ): Promise<MfaChallenge[]> {
     try {
+      const where = this.buildWhereClause({ ...options, factorId });
       const challenges = await this.prisma.mfaChallenge.findMany({
-        where: { factorId },
+        where,
         orderBy: { createdAt: 'desc' },
       });
       return challenges;
     } catch (error) {
-      logger.error('Error finding MFA challenges by factor ID', { factorId, error });
+      logger.error('Error finding MFA challenges by factor ID', { factorId, options, error });
       throw new DatabaseError(
         'Error finding MFA challenges by factor ID',
         'MFA_CHALLENGE_FIND_BY_FACTOR_ID_ERROR',
@@ -111,8 +141,8 @@ export class PrismaMfaChallengeRepository
 
   /**
    * Find active MFA challenges by factor ID
-   * @param factorId The MFA factor ID
-   * @returns Array of active MFA challenges
+   * @param factorId Factor ID
+   * @returns List of active MFA challenges
    */
   async findActiveByFactorId(factorId: string): Promise<MfaChallenge[]> {
     try {
@@ -121,9 +151,7 @@ export class PrismaMfaChallengeRepository
         where: {
           factorId,
           status: MfaChallengeStatus.PENDING,
-          expiresAt: {
-            gt: now,
-          },
+          expiresAt: { gt: now },
         },
         orderBy: { createdAt: 'desc' },
       });
@@ -139,121 +167,129 @@ export class PrismaMfaChallengeRepository
   }
 
   /**
-   * Find the latest MFA challenge by factor ID
-   * @param factorId The MFA factor ID
-   * @returns The latest MFA challenge or null if not found
+   * Find an MFA challenge by challenge string
+   * @param challenge Challenge string
+   * @returns MFA challenge or null if not found
    */
-  async findLatestByFactorId(factorId: string): Promise<MfaChallenge | null> {
+  async findByChallenge(challenge: string): Promise<MfaChallenge | null> {
     try {
-      const challenge = await this.prisma.mfaChallenge.findFirst({
-        where: { factorId },
-        orderBy: { createdAt: 'desc' },
+      const mfaChallenge = await this.prisma.mfaChallenge.findFirst({
+        where: { challenge },
+      });
+      return mfaChallenge;
+    } catch (error) {
+      logger.error('Error finding MFA challenge by challenge string', { challenge, error });
+      throw new DatabaseError(
+        'Error finding MFA challenge by challenge string',
+        'MFA_CHALLENGE_FIND_BY_CHALLENGE_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Update an MFA challenge's status
+   * @param id MFA challenge ID
+   * @param status New status
+   * @returns Updated MFA challenge
+   */
+  async updateStatus(id: string, status: MfaChallengeStatus): Promise<MfaChallenge> {
+    try {
+      const challenge = await this.prisma.mfaChallenge.update({
+        where: { id },
+        data: { status },
       });
       return challenge;
     } catch (error) {
-      logger.error('Error finding latest MFA challenge by factor ID', { factorId, error });
+      logger.error('Error updating MFA challenge status', { id, status, error });
       throw new DatabaseError(
-        'Error finding latest MFA challenge by factor ID',
-        'MFA_CHALLENGE_FIND_LATEST_BY_FACTOR_ID_ERROR',
+        'Error updating MFA challenge status',
+        'MFA_CHALLENGE_UPDATE_STATUS_ERROR',
         error instanceof Error ? error : undefined
       );
     }
   }
 
   /**
-   * Verify an MFA challenge
-   * @param id The MFA challenge ID
-   * @param response The response to verify
-   * @returns The verification result
+   * Mark an MFA challenge as completed
+   * @param id MFA challenge ID
+   * @param response Challenge response
+   * @returns Updated MFA challenge
    */
-  async verifyChallenge(id: string, response: string): Promise<MfaChallengeVerificationResult> {
+  async markAsCompleted(id: string, response?: string): Promise<MfaChallenge> {
     try {
-      // Get the challenge
-      const challenge = await this.prisma.mfaChallenge.findUnique({
+      const challenge = await this.prisma.mfaChallenge.update({
         where: { id },
+        data: {
+          status: MfaChallengeStatus.COMPLETED,
+          completedAt: new Date(),
+          response,
+        },
       });
-
-      if (!challenge) {
-        return {
-          success: false,
-          challenge: null as unknown as MfaChallenge,
-          message: 'Challenge not found',
-        };
-      }
-
-      // Check if the challenge is expired
-      const now = new Date();
-      if (challenge.expiresAt < now) {
-        // Update the challenge status to expired
-        const updatedChallenge = await this.prisma.mfaChallenge.update({
-          where: { id },
-          data: {
-            status: MfaChallengeStatus.EXPIRED,
-          },
-        });
-
-        return {
-          success: false,
-          challenge: updatedChallenge,
-          message: 'Challenge expired',
-        };
-      }
-
-      // Check if the challenge is already completed or failed
-      if (challenge.status !== MfaChallengeStatus.PENDING) {
-        return {
-          success: false,
-          challenge,
-          message: `Challenge is ${challenge.status.toLowerCase()}`,
-        };
-      }
-
-      // Increment attempts
-      const updatedChallenge = await this.incrementAttempts(id);
-
-      // Check if the response matches
-      if (response === challenge.challenge) {
-        // Complete the challenge successfully
-        const completedChallenge = await this.completeChallenge(id, true);
-
-        return {
-          success: true,
-          challenge: completedChallenge,
-          message: 'Challenge verified successfully',
-        };
-      } else {
-        // Check if max attempts reached
-        if (updatedChallenge.attempts >= 3) {
-          // Complete the challenge with failure
-          const failedChallenge = await this.completeChallenge(id, false);
-
-          return {
-            success: false,
-            challenge: failedChallenge,
-            message: 'Maximum attempts reached',
-          };
-        }
-
-        return {
-          success: false,
-          challenge: updatedChallenge,
-          message: 'Invalid response',
-        };
-      }
+      return challenge;
     } catch (error) {
-      logger.error('Error verifying MFA challenge', { id, error });
+      logger.error('Error marking MFA challenge as completed', { id, error });
       throw new DatabaseError(
-        'Error verifying MFA challenge',
-        'MFA_CHALLENGE_VERIFY_ERROR',
+        'Error marking MFA challenge as completed',
+        'MFA_CHALLENGE_MARK_AS_COMPLETED_ERROR',
         error instanceof Error ? error : undefined
       );
     }
   }
 
   /**
-   * Increment the attempts count for an MFA challenge
-   * @param id The MFA challenge ID
-   * @returns The updated MFA challenge
+   * Mark an MFA challenge as failed
+   * @param id MFA challenge ID
+   * @returns Updated MFA challenge
+   */
+  async markAsFailed(id: string): Promise<MfaChallenge> {
+    try {
+      const challenge = await this.prisma.mfaChallenge.update({
+        where: { id },
+        data: {
+          status: MfaChallengeStatus.FAILED,
+          completedAt: new Date(),
+        },
+      });
+      return challenge;
+    } catch (error) {
+      logger.error('Error marking MFA challenge as failed', { id, error });
+      throw new DatabaseError(
+        'Error marking MFA challenge as failed',
+        'MFA_CHALLENGE_MARK_AS_FAILED_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Mark an MFA challenge as expired
+   * @param id MFA challenge ID
+   * @returns Updated MFA challenge
+   */
+  async markAsExpired(id: string): Promise<MfaChallenge> {
+    try {
+      const challenge = await this.prisma.mfaChallenge.update({
+        where: { id },
+        data: {
+          status: MfaChallengeStatus.EXPIRED,
+        },
+      });
+      return challenge;
+    } catch (error) {
+      logger.error('Error marking MFA challenge as expired', { id, error });
+      throw new DatabaseError(
+        'Error marking MFA challenge as expired',
+        'MFA_CHALLENGE_MARK_AS_EXPIRED_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Increment the attempts counter for an MFA challenge
+   * @param id MFA challenge ID
+   * @returns Updated MFA challenge
    */
   async incrementAttempts(id: string): Promise<MfaChallenge> {
     try {
@@ -277,56 +313,107 @@ export class PrismaMfaChallengeRepository
   }
 
   /**
-   * Complete an MFA challenge
-   * @param id The MFA challenge ID
-   * @param success Whether the challenge was successful
-   * @returns The updated MFA challenge
+   * Verify an MFA challenge response
+   * @param id MFA challenge ID
+   * @param response Challenge response
+   * @returns Verification result
    */
-  async completeChallenge(id: string, success: boolean): Promise<MfaChallenge> {
+  async verifyChallenge(id: string, response: string): Promise<MfaChallengeVerificationResult> {
     try {
-      const now = new Date();
-      const challenge = await this.prisma.mfaChallenge.update({
+      // Get the challenge
+      const challenge = await this.prisma.mfaChallenge.findUnique({
         where: { id },
-        data: {
-          status: success ? MfaChallengeStatus.COMPLETED : MfaChallengeStatus.FAILED,
-          completedAt: now,
-        },
       });
-      return challenge;
+
+      if (!challenge) {
+        return {
+          success: false,
+          challenge: null as any, // This will be handled by the caller
+          message: 'Challenge not found',
+        };
+      }
+
+      // Check if the challenge is still valid
+      const now = new Date();
+      if (challenge.expiresAt < now) {
+        // Mark as expired and return failure
+        const updatedChallenge = await this.markAsExpired(id);
+        return {
+          success: false,
+          challenge: updatedChallenge,
+          message: 'Challenge has expired',
+        };
+      }
+
+      // Check if the challenge is already completed, failed, or expired
+      if (challenge.status !== MfaChallengeStatus.PENDING) {
+        return {
+          success: false,
+          challenge,
+          message: `Challenge is ${challenge.status.toLowerCase()}`,
+        };
+      }
+
+      // Increment the attempts counter
+      const updatedChallenge = await this.incrementAttempts(id);
+
+      // Verify the response (this is a simplified check - in a real system,
+      // you would likely have more complex verification logic based on the factor type)
+      if (response === challenge.challenge) {
+        // Mark as completed and return success
+        const completedChallenge = await this.markAsCompleted(id, response);
+        return {
+          success: true,
+          challenge: completedChallenge,
+          message: 'Challenge verified successfully',
+        };
+      } else {
+        // If max attempts reached, mark as failed
+        if (updatedChallenge.attempts >= 3) {
+          const failedChallenge = await this.markAsFailed(id);
+          return {
+            success: false,
+            challenge: failedChallenge,
+            message: 'Maximum attempts reached',
+          };
+        }
+
+        // Otherwise, return failure but keep the challenge pending
+        return {
+          success: false,
+          challenge: updatedChallenge,
+          message: 'Invalid response',
+        };
+      }
     } catch (error) {
-      logger.error('Error completing MFA challenge', { id, error });
+      logger.error('Error verifying MFA challenge', { id, error });
       throw new DatabaseError(
-        'Error completing MFA challenge',
-        'MFA_CHALLENGE_COMPLETE_ERROR',
+        'Error verifying MFA challenge',
+        'MFA_CHALLENGE_VERIFY_ERROR',
         error instanceof Error ? error : undefined
       );
     }
   }
 
   /**
-   * Expire MFA challenges
-   * @returns Number of expired MFA challenges
+   * Delete expired MFA challenges
+   * @returns Number of deleted challenges
    */
-  async expireOldChallenges(): Promise<number> {
+  async deleteExpired(): Promise<number> {
     try {
       const now = new Date();
-      const result = await this.prisma.mfaChallenge.updateMany({
+      const result = await this.prisma.mfaChallenge.deleteMany({
         where: {
+          expiresAt: { lt: now },
           status: MfaChallengeStatus.PENDING,
-          expiresAt: {
-            lt: now,
-          },
-        },
-        data: {
-          status: MfaChallengeStatus.EXPIRED,
         },
       });
       return result.count;
     } catch (error) {
-      logger.error('Error expiring old MFA challenges', { error });
+      logger.error('Error deleting expired MFA challenges', { error });
       throw new DatabaseError(
-        'Error expiring old MFA challenges',
-        'MFA_CHALLENGE_EXPIRE_OLD_ERROR',
+        'Error deleting expired MFA challenges',
+        'MFA_CHALLENGE_DELETE_EXPIRED_ERROR',
         error instanceof Error ? error : undefined
       );
     }
@@ -334,17 +421,19 @@ export class PrismaMfaChallengeRepository
 
   /**
    * Delete MFA challenges by factor ID
-   * @param factorId The MFA factor ID
-   * @returns Number of deleted MFA challenges
+   * @param factorId Factor ID
+   * @param options Filter options
+   * @returns Number of deleted challenges
    */
-  async deleteByFactorId(factorId: string): Promise<number> {
+  async deleteByFactorId(factorId: string, options?: MfaChallengeFilterOptions): Promise<number> {
     try {
+      const where = this.buildWhereClause({ ...options, factorId });
       const result = await this.prisma.mfaChallenge.deleteMany({
-        where: { factorId },
+        where,
       });
       return result.count;
     } catch (error) {
-      logger.error('Error deleting MFA challenges by factor ID', { factorId, error });
+      logger.error('Error deleting MFA challenges by factor ID', { factorId, options, error });
       throw new DatabaseError(
         'Error deleting MFA challenges by factor ID',
         'MFA_CHALLENGE_DELETE_BY_FACTOR_ID_ERROR',
@@ -358,7 +447,7 @@ export class PrismaMfaChallengeRepository
    * @param filter The filter options
    * @returns The Prisma where clause
    */
-  protected override toWhereClause(filter?: MfaChallengeFilterOptions): any {
+  private buildWhereClause(filter?: MfaChallengeFilterOptions): any {
     if (!filter) {
       return {};
     }
@@ -422,7 +511,7 @@ export class PrismaMfaChallengeRepository
    * @param tx The transaction client
    * @returns A new repository instance with the transaction client
    */
-  protected override withTransaction(tx: PrismaClient): BaseRepository<MfaChallenge, string> {
+  protected withTransaction(tx: PrismaClient): BaseRepository<MfaChallenge, string> {
     return new PrismaMfaChallengeRepository(tx);
   }
 }
