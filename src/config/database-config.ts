@@ -1,133 +1,88 @@
 import { env } from './environment';
 
 /**
- * PostgreSQL configuration
+ * PostgreSQL configuration interface
  */
 export interface PostgresConfig {
   host: string;
   port: number;
-  username: string;
-  password: string;
   database: string;
+  user: string;
+  password: string;
   ssl: boolean;
   poolSize: number;
-  idleTimeoutMillis: number;
-  connectionTimeoutMillis: number;
+  idleTimeout: number;
+  connectionTimeout: number;
+  slowQueryThreshold: number;
+  maxRetries: number;
+  retryDelay: number;
 }
 
 /**
- * Redis configuration
+ * Redis configuration interface
  */
 export interface RedisConfig {
   host: string;
   port: number;
-  password?: string | undefined;
+  password?: string;
   db: number;
   keyPrefix: string;
-  connectionTimeoutMillis: number;
-  maxRetriesPerRequest: number;
-  enableOfflineQueue: boolean;
-  enableReadyCheck: boolean;
+  ttl: number;
+  maxRetries: number;
+  retryDelay: number;
+  enableTLS: boolean;
 }
 
 /**
- * Prisma configuration
+ * Prisma configuration interface
  */
 export interface PrismaConfig {
-  url: string;
-  logQueries: boolean;
-  logSlowQueries: boolean;
-  slowQueryThreshold: number;
+  logLevel: string[];
+  errorFormat: string;
+  queryLogLevel: string;
 }
 
 /**
- * Metrics configuration
- */
-export interface MetricsConfig {
-  enabled: boolean;
-  collectionInterval: number;
-  maxDataPoints: number;
-  logMetrics: boolean;
-}
-
-/**
- * Database configuration
+ * Database configuration interface
  */
 export interface DatabaseConfig {
   postgres: PostgresConfig;
   redis: RedisConfig;
   prisma: PrismaConfig;
-  metrics: MetricsConfig;
 }
 
 /**
  * Database configuration
  */
-export const dbConfig: DatabaseConfig = {
+export const databaseConfig = {
   postgres: {
-    host: env.get('POSTGRES_HOST') || 'localhost',
-    port: env.getNumber('POSTGRES_PORT') || 5432,
-    username: env.get('POSTGRES_USER') || 'postgres',
-    password: env.get('POSTGRES_PASSWORD') || 'postgres',
-    database: env.get('POSTGRES_DB') || 'auth_db',
-    ssl: env.getBoolean('POSTGRES_SSL') || false,
-    poolSize: env.getNumber('POSTGRES_POOL_SIZE') || 10,
-    idleTimeoutMillis: env.getNumber('POSTGRES_IDLE_TIMEOUT') || 30000,
-    connectionTimeoutMillis: env.getNumber('POSTGRES_CONNECTION_TIMEOUT') || 5000,
+    host: env.get('DB_HOST', 'localhost') || 'localhost',
+    port: env.getNumber('DB_PORT', 5432) || 5432,
+    database: env.get('DB_NAME', 'auth_db') || 'auth_db',
+    user: env.get('DB_USER', 'postgres') || 'postgres',
+    password: env.get('DB_PASSWORD', 'postgres') || 'postgres',
+    ssl: env.getBoolean('DB_SSL', false) ?? false,
+    poolSize: env.getNumber('DB_POOL_SIZE', 10) || 10,
+    idleTimeout: env.getNumber('DB_IDLE_TIMEOUT', 30000) || 30000,
+    connectionTimeout: env.getNumber('DB_CONNECTION_TIMEOUT', 5000) || 5000,
+    slowQueryThreshold: env.getNumber('DB_SLOW_QUERY_THRESHOLD', 1000) || 1000,
+    maxRetries: env.getNumber('DB_MAX_RETRIES', 5) || 5,
+    retryDelay: env.getNumber('DB_RETRY_DELAY', 1000) || 1000,
   },
   redis: {
-    host: env.get('REDIS_HOST') || 'localhost',
-    port: env.getNumber('REDIS_PORT') || 6379,
-    password: env.get('REDIS_PASSWORD'),
-    db: env.getNumber('REDIS_DB') || 0,
-    keyPrefix: env.get('REDIS_KEY_PREFIX') || 'auth:',
-    connectionTimeoutMillis: env.getNumber('REDIS_CONNECTION_TIMEOUT') || 5000,
-    maxRetriesPerRequest: env.getNumber('REDIS_MAX_RETRIES') || 3,
-    enableOfflineQueue: env.getBoolean('REDIS_ENABLE_OFFLINE_QUEUE') || true,
-    enableReadyCheck: env.getBoolean('REDIS_ENABLE_READY_CHECK') || true,
+    host: env.get('REDIS_HOST', 'localhost') || 'localhost',
+    port: env.getNumber('REDIS_PORT', 6379) || 6379,
+    ...(env.has('REDIS_PASSWORD') ? { password: env.get('REDIS_PASSWORD') } : {}),
+    db: env.getNumber('REDIS_DB', 0) || 0,
+    keyPrefix: env.get('REDIS_KEY_PREFIX', 'auth:') || 'auth:',
+    ttl: env.getNumber('REDIS_TTL', 86400) || 86400,
+    maxRetries: env.getNumber('REDIS_MAX_RETRIES', 5) || 5,
+    retryDelay: env.getNumber('REDIS_RETRY_DELAY', 1000) || 1000,
+    enableTLS: env.getBoolean('REDIS_TLS', false) ?? false,
   },
   prisma: {
-    url: env.get('DATABASE_URL') || 'postgresql://postgres:postgres@localhost:5432/auth_db',
-    logQueries: env.getBoolean('PRISMA_LOG_QUERIES') || false,
-    logSlowQueries: env.getBoolean('PRISMA_LOG_SLOW_QUERIES') || true,
-    slowQueryThreshold: env.getNumber('PRISMA_SLOW_QUERY_THRESHOLD') || 1000,
+    logLevel: (env.get('PRISMA_LOG_LEVEL', 'warn') || 'warn').split(','),
+    errorFormat: env.get('PRISMA_ERROR_FORMAT', 'pretty') || 'pretty',
+    queryLogLevel: env.get('PRISMA_QUERY_LOG_LEVEL', 'info') || 'info',
   },
-  metrics: {
-    enabled: env.getBoolean('DB_METRICS_ENABLED') || true,
-    collectionInterval: env.getNumber('DB_METRICS_INTERVAL') || 60000,
-    maxDataPoints: env.getNumber('DB_METRICS_MAX_DATAPOINTS') || 1000,
-    logMetrics: env.getBoolean('DB_METRICS_LOG') || false,
-  },
-};
-
-/**
- * Get database configuration
- * @returns Database configuration
- */
-export function getDatabaseConfig(): DatabaseConfig {
-  return dbConfig;
-}
-
-/**
- * Get PostgreSQL configuration
- * @returns PostgreSQL configuration
- */
-export function getPostgresConfig(): PostgresConfig {
-  return dbConfig.postgres;
-}
-
-/**
- * Get Redis configuration
- * @returns Redis configuration
- */
-export function getRedisConfig(): RedisConfig {
-  return dbConfig.redis;
-}
-
-/**
- * Get Prisma configuration
- * @returns Prisma configuration
- */
-export function getPrismaConfig(): PrismaConfig {
-  return dbConfig.prisma;
-}
+} as DatabaseConfig;

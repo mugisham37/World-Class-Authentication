@@ -20,3 +20,17 @@ coverage/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Ignore all markdown files
+*.md
+
+# But track these specific markdown files
+!README.md
+!AUTHENTICATION_SYSTEM_SETUP.md
+!CONFIGURATION_SYSTEM_DETAILED.md
+!CONFIGURATION_SYSTEM_EXPLAINED.md
+!CONTRIBUTING.md
+!DATABASE_CONNECTION_LAYER_EXPLAINED.md
+!src/config/README.md
+!src/data/README.md
+!src/infrastructure/deployment/README.md
