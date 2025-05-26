@@ -15,6 +15,14 @@ const securityConfigSchema = z.object({
     issuer: z.string().default('auth-system'),
     audience: z.string().default('auth-system-client'),
   }),
+  security: z.object({
+    maxFailedLoginAttempts: z.number().int().positive().default(5),
+    accountLockoutDurationMinutes: z.number().int().positive().default(30),
+    passwordExpiryDays: z.number().int().nonnegative().default(90), // 0 means never expire
+    requireEmailVerification: z.boolean().default(true),
+    mfaEnabled: z.boolean().default(false),
+    sessionConcurrencyLimit: z.number().int().positive().default(5),
+  }),
   password: z.object({
     saltRounds: z.number().int().positive().default(12),
     pepper: z.string().min(32).optional(),
@@ -87,6 +95,24 @@ const securityConfigSchema = z.object({
     cookieName: z.string().default('_csrf'),
     headerName: z.string().default('X-CSRF-Token'),
   }),
+  risk: z.object({
+    enabled: z.boolean().default(true),
+    thresholds: z.object({
+      low: z.number().int().nonnegative().default(25),
+      medium: z.number().int().nonnegative().default(50),
+      high: z.number().int().nonnegative().default(75),
+    }),
+    actions: z.object({
+      low: z.enum(['allow', 'challenge', 'block']).default('allow'),
+      medium: z.enum(['allow', 'challenge', 'block']).default('allow'),
+      high: z.enum(['allow', 'challenge', 'block']).default('challenge'),
+      critical: z.enum(['allow', 'challenge', 'block']).default('block'),
+    }),
+    ipReputationEnabled: z.boolean().default(true),
+    behavioralAnalysisEnabled: z.boolean().default(true),
+    locationAnalysisEnabled: z.boolean().default(true),
+    timeAnalysisEnabled: z.boolean().default(true),
+  }),
 });
 
 // Parse and validate environment variables
@@ -98,6 +124,14 @@ const rawConfig = {
     refreshTokenExpiresIn: env.get('JWT_REFRESH_TOKEN_EXPIRES_IN'),
     issuer: env.get('JWT_ISSUER'),
     audience: env.get('JWT_AUDIENCE'),
+  },
+  security: {
+    maxFailedLoginAttempts: env.getNumber('SECURITY_MAX_FAILED_LOGIN_ATTEMPTS'),
+    accountLockoutDurationMinutes: env.getNumber('SECURITY_ACCOUNT_LOCKOUT_DURATION'),
+    passwordExpiryDays: env.getNumber('SECURITY_PASSWORD_EXPIRY_DAYS'),
+    requireEmailVerification: env.getBoolean('SECURITY_REQUIRE_EMAIL_VERIFICATION'),
+    mfaEnabled: env.getBoolean('SECURITY_MFA_ENABLED'),
+    sessionConcurrencyLimit: env.getNumber('SECURITY_SESSION_CONCURRENCY_LIMIT'),
   },
   password: {
     saltRounds: env.getNumber('PASSWORD_SALT_ROUNDS'),
@@ -144,6 +178,24 @@ const rawConfig = {
     secret: env.get('CSRF_SECRET'),
     cookieName: env.get('CSRF_COOKIE_NAME'),
     headerName: env.get('CSRF_HEADER_NAME'),
+  },
+  risk: {
+    enabled: env.getBoolean('RISK_ENABLED'),
+    thresholds: {
+      low: env.getNumber('RISK_THRESHOLD_LOW'),
+      medium: env.getNumber('RISK_THRESHOLD_MEDIUM'),
+      high: env.getNumber('RISK_THRESHOLD_HIGH'),
+    },
+    actions: {
+      low: env.get('RISK_ACTION_LOW') as 'allow' | 'challenge' | 'block',
+      medium: env.get('RISK_ACTION_MEDIUM') as 'allow' | 'challenge' | 'block',
+      high: env.get('RISK_ACTION_HIGH') as 'allow' | 'challenge' | 'block',
+      critical: env.get('RISK_ACTION_CRITICAL') as 'allow' | 'challenge' | 'block',
+    },
+    ipReputationEnabled: env.getBoolean('RISK_IP_REPUTATION_ENABLED'),
+    behavioralAnalysisEnabled: env.getBoolean('RISK_BEHAVIORAL_ANALYSIS_ENABLED'),
+    locationAnalysisEnabled: env.getBoolean('RISK_LOCATION_ANALYSIS_ENABLED'),
+    timeAnalysisEnabled: env.getBoolean('RISK_TIME_ANALYSIS_ENABLED'),
   },
 };
 

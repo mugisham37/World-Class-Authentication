@@ -18,6 +18,11 @@ export enum EventType {
   AUTH_LOGIN_FAILURE = 'auth.login.failure',
   AUTH_LOGOUT = 'auth.logout',
 
+  // Email verification events
+  EMAIL_VERIFICATION_REQUESTED = 'email.verification.requested',
+  EMAIL_VERIFIED = 'email.verified',
+  EMAIL_VERIFICATION_RESENT = 'email.verification.resent',
+
   // MFA events
   MFA_FACTOR_REGISTERED = 'mfa.factor.registered',
   MFA_FACTOR_REMOVED = 'mfa.factor.removed',
@@ -40,6 +45,11 @@ export enum EventType {
   RECOVERY_INITIATED = 'recovery.initiated',
   RECOVERY_COMPLETED = 'recovery.completed',
   RECOVERY_FAILED = 'recovery.failed',
+
+  // Password reset events
+  PASSWORD_RESET_REQUESTED = 'password.reset.requested',
+  PASSWORD_RESET_COMPLETED = 'password.reset.completed',
+  PASSWORD_CHANGED = 'password.changed',
 
   // Audit events
   AUDIT_SECURITY_EVENT = 'audit.security.event',

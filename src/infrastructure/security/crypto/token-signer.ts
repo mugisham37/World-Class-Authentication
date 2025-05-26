@@ -955,3 +955,96 @@ export class TokenSigner {
 
 // Create and export a singleton instance
 export const tokenSigner = new TokenSigner();
+
+import { AccessTokenPayload, RefreshTokenPayload } from './token-types';
+import { AuthenticationError } from '../../../utils/error-handling';
+
+// Export token generation functions
+export const generateAccessToken = (
+  payload: AccessTokenPayload,
+  options: {
+    expiresIn?: number | string;
+    roles?: string[];
+    permissions?: string[];
+    metadata?: Record<string, any>;
+  } = {}
+): string => {
+  return tokenSigner.generateAccessToken(payload.sub, {
+    ...options,
+    sessionId: payload.sessionId,
+    metadata: {
+      ...options.metadata,
+      email: payload.email,
+    },
+  });
+};
+
+export const generateRefreshToken = (
+  payload: RefreshTokenPayload,
+  options: {
+    expiresIn?: number | string;
+    deviceInfo?: Record<string, any>;
+  } = {}
+): string => {
+  return tokenSigner.generateRefreshToken(payload.sub, {
+    ...options,
+    sessionId: payload.sessionId,
+  });
+};
+
+/**
+ * Verify an access token
+ * @param token Access token to verify
+ * @returns Token payload if valid
+ * @throws AuthenticationError if token is invalid
+ */
+export function verifyAccessToken(token: string): AccessTokenPayload {
+  try {
+    const payload = tokenSigner.verify(token, {
+      algorithms: ['HS256'],
+      issuer: securityConfig.jwt.issuer,
+    });
+
+    // Validate payload structure
+    if (!payload['sub'] || !payload['email'] || !payload['sessionId']) {
+      throw new AuthenticationError('Invalid access token payload', 'INVALID_ACCESS_TOKEN');
+    }
+
+    return {
+      sub: payload['sub'],
+      email: payload['email'],
+      sessionId: payload['sessionId'],
+    };
+  } catch (error) {
+    logger.error('Access token verification failed', { error });
+    throw new AuthenticationError('Invalid access token', 'INVALID_ACCESS_TOKEN');
+  }
+}
+
+/**
+ * Verify a refresh token
+ * @param token Refresh token to verify
+ * @returns Token payload if valid
+ * @throws AuthenticationError if token is invalid
+ */
+export function verifyRefreshToken(token: string): RefreshTokenPayload {
+  try {
+    const payload = tokenSigner.verify(token, {
+      algorithms: ['HS256'],
+      issuer: securityConfig.jwt.issuer,
+    });
+
+    // Validate payload structure
+    if (!payload['sub'] || !payload['sessionId']) {
+      throw new AuthenticationError('Invalid refresh token payload', 'INVALID_REFRESH_TOKEN');
+    }
+
+    return {
+      sub: payload['sub'],
+      sessionId: payload['sessionId'],
+    };
+  } catch (error) {
+    logger.error('Refresh token verification failed', { error });
+    throw new AuthenticationError('Invalid refresh token', 'INVALID_REFRESH_TOKEN');
+  }
+}

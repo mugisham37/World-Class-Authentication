@@ -141,6 +141,22 @@ export class ConflictError extends AppError {
 }
 
 /**
+ * Bad request error
+ * Thrown when a request is invalid
+ */
+export class BadRequestError extends AppError {
+  /**
+   * Constructor
+   * @param message Error message
+   * @param code Error code
+   * @param originalError Original error
+   */
+  constructor(message: string, code: string = 'BAD_REQUEST', originalError?: Error) {
+    super(message, code, originalError);
+  }
+}
+
+/**
  * Rate limit error
  * Thrown when a rate limit is exceeded
  */

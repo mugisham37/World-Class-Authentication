@@ -1,15 +1,13 @@
-import { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
-import {
+import type {
   Credential,
   CredentialType,
-  CreateCredentialData,
-  UpdateCredentialData,
+  CredentialFilterOptions,
 } from '../models/credential.model';
-import { BaseRepository } from './base.repository';
+import type { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
-import { prisma } from '../prisma/client';
 
 /**
  * Credential repository interface
@@ -17,81 +15,54 @@ import { prisma } from '../prisma/client';
  */
 export interface CredentialRepository extends BaseRepository<Credential, string> {
   /**
-   * Find a credential by user ID and type
-   * @param userId User ID
-   * @param type Credential type
-   * @returns Credential or null if not found
+   * Find credentials by user ID and type
+   * @param userId The user ID
+   * @param type The credential type
+   * @returns Array of credentials
    */
-  findByUserIdAndType(userId: string, type: CredentialType): Promise<Credential | null>;
+  findByUserIdAndType(userId: string, type: CredentialType): Promise<Credential[]>;
 
   /**
-   * Find a credential by identifier
-   * @param identifier Credential identifier
-   * @returns Credential or null if not found
+   * Find a credential by user ID, type, and identifier
+   * @param userId The user ID
+   * @param type The credential type
+   * @param identifier The credential identifier
+   * @returns The credential or null if not found
    */
-  findByIdentifier(identifier: string): Promise<Credential | null>;
+  findByUserIdTypeAndIdentifier(
+    userId: string,
+    type: CredentialType,
+    identifier: string
+  ): Promise<Credential | null>;
 
   /**
-   * Find credentials by user ID
-   * @param userId User ID
-   * @returns List of credentials
+   * Find all credentials for a user
+   * @param userId The user ID
+   * @returns Array of credentials
    */
   findByUserId(userId: string): Promise<Credential[]>;
 
   /**
-   * Update a credential by user ID and type
-   * @param userId User ID
-   * @param type Credential type
-   * @param data Credential data to update
-   * @returns Updated credential
+   * Update credential last used time
+   * @param id The credential ID
+   * @returns The updated credential
    */
-  updateByUserIdAndType(
-    userId: string,
-    type: CredentialType,
-    data: UpdateCredentialData
-  ): Promise<Credential>;
-
-  /**
-   * Delete a credential by user ID and type
-   * @param userId User ID
-   * @param type Credential type
-   * @returns True if the credential was deleted, false otherwise
-   */
-  deleteByUserIdAndType(userId: string, type: CredentialType): Promise<boolean>;
+  updateLastUsed(id: string): Promise<Credential>;
 
   /**
    * Delete all credentials for a user
-   * @param userId User ID
+   * @param userId The user ID
    * @returns Number of deleted credentials
    */
   deleteByUserId(userId: string): Promise<number>;
 
   /**
-   * Update last used time for a credential
-   * @param id Credential ID
-   * @returns Updated credential
+   * Delete credentials by user ID and type
+   * @param userId The user ID
+   * @param type The credential type
+   * @returns Number of deleted credentials
    */
-  updateLastUsed(id: string): Promise<Credential>;
-
-  /**
-   * Check if a credential exists by identifier
-   * @param identifier Credential identifier
-   * @returns True if the credential exists, false otherwise
-   */
-  existsByIdentifier(identifier: string): Promise<boolean>;
-
-  /**
-   * Upsert a credential (create if it doesn't exist, update if it does)
-   * @param userId User ID
-   * @param type Credential type
-   * @param data Credential data
-   * @returns Created or updated credential
-   */
-  upsertByUserIdAndType(
-    userId: string,
-    type: CredentialType,
-    data: CreateCredentialData
-  ): Promise<Credential>;
+  deleteByUserIdAndType(userId: string, type: CredentialType): Promise<number>;
 }
 
 /**
@@ -107,26 +78,28 @@ export class PrismaCredentialRepository
   protected readonly modelName = 'credential';
 
   /**
-   * Find a credential by user ID and type
-   * @param userId User ID
-   * @param type Credential type
-   * @returns Credential or null if not found
+   * Find credentials by user ID and type
+   * @param userId The user ID
+   * @param type The credential type
+   * @returns Array of credentials
    */
-  async findByUserIdAndType(userId: string, type: CredentialType): Promise<Credential | null> {
+  async findByUserIdAndType(userId: string, type: CredentialType): Promise<Credential[]> {
     try {
-      const credential = await this.prisma.credential.findUnique({
+      const credentials = await this.prisma.credential.findMany({
         where: {
-          userId_type: {
-            userId,
-            type,
-          },
+          userId,
+          type,
+        },
+        orderBy: {
+          createdAt: 'desc',
         },
       });
-      return credential;
+
+      return credentials;
     } catch (error) {
-      logger.error('Error finding credential by user ID and type', { userId, type, error });
+      logger.error('Error finding credentials by user ID and type', { userId, type, error });
       throw new DatabaseError(
-        'Error finding credential by user ID and type',
+        'Error finding credentials by user ID and type',
         'CREDENTIAL_FIND_BY_USER_ID_AND_TYPE_ERROR',
         error instanceof Error ? error : undefined
       );
@@ -134,37 +107,58 @@ export class PrismaCredentialRepository
   }
 
   /**
-   * Find a credential by identifier
-   * @param identifier Credential identifier
-   * @returns Credential or null if not found
+   * Find a credential by user ID, type, and identifier
+   * @param userId The user ID
+   * @param type The credential type
+   * @param identifier The credential identifier
+   * @returns The credential or null if not found
    */
-  async findByIdentifier(identifier: string): Promise<Credential | null> {
+  async findByUserIdTypeAndIdentifier(
+    userId: string,
+    type: CredentialType,
+    identifier: string
+  ): Promise<Credential | null> {
     try {
       const credential = await this.prisma.credential.findFirst({
-        where: { identifier },
+        where: {
+          userId,
+          type,
+          identifier,
+        },
       });
+
       return credential;
     } catch (error) {
-      logger.error('Error finding credential by identifier', { identifier, error });
+      logger.error('Error finding credential by user ID, type, and identifier', {
+        userId,
+        type,
+        identifier,
+        error,
+      });
       throw new DatabaseError(
-        'Error finding credential by identifier',
-        'CREDENTIAL_FIND_BY_IDENTIFIER_ERROR',
+        'Error finding credential by user ID, type, and identifier',
+        'CREDENTIAL_FIND_BY_USER_ID_TYPE_AND_IDENTIFIER_ERROR',
         error instanceof Error ? error : undefined
       );
     }
   }
 
   /**
-   * Find credentials by user ID
-   * @param userId User ID
-   * @returns List of credentials
+   * Find all credentials for a user
+   * @param userId The user ID
+   * @returns Array of credentials
    */
   async findByUserId(userId: string): Promise<Credential[]> {
     try {
       const credentials = await this.prisma.credential.findMany({
-        where: { userId },
-        orderBy: { createdAt: 'desc' },
+        where: {
+          userId,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
       });
+
       return credentials;
     } catch (error) {
       logger.error('Error finding credentials by user ID', { userId, error });
@@ -177,96 +171,9 @@ export class PrismaCredentialRepository
   }
 
   /**
-   * Update a credential by user ID and type
-   * @param userId User ID
-   * @param type Credential type
-   * @param data Credential data to update
-   * @returns Updated credential
-   */
-  async updateByUserIdAndType(
-    userId: string,
-    type: CredentialType,
-    data: UpdateCredentialData
-  ): Promise<Credential> {
-    try {
-      const credential = await this.prisma.credential.update({
-        where: {
-          userId_type: {
-            userId,
-            type,
-          },
-        },
-        data,
-      });
-      return credential;
-    } catch (error) {
-      logger.error('Error updating credential by user ID and type', { userId, type, error });
-      throw new DatabaseError(
-        'Error updating credential by user ID and type',
-        'CREDENTIAL_UPDATE_BY_USER_ID_AND_TYPE_ERROR',
-        error instanceof Error ? error : undefined
-      );
-    }
-  }
-
-  /**
-   * Delete a credential by user ID and type
-   * @param userId User ID
-   * @param type Credential type
-   * @returns True if the credential was deleted, false otherwise
-   */
-  async deleteByUserIdAndType(userId: string, type: CredentialType): Promise<boolean> {
-    try {
-      await this.prisma.credential.delete({
-        where: {
-          userId_type: {
-            userId,
-            type,
-          },
-        },
-      });
-      return true;
-    } catch (error) {
-      logger.error('Error deleting credential by user ID and type', { userId, type, error });
-
-      // Check if the error is a record not found error
-      if (error instanceof Error && error.message.includes('Record to delete does not exist')) {
-        return false;
-      }
-
-      throw new DatabaseError(
-        'Error deleting credential by user ID and type',
-        'CREDENTIAL_DELETE_BY_USER_ID_AND_TYPE_ERROR',
-        error instanceof Error ? error : undefined
-      );
-    }
-  }
-
-  /**
-   * Delete all credentials for a user
-   * @param userId User ID
-   * @returns Number of deleted credentials
-   */
-  async deleteByUserId(userId: string): Promise<number> {
-    try {
-      const result = await this.prisma.credential.deleteMany({
-        where: { userId },
-      });
-      return result.count;
-    } catch (error) {
-      logger.error('Error deleting credentials by user ID', { userId, error });
-      throw new DatabaseError(
-        'Error deleting credentials by user ID',
-        'CREDENTIAL_DELETE_BY_USER_ID_ERROR',
-        error instanceof Error ? error : undefined
-      );
-    }
-  }
-
-  /**
-   * Update last used time for a credential
-   * @param id Credential ID
-   * @returns Updated credential
+   * Update credential last used time
+   * @param id The credential ID
+   * @returns The updated credential
    */
   async updateLastUsed(id: string): Promise<Credential> {
     try {
@@ -276,6 +183,7 @@ export class PrismaCredentialRepository
           lastUsedAt: new Date(),
         },
       });
+
       return credential;
     } catch (error) {
       logger.error('Error updating credential last used time', { id, error });
@@ -288,62 +196,105 @@ export class PrismaCredentialRepository
   }
 
   /**
-   * Check if a credential exists by identifier
-   * @param identifier Credential identifier
-   * @returns True if the credential exists, false otherwise
+   * Delete all credentials for a user
+   * @param userId The user ID
+   * @returns Number of deleted credentials
    */
-  async existsByIdentifier(identifier: string): Promise<boolean> {
+  async deleteByUserId(userId: string): Promise<number> {
     try {
-      const count = await this.prisma.credential.count({
-        where: { identifier },
+      const result = await this.prisma.credential.deleteMany({
+        where: {
+          userId,
+        },
       });
-      return count > 0;
+
+      return result.count;
     } catch (error) {
-      logger.error('Error checking if credential exists by identifier', { identifier, error });
+      logger.error('Error deleting credentials by user ID', { userId, error });
       throw new DatabaseError(
-        'Error checking if credential exists by identifier',
-        'CREDENTIAL_EXISTS_BY_IDENTIFIER_ERROR',
+        'Error deleting credentials by user ID',
+        'CREDENTIAL_DELETE_BY_USER_ID_ERROR',
         error instanceof Error ? error : undefined
       );
     }
   }
 
   /**
-   * Upsert a credential (create if it doesn't exist, update if it does)
-   * @param userId User ID
-   * @param type Credential type
-   * @param data Credential data
-   * @returns Created or updated credential
+   * Delete credentials by user ID and type
+   * @param userId The user ID
+   * @param type The credential type
+   * @returns Number of deleted credentials
    */
-  async upsertByUserIdAndType(
-    userId: string,
-    type: CredentialType,
-    data: CreateCredentialData
-  ): Promise<Credential> {
+  async deleteByUserIdAndType(userId: string, type: CredentialType): Promise<number> {
     try {
-      const credential = await this.prisma.credential.upsert({
+      const result = await this.prisma.credential.deleteMany({
         where: {
-          userId_type: {
-            userId,
-            type,
-          },
-        },
-        update: data,
-        create: {
-          ...data,
           userId,
           type,
         },
       });
-      return credential;
+
+      return result.count;
     } catch (error) {
-      logger.error('Error upserting credential by user ID and type', { userId, type, error });
+      logger.error('Error deleting credentials by user ID and type', { userId, type, error });
       throw new DatabaseError(
-        'Error upserting credential by user ID and type',
-        'CREDENTIAL_UPSERT_BY_USER_ID_AND_TYPE_ERROR',
+        'Error deleting credentials by user ID and type',
+        'CREDENTIAL_DELETE_BY_USER_ID_AND_TYPE_ERROR',
         error instanceof Error ? error : undefined
       );
     }
+  }
+
+  /**
+   * Build a where clause from filter options
+   * @param filter The filter options
+   * @returns The Prisma where clause
+   */
+  private buildWhereClause(filter?: CredentialFilterOptions): any {
+    if (!filter) {
+      return {};
+    }
+
+    const where: any = {};
+
+    if (filter.userId) {
+      where.userId = filter.userId;
+    }
+
+    if (filter.type) {
+      where.type = filter.type;
+    }
+
+    if (filter.identifier) {
+      where.identifier = filter.identifier;
+    }
+
+    // Date range filters
+    if (filter.createdAtBefore || filter.createdAtAfter) {
+      where.createdAt = {};
+
+      if (filter.createdAtBefore) {
+        where.createdAt.lte = filter.createdAtBefore;
+      }
+
+      if (filter.createdAtAfter) {
+        where.createdAt.gte = filter.createdAtAfter;
+      }
+    }
+
+    if (filter.lastUsedAtBefore || filter.lastUsedAtAfter) {
+      where.lastUsedAt = {};
+
+      if (filter.lastUsedAtBefore) {
+        where.lastUsedAt.lte = filter.lastUsedAtBefore;
+      }
+
+      if (filter.lastUsedAtAfter) {
+        where.lastUsedAt.gte = filter.lastUsedAtAfter;
+      }
+    }
+
+    return where;
   }
 
   /**

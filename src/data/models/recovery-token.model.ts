@@ -3,10 +3,10 @@
  * Represents the type of recovery token in the system
  */
 export enum RecoveryTokenType {
-  PASSWORD_RESET = 'PASSWORD_RESET',
-  EMAIL_VERIFICATION = 'EMAIL_VERIFICATION',
-  ACCOUNT_RECOVERY = 'ACCOUNT_RECOVERY',
-  MFA_RECOVERY = 'MFA_RECOVERY',
+  PASSWORD_RESET = 'password-reset',
+  EMAIL_VERIFICATION = 'email-verification',
+  ACCOUNT_RECOVERY = 'account-recovery',
+  MFA_RECOVERY = 'mfa-recovery',
 }
 
 /**
@@ -17,7 +17,7 @@ export interface RecoveryToken {
   id: string;
   token: string;
   type: RecoveryTokenType;
-  userId?: string | null;
+  userId: string; // Changed from optional to required
   email?: string | null;
   expiresAt: Date;
   usedAt?: Date | null;
@@ -32,7 +32,7 @@ export interface RecoveryToken {
 export interface CreateRecoveryTokenData {
   token: string;
   type: RecoveryTokenType;
-  userId?: string;
+  userId: string; // Changed from optional to required
   email?: string;
   expiresAt: Date;
   metadata?: Record<string, any>;

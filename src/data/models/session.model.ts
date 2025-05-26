@@ -7,17 +7,18 @@ export interface Session {
   userId: string;
   token: string;
   refreshToken?: string | null;
-  ipAddress?: string | null;
-  userAgent?: string | null;
-  deviceId?: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  deviceId: string | null;
   deviceType?: string | null;
-  location?: string | null;
+  location: string | null;
   createdAt: Date;
   updatedAt: Date;
   expiresAt: Date;
   lastActiveAt: Date;
+  isRevoked: boolean;
   revokedAt?: Date | null;
-  revocationReason?: string | null;
+  revocationReason: string | null;
 }
 
 /**
@@ -28,13 +29,19 @@ export interface CreateSessionData {
   userId: string;
   token: string;
   refreshToken?: string;
-  ipAddress?: string;
-  userAgent?: string;
-  deviceId?: string;
-  deviceType?: string;
-  location?: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+  deviceId?: string | null;
+  deviceType?: string | null;
+  location?: string | null;
   expiresAt: Date;
   lastActiveAt?: Date;
+  isRevoked?: boolean;
+  user?: {
+    connect: {
+      id: string;
+    };
+  };
 }
 
 /**

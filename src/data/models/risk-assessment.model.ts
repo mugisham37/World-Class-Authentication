@@ -23,6 +23,8 @@ export interface RiskAssessment {
   location?: string | null;
   riskLevel: RiskLevel;
   riskFactors: Record<string, any>;
+  riskScore?: number;
+  action?: string;
   createdAt: Date;
   updatedAt: Date;
   resolvedAt?: Date | null;
@@ -42,6 +44,8 @@ export interface CreateRiskAssessmentData {
   location?: string;
   riskLevel: RiskLevel;
   riskFactors: Record<string, any>;
+  riskScore?: number;
+  action?: string;
 }
 
 /**
@@ -51,6 +55,8 @@ export interface CreateRiskAssessmentData {
 export interface UpdateRiskAssessmentData {
   riskLevel?: RiskLevel;
   riskFactors?: Record<string, any>;
+  riskScore?: number;
+  action?: string;
   resolvedAt?: Date;
   resolution?: string;
 }
@@ -73,4 +79,6 @@ export interface RiskAssessmentFilterOptions {
   updatedAtAfter?: Date;
   resolvedAtBefore?: Date;
   resolvedAtAfter?: Date;
+  limit?: number;
+  offset?: number;
 }

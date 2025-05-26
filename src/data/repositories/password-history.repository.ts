@@ -1,14 +1,9 @@
-import { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
-import {
-  PasswordHistory,
-  CreatePasswordHistoryData,
-  PasswordHistoryFilterOptions,
-} from '../models/password-history.model';
-import { BaseRepository } from './base.repository';
+import type { PasswordHistory } from '../models/password-history.model';
+import type { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
-import { prisma } from '../prisma/client';
 
 /**
  * Password history repository interface
@@ -30,6 +25,13 @@ export interface PasswordHistoryRepository extends BaseRepository<PasswordHistor
    * @returns List of password history entries
    */
   findByCredentialId(credentialId: string, limit?: number): Promise<PasswordHistory[]>;
+
+  /**
+   * Count password history entries by user ID
+   * @param userId User ID
+   * @returns Number of password history entries
+   */
+  countByUserId(userId: string): Promise<number>;
 
   /**
    * Check if a password hash exists in the user's history
@@ -69,17 +71,8 @@ export class PrismaPasswordHistoryRepository
   extends PrismaBaseRepository<PasswordHistory, string>
   implements PasswordHistoryRepository
 {
-  /**
-   * The Prisma model name
-   */
   protected readonly modelName = 'passwordHistory';
 
-  /**
-   * Find password history entries by user ID
-   * @param userId User ID
-   * @param limit Maximum number of entries to return
-   * @returns List of password history entries
-   */
   async findByUserId(userId: string, limit?: number): Promise<PasswordHistory[]> {
     try {
       const entries = await this.prisma.passwordHistory.findMany({
@@ -98,12 +91,6 @@ export class PrismaPasswordHistoryRepository
     }
   }
 
-  /**
-   * Find password history entries by credential ID
-   * @param credentialId Credential ID
-   * @param limit Maximum number of entries to return
-   * @returns List of password history entries
-   */
   async findByCredentialId(credentialId: string, limit?: number): Promise<PasswordHistory[]> {
     try {
       const entries = await this.prisma.passwordHistory.findMany({
@@ -125,12 +112,22 @@ export class PrismaPasswordHistoryRepository
     }
   }
 
-  /**
-   * Check if a password hash exists in the user's history
-   * @param userId User ID
-   * @param passwordHash Password hash to check
-   * @returns True if the password hash exists in the user's history, false otherwise
-   */
+  async countByUserId(userId: string): Promise<number> {
+    try {
+      const count = await this.prisma.passwordHistory.count({
+        where: { userId },
+      });
+      return count;
+    } catch (error) {
+      logger.error('Error counting password history entries by user ID', { userId, error });
+      throw new DatabaseError(
+        'Error counting password history entries by user ID',
+        'PASSWORD_HISTORY_COUNT_BY_USER_ID_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
   async existsByUserIdAndPasswordHash(userId: string, passwordHash: string): Promise<boolean> {
     try {
       const count = await this.prisma.passwordHistory.count({
@@ -153,11 +150,6 @@ export class PrismaPasswordHistoryRepository
     }
   }
 
-  /**
-   * Delete password history entries by user ID
-   * @param userId User ID
-   * @returns Number of deleted entries
-   */
   async deleteByUserId(userId: string): Promise<number> {
     try {
       const result = await this.prisma.passwordHistory.deleteMany({
@@ -174,11 +166,6 @@ export class PrismaPasswordHistoryRepository
     }
   }
 
-  /**
-   * Delete password history entries by credential ID
-   * @param credentialId Credential ID
-   * @returns Number of deleted entries
-   */
   async deleteByCredentialId(credentialId: string): Promise<number> {
     try {
       const result = await this.prisma.passwordHistory.deleteMany({
@@ -198,15 +185,8 @@ export class PrismaPasswordHistoryRepository
     }
   }
 
-  /**
-   * Delete old password history entries for a user
-   * @param userId User ID
-   * @param maxEntries Maximum number of entries to keep
-   * @returns Number of deleted entries
-   */
   async deleteOldEntries(userId: string, maxEntries: number): Promise<number> {
     try {
-      // Get the IDs of the entries to keep (the most recent ones)
       const recentEntries = await this.prisma.passwordHistory.findMany({
         where: { userId },
         orderBy: { createdAt: 'desc' },
@@ -216,7 +196,6 @@ export class PrismaPasswordHistoryRepository
 
       const recentEntryIds = recentEntries.map((entry: { id: string }) => entry.id);
 
-      // Delete all entries for the user except the recent ones
       const result = await this.prisma.passwordHistory.deleteMany({
         where: {
           userId,
@@ -237,55 +216,9 @@ export class PrismaPasswordHistoryRepository
     }
   }
 
-  /**
-   * Build a where clause from filter options
-   * @param filter The filter options
-   * @returns The Prisma where clause
-   */
-  private buildWhereClause(filter?: PasswordHistoryFilterOptions): any {
-    if (!filter) {
-      return {};
-    }
-
-    const where: any = {};
-
-    if (filter.id) {
-      where.id = filter.id;
-    }
-
-    if (filter.userId) {
-      where.userId = filter.userId;
-    }
-
-    if (filter.credentialId) {
-      where.credentialId = filter.credentialId;
-    }
-
-    // Date range filters
-    if (filter.createdAtBefore || filter.createdAtAfter) {
-      where.createdAt = {};
-
-      if (filter.createdAtBefore) {
-        where.createdAt.lte = filter.createdAtBefore;
-      }
-
-      if (filter.createdAtAfter) {
-        where.createdAt.gte = filter.createdAtAfter;
-      }
-    }
-
-    return where;
-  }
-
-  /**
-   * Create a new repository instance with a transaction client
-   * @param tx The transaction client
-   * @returns A new repository instance with the transaction client
-   */
   protected withTransaction(tx: PrismaClient): BaseRepository<PasswordHistory, string> {
     return new PrismaPasswordHistoryRepository(tx);
   }
 }
 
-// Export a singleton instance
 export const passwordHistoryRepository = new PrismaPasswordHistoryRepository();

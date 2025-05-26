@@ -9,6 +9,19 @@ import {
 import { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
 
+// Type mapping helper for converting between Prisma and model types
+const mapPrismaRecoveryTokenToModel = (prismaToken: any): RecoveryToken => {
+  return {
+    ...prismaToken,
+    type: prismaToken.type as unknown as RecoveryTokenType,
+  };
+};
+
+// Type mapping helper for converting model type to Prisma type
+const mapRecoveryTokenTypeToPrisma = (type: RecoveryTokenType): any => {
+  return type as any;
+};
+
 /**
  * Recovery token repository interface
  * Defines recovery token-specific operations
@@ -125,7 +138,7 @@ export class PrismaRecoveryTokenRepository
       const recoveryToken = await this.prisma.recoveryToken.findUnique({
         where: { token },
       });
-      return recoveryToken;
+      return recoveryToken ? mapPrismaRecoveryTokenToModel(recoveryToken) : null;
     } catch (error) {
       logger.error('Error finding recovery token by token string', { token, error });
       throw new DatabaseError(
@@ -152,7 +165,7 @@ export class PrismaRecoveryTokenRepository
         where,
         orderBy: { createdAt: 'desc' },
       });
-      return tokens;
+      return tokens.map(token => mapPrismaRecoveryTokenToModel(token));
     } catch (error) {
       logger.error('Error finding recovery tokens by user ID', { userId, options, error });
       throw new DatabaseError(
@@ -176,7 +189,7 @@ export class PrismaRecoveryTokenRepository
         where,
         orderBy: { createdAt: 'desc' },
       });
-      return tokens;
+      return tokens.map(token => mapPrismaRecoveryTokenToModel(token));
     } catch (error) {
       logger.error('Error finding recovery tokens by email', { email, options, error });
       throw new DatabaseError(
@@ -202,13 +215,13 @@ export class PrismaRecoveryTokenRepository
       const tokens = await this.prisma.recoveryToken.findMany({
         where: {
           userId,
-          type,
+          type: mapRecoveryTokenTypeToPrisma(type),
           expiresAt: { gt: now },
           usedAt: null,
         },
         orderBy: { createdAt: 'desc' },
       });
-      return tokens;
+      return tokens.map(token => mapPrismaRecoveryTokenToModel(token));
     } catch (error) {
       logger.error('Error finding active recovery tokens by user ID and type', {
         userId,
@@ -235,13 +248,13 @@ export class PrismaRecoveryTokenRepository
       const tokens = await this.prisma.recoveryToken.findMany({
         where: {
           email,
-          type,
+          type: mapRecoveryTokenTypeToPrisma(type),
           expiresAt: { gt: now },
           usedAt: null,
         },
         orderBy: { createdAt: 'desc' },
       });
-      return tokens;
+      return tokens.map(token => mapPrismaRecoveryTokenToModel(token));
     } catch (error) {
       logger.error('Error finding active recovery tokens by email and type', {
         email,
@@ -269,7 +282,7 @@ export class PrismaRecoveryTokenRepository
           usedAt: new Date(),
         },
       });
-      return token;
+      return mapPrismaRecoveryTokenToModel(token);
     } catch (error) {
       logger.error('Error marking recovery token as used', { id, error });
       throw new DatabaseError(
@@ -293,7 +306,7 @@ export class PrismaRecoveryTokenRepository
           usedAt: new Date(),
         },
       });
-      return updatedToken;
+      return mapPrismaRecoveryTokenToModel(updatedToken);
     } catch (error) {
       logger.error('Error marking recovery token as used by token string', { token, error });
       throw new DatabaseError(
@@ -319,7 +332,7 @@ export class PrismaRecoveryTokenRepository
           usedAt: null,
         },
       });
-      return recoveryToken;
+      return recoveryToken ? mapPrismaRecoveryTokenToModel(recoveryToken) : null;
     } catch (error) {
       logger.error('Error verifying recovery token', { token, error });
       throw new DatabaseError(
@@ -423,6 +436,37 @@ export class PrismaRecoveryTokenRepository
   }
 
   /**
+   * Invalidate all active recovery tokens for a user of a specific type
+   * @param userId User ID
+   * @param type Recovery token type
+   * @returns Promise<void>
+   */
+  async invalidateAllForUser(userId: string, type: RecoveryTokenType): Promise<void> {
+    try {
+      await this.prisma.recoveryToken.updateMany({
+        where: {
+          userId,
+          type: mapRecoveryTokenTypeToPrisma(type),
+          usedAt: null,
+          expiresAt: {
+            gt: new Date(),
+          },
+        },
+        data: {
+          usedAt: new Date(),
+        },
+      });
+    } catch (error) {
+      logger.error('Error invalidating recovery tokens', { userId, type, error });
+      throw new DatabaseError(
+        'Error invalidating recovery tokens',
+        'RECOVERY_TOKEN_INVALIDATE_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
    * Build a where clause from filter options
    * @param filter The filter options
    * @returns The Prisma where clause
@@ -443,7 +487,7 @@ export class PrismaRecoveryTokenRepository
     }
 
     if (filter.type) {
-      where.type = filter.type;
+      where.type = mapRecoveryTokenTypeToPrisma(filter.type);
     }
 
     if (filter.userId) {

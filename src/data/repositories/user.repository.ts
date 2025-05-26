@@ -1,6 +1,11 @@
-import { PrismaClient } from '@prisma/client';
+import {
+  PrismaClient,
+  UserStatus as PrismaUserStatus,
+  UserRole as PrismaUserRole,
+} from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
+import { UserMapper } from '../mappers/user.mapper';
 import {
   CreateUserData,
   UpdateUserData,
@@ -89,7 +94,7 @@ export class PrismaUserRepository
       const user = await this.prisma.user.findUnique({
         where: { email },
       });
-      return user;
+      return user ? UserMapper.toDomain(user) : null;
     } catch (error) {
       logger.error('Error finding user by email', { email, error });
       throw new DatabaseError(
@@ -110,12 +115,35 @@ export class PrismaUserRepository
       const user = await this.prisma.user.findUnique({
         where: { username },
       });
-      return user;
+      return user ? UserMapper.toDomain(user) : null;
     } catch (error) {
       logger.error('Error finding user by username', { username, error });
       throw new DatabaseError(
         'Error finding user by username',
         'USER_FIND_BY_USERNAME_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Find a user by ID
+   * @param id The user ID
+   * @returns The user or null if not found
+   */
+  override async findById(id: string): Promise<User | null> {
+    try {
+      // Validate the user ID parameter
+      if (!id) {
+        throw new Error('User ID is required');
+      }
+
+      return super.findById(id);
+    } catch (error) {
+      logger.error('Error finding user by ID', { id, error });
+      throw new DatabaseError(
+        'Error finding user by ID',
+        'USER_FIND_BY_ID_ERROR',
         error instanceof Error ? error : undefined
       );
     }
@@ -132,7 +160,7 @@ export class PrismaUserRepository
         where: { id },
         include: { profile: true },
       });
-      return user as UserWithProfile | null;
+      return user ? UserMapper.toDomainWithProfile(user) : null;
     } catch (error) {
       logger.error('Error finding user with profile', { id, error });
       throw new DatabaseError(
@@ -155,7 +183,7 @@ export class PrismaUserRepository
         where,
         include: { profile: true },
       });
-      return users as UserWithProfile[];
+      return users.map(user => UserMapper.toDomainWithProfile(user));
     } catch (error) {
       logger.error('Error finding users with profiles', { filter, error });
       throw new DatabaseError(
@@ -173,21 +201,12 @@ export class PrismaUserRepository
    */
   async createWithProfile(data: CreateUserData): Promise<UserWithProfile> {
     try {
-      const { profile, ...userData } = data;
-
       const user = await this.prisma.user.create({
-        data: {
-          ...userData,
-          profile: profile
-            ? {
-                create: profile,
-              }
-            : undefined,
-        },
+        data: UserMapper.toPrismaCreate(data),
         include: { profile: true },
       });
 
-      return user as UserWithProfile;
+      return UserMapper.toDomainWithProfile(user);
     } catch (error) {
       logger.error('Error creating user with profile', { data, error });
       throw new DatabaseError(
@@ -206,8 +225,6 @@ export class PrismaUserRepository
    */
   async updateWithProfile(id: string, data: UpdateUserData): Promise<UserWithProfile> {
     try {
-      const { profile, ...userData } = data;
-
       // Check if user exists
       const existingUser = await this.prisma.user.findUnique({
         where: { id },
@@ -220,21 +237,11 @@ export class PrismaUserRepository
 
       const user = await this.prisma.user.update({
         where: { id },
-        data: {
-          ...userData,
-          profile: profile
-            ? {
-                upsert: {
-                  create: profile,
-                  update: profile,
-                },
-              }
-            : undefined,
-        },
+        data: UserMapper.toPrismaUpdate(data),
         include: { profile: true },
       });
 
-      return user as UserWithProfile;
+      return UserMapper.toDomainWithProfile(user);
     } catch (error) {
       logger.error('Error updating user with profile', { id, data, error });
       throw new DatabaseError(
@@ -259,12 +266,64 @@ export class PrismaUserRepository
         },
       });
 
-      return user;
+      return UserMapper.toDomain(user);
     } catch (error) {
       logger.error('Error updating user last login', { id, error });
       throw new DatabaseError(
         'Error updating user last login',
         'USER_UPDATE_LAST_LOGIN_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Increment failed login attempts for a user
+   * @param id The user ID
+   * @returns The updated user
+   */
+  async incrementFailedLoginAttempts(id: string): Promise<User> {
+    try {
+      const user = await this.prisma.user.update({
+        where: { id },
+        data: {
+          failedLoginAttempts: {
+            increment: 1,
+          },
+        },
+      });
+
+      return UserMapper.toDomain(user);
+    } catch (error) {
+      logger.error('Error incrementing failed login attempts', { id, error });
+      throw new DatabaseError(
+        'Error incrementing failed login attempts',
+        'USER_INCREMENT_FAILED_LOGIN_ATTEMPTS_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Reset failed login attempts for a user
+   * @param id The user ID
+   * @returns The updated user
+   */
+  async resetFailedLoginAttempts(id: string): Promise<User> {
+    try {
+      const user = await this.prisma.user.update({
+        where: { id },
+        data: {
+          failedLoginAttempts: 0,
+        },
+      });
+
+      return UserMapper.toDomain(user);
+    } catch (error) {
+      logger.error('Error resetting failed login attempts', { id, error });
+      throw new DatabaseError(
+        'Error resetting failed login attempts',
+        'USER_RESET_FAILED_LOGIN_ATTEMPTS_ERROR',
         error instanceof Error ? error : undefined
       );
     }
@@ -295,11 +354,11 @@ export class PrismaUserRepository
     }
 
     if (filter.status) {
-      where.status = filter.status;
+      where.status = filter.status as unknown as PrismaUserStatus;
     }
 
     if (filter.role) {
-      where.role = filter.role;
+      where.role = filter.role as unknown as PrismaUserRole;
     }
 
     if (filter.emailVerified !== undefined) {

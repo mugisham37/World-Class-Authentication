@@ -21,6 +21,9 @@ model User {
   lastLoginAt       DateTime?
   status            UserStatus        @default(PENDING)
   role              UserRole          @default(USER)
+  active            Boolean           @default(true)
+  lockedUntil       DateTime?
+  failedLoginAttempts Int             @default(0)
   profile           UserProfile?
   credentials       Credential[]
   sessions          Session[]

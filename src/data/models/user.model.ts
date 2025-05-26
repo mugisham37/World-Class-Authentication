@@ -34,6 +34,9 @@ export interface User {
   lastLoginAt: Date | null;
   status: UserStatus;
   role: UserRole;
+  active: boolean;
+  lockedUntil: Date | null;
+  failedLoginAttempts: number;
 }
 
 /**
@@ -73,22 +76,22 @@ export interface UserWithProfile extends User {
  */
 export interface CreateUserData {
   email: string;
-  username?: string;
+  username?: string | null;
   emailVerified?: boolean;
   status?: UserStatus;
   role?: UserRole;
   profile?: {
-    firstName?: string;
-    lastName?: string;
-    phone?: string;
-    address?: string;
-    city?: string;
-    state?: string;
-    country?: string;
-    zipCode?: string;
-    birthDate?: Date;
-    bio?: string;
-    avatarUrl?: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    phone?: string | null;
+    address?: string | null;
+    city?: string | null;
+    state?: string | null;
+    country?: string | null;
+    zipCode?: string | null;
+    birthDate?: Date | null;
+    bio?: string | null;
+    avatarUrl?: string | null;
   };
 }
 
@@ -98,23 +101,23 @@ export interface CreateUserData {
  */
 export interface UpdateUserData {
   email?: string;
-  username?: string;
+  username?: string | null;
   emailVerified?: boolean;
   status?: UserStatus;
   role?: UserRole;
   lastLoginAt?: Date | null;
   profile?: {
-    firstName?: string;
-    lastName?: string;
-    phone?: string;
-    address?: string;
-    city?: string;
-    state?: string;
-    country?: string;
-    zipCode?: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    phone?: string | null;
+    address?: string | null;
+    city?: string | null;
+    state?: string | null;
+    country?: string | null;
+    zipCode?: string | null;
     birthDate?: Date | null;
-    bio?: string;
-    avatarUrl?: string;
+    bio?: string | null;
+    avatarUrl?: string | null;
   };
 }
 

@@ -4,10 +4,56 @@ import { logger } from '../../logging/logger';
 import { securityConfig } from '../../../config/security-config';
 
 /**
+ * Generate a secure random token
+ * @param length Length of the token in bytes (will generate 2x this length in hex)
+ * @returns Secure random token string
+ */
+export const generateSecureToken = (length: number): string => {
+  return crypto.randomBytes(length).toString('hex');
+};
+
+/**
+ * Encryption Service Interface
+ * Defines the contract for encryption services
+ */
+export interface EncryptionService {
+  encrypt(
+    data: string | Buffer,
+    options?: {
+      algorithm?: string;
+      key?: string | Buffer;
+      keyId?: string;
+      associatedData?: string | Buffer;
+      encoding?: BufferEncoding;
+    }
+  ): string;
+
+  decrypt(
+    encryptedData: string,
+    options?: {
+      key?: string | Buffer;
+      associatedData?: string | Buffer;
+      encoding?: BufferEncoding;
+      outputEncoding?: BufferEncoding | null;
+    }
+  ): string | Buffer;
+
+  generateKey(length?: number): string;
+  hash(value: string | Buffer): string;
+  hmac(value: string | Buffer, key: string | Buffer): string;
+  hmacSign(data: string | Buffer, key: string | Buffer): string;
+  hmacVerify(data: string | Buffer, signature: string, key: string | Buffer): boolean;
+  encryptForStorage(value: string, context: string): string;
+  decryptFromStorage(encryptedValue: string, context: string): string;
+  encryptForTransmission(value: string, recipientPublicKey: string): string;
+  decryptFromTransmission(encryptedValue: string, privateKey: string): string;
+}
+
+/**
  * Encryption Service
  * Implements secure data encryption and decryption with key management
  */
-class Encryption {
+class Encryption implements EncryptionService {
   // Default encryption algorithm
   private readonly defaultAlgorithm: string;
 
