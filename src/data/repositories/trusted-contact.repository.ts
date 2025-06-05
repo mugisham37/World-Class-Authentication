@@ -2,11 +2,15 @@ import { PrismaClient } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
 import {
+  mapToDomainTrustedContact,
+  mapToPrismaCreateData,
+  mapToPrismaStatus,
+  mapToPrismaUpdateData,
+} from '../mappers/trusted-contact.mapper';
+import {
   TrustedContact,
-  TrustedContactStatus,
-  CreateTrustedContactData,
-  UpdateTrustedContactData,
   TrustedContactFilterOptions,
+  TrustedContactStatus,
 } from '../models/trusted-contact.model';
 import { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
@@ -95,6 +99,24 @@ export class PrismaTrustedContactRepository
   protected readonly modelName = 'trustedContact';
 
   /**
+   * Transform a Prisma trusted contact to a domain trusted contact
+   * @param contact The Prisma trusted contact
+   * @returns The domain trusted contact or null if not found
+   */
+  private transformContact(contact: any): TrustedContact | null {
+    return mapToDomainTrustedContact(contact);
+  }
+
+  /**
+   * Transform an array of Prisma trusted contacts to domain trusted contacts
+   * @param contacts The Prisma trusted contacts
+   * @returns The domain trusted contacts
+   */
+  private transformContacts(contacts: any[]): TrustedContact[] {
+    return contacts.map(contact => this.transformContact(contact)!).filter(Boolean);
+  }
+
+  /**
    * Find trusted contacts by user ID
    * @param userId The user ID
    * @returns Array of trusted contacts
@@ -105,7 +127,7 @@ export class PrismaTrustedContactRepository
         where: { userId },
         orderBy: { createdAt: 'desc' },
       });
-      return contacts;
+      return this.transformContacts(contacts);
     } catch (error) {
       logger.error('Error finding trusted contacts by user ID', { userId, error });
       throw new DatabaseError(
@@ -126,11 +148,11 @@ export class PrismaTrustedContactRepository
       const contacts = await this.prisma.trustedContact.findMany({
         where: {
           userId,
-          status: TrustedContactStatus.ACTIVE,
+          status: mapToPrismaStatus(TrustedContactStatus.ACTIVE),
         },
         orderBy: { createdAt: 'desc' },
       });
-      return contacts;
+      return this.transformContacts(contacts);
     } catch (error) {
       logger.error('Error finding active trusted contacts by user ID', { userId, error });
       throw new DatabaseError(
@@ -151,7 +173,7 @@ export class PrismaTrustedContactRepository
       const contact = await this.prisma.trustedContact.findFirst({
         where: { email },
       });
-      return contact;
+      return this.transformContact(contact);
     } catch (error) {
       logger.error('Error finding trusted contact by email', { email, error });
       throw new DatabaseError(
@@ -176,11 +198,11 @@ export class PrismaTrustedContactRepository
       const contacts = await this.prisma.trustedContact.findMany({
         where: {
           userId,
-          status,
+          status: mapToPrismaStatus(status),
         },
         orderBy: { createdAt: 'desc' },
       });
-      return contacts;
+      return this.transformContacts(contacts);
     } catch (error) {
       logger.error('Error finding trusted contacts by user ID and status', {
         userId,
@@ -205,11 +227,11 @@ export class PrismaTrustedContactRepository
       const contact = await this.prisma.trustedContact.update({
         where: { id },
         data: {
-          status: TrustedContactStatus.ACTIVE,
+          status: mapToPrismaStatus(TrustedContactStatus.ACTIVE),
           verifiedAt: new Date(),
         },
       });
-      return contact;
+      return this.transformContact(contact)!;
     } catch (error) {
       logger.error('Error marking trusted contact as verified', { id, error });
       throw new DatabaseError(
@@ -230,9 +252,9 @@ export class PrismaTrustedContactRepository
     try {
       const contact = await this.prisma.trustedContact.update({
         where: { id },
-        data: { status },
+        data: { status: mapToPrismaStatus(status) },
       });
-      return contact;
+      return this.transformContact(contact)!;
     } catch (error) {
       logger.error('Error changing trusted contact status', { id, status, error });
       throw new DatabaseError(
@@ -295,7 +317,7 @@ export class PrismaTrustedContactRepository
       const count = await this.prisma.trustedContact.count({
         where: {
           userId,
-          status: TrustedContactStatus.ACTIVE,
+          status: mapToPrismaStatus(TrustedContactStatus.ACTIVE),
         },
       });
       return count;
@@ -334,7 +356,7 @@ export class PrismaTrustedContactRepository
     }
 
     if (filter.status) {
-      where.status = filter.status;
+      where.status = mapToPrismaStatus(filter.status);
     }
 
     // Date range filters
@@ -378,10 +400,100 @@ export class PrismaTrustedContactRepository
   }
 
   /**
-   * Create a new repository instance with a transaction client
-   * @param tx The transaction client
-   * @returns A new repository instance with the transaction client
+   * Override the create method to transform the result
+   * @param data The data to create
+   * @returns The created entity
    */
+  override async create(data: Partial<TrustedContact>): Promise<TrustedContact> {
+    try {
+      // Convert domain data to Prisma data
+      const createData = mapToPrismaCreateData(data);
+      
+      const result = await this.prisma[this.modelName].create({
+        data: createData,
+      });
+      return this.transformContact(result)!;
+    } catch (error) {
+      logger.error(`Error creating ${this.modelName}`, { data, error });
+      throw new DatabaseError(
+        `Error creating ${this.modelName}`,
+        `${this.modelName.toUpperCase()}_CREATE_ERROR`,
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Override the update method to transform the result
+   * @param id The entity ID
+   * @param data The data to update
+   * @returns The updated entity
+   */
+  override async update(id: string, data: Partial<TrustedContact>): Promise<TrustedContact> {
+    try {
+      // Convert domain data to Prisma data
+      const updateData = mapToPrismaUpdateData(data);
+      
+      const result = await this.prisma[this.modelName].update({
+        where: { id },
+        data: updateData,
+      });
+      return this.transformContact(result)!;
+    } catch (error) {
+      logger.error(`Error updating ${this.modelName}`, { id, data, error });
+      throw new DatabaseError(
+        `Error updating ${this.modelName}`,
+        `${this.modelName.toUpperCase()}_UPDATE_ERROR`,
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Override the findById method to transform the result
+   * @param id The entity ID
+   * @returns The entity or null if not found
+   */
+  override async findById(id: string): Promise<TrustedContact | null> {
+    try {
+      const result = await this.prisma[this.modelName].findUnique({
+        where: { id },
+      });
+      return this.transformContact(result);
+    } catch (error) {
+      logger.error(`Error finding ${this.modelName} by ID`, { id, error });
+      throw new DatabaseError(
+        `Error finding ${this.modelName} by ID`,
+        `${this.modelName.toUpperCase()}_FIND_BY_ID_ERROR`,
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Override the findAll method to transform the results
+   * @param options The query options
+   * @returns Array of entities
+   */
+  override async findAll(options?: any): Promise<TrustedContact[]> {
+    // Convert options to TrustedContactFilterOptions if needed
+    const filter = options as TrustedContactFilterOptions;
+    try {
+      const results = await this.prisma[this.modelName].findMany({
+        where: this.toWhereClause(filter),
+        orderBy: { createdAt: 'desc' },
+      });
+      return this.transformContacts(results);
+    } catch (error) {
+      logger.error(`Error finding all ${this.modelName}`, { filter, error });
+      throw new DatabaseError(
+        `Error finding all ${this.modelName}`,
+        `${this.modelName.toUpperCase()}_FIND_ALL_ERROR`,
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
   protected override withTransaction(tx: PrismaClient): BaseRepository<TrustedContact, string> {
     return new PrismaTrustedContactRepository(tx);
   }

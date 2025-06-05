@@ -14,7 +14,8 @@
  */
 
 // Export environment utilities
-export { env } from './environment';
+import { env } from './environment';
+export { env };
 
 // Helper functions for environment detection
 export const isDevelopment = (): boolean => env.isDevelopment();

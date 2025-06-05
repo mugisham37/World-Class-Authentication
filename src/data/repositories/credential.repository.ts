@@ -1,10 +1,9 @@
-import type { PrismaClient } from '@prisma/client';
+import type { PrismaClient, Credential as PrismaCredential } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
 import type {
   Credential,
   CredentialType,
-  CredentialFilterOptions,
 } from '../models/credential.model';
 import type { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
@@ -78,6 +77,18 @@ export class PrismaCredentialRepository
   protected readonly modelName = 'credential';
 
   /**
+   * Maps a Prisma credential to a domain model credential
+   * @param prismaCredential The Prisma credential
+   * @returns The domain model credential
+   */
+  protected mapToDomainModel(prismaCredential: PrismaCredential): Credential {
+    return {
+      ...prismaCredential,
+      type: prismaCredential.type as CredentialType
+    };
+  }
+
+  /**
    * Find credentials by user ID and type
    * @param userId The user ID
    * @param type The credential type
@@ -95,7 +106,7 @@ export class PrismaCredentialRepository
         },
       });
 
-      return credentials;
+      return credentials.map(credential => this.mapToDomainModel(credential));
     } catch (error) {
       logger.error('Error finding credentials by user ID and type', { userId, type, error });
       throw new DatabaseError(
@@ -127,7 +138,7 @@ export class PrismaCredentialRepository
         },
       });
 
-      return credential;
+      return credential ? this.mapToDomainModel(credential) : null;
     } catch (error) {
       logger.error('Error finding credential by user ID, type, and identifier', {
         userId,
@@ -159,7 +170,7 @@ export class PrismaCredentialRepository
         },
       });
 
-      return credentials;
+      return credentials.map(credential => this.mapToDomainModel(credential));
     } catch (error) {
       logger.error('Error finding credentials by user ID', { userId, error });
       throw new DatabaseError(
@@ -184,7 +195,7 @@ export class PrismaCredentialRepository
         },
       });
 
-      return credential;
+      return this.mapToDomainModel(credential);
     } catch (error) {
       logger.error('Error updating credential last used time', { id, error });
       throw new DatabaseError(
@@ -245,57 +256,6 @@ export class PrismaCredentialRepository
     }
   }
 
-  /**
-   * Build a where clause from filter options
-   * @param filter The filter options
-   * @returns The Prisma where clause
-   */
-  private buildWhereClause(filter?: CredentialFilterOptions): any {
-    if (!filter) {
-      return {};
-    }
-
-    const where: any = {};
-
-    if (filter.userId) {
-      where.userId = filter.userId;
-    }
-
-    if (filter.type) {
-      where.type = filter.type;
-    }
-
-    if (filter.identifier) {
-      where.identifier = filter.identifier;
-    }
-
-    // Date range filters
-    if (filter.createdAtBefore || filter.createdAtAfter) {
-      where.createdAt = {};
-
-      if (filter.createdAtBefore) {
-        where.createdAt.lte = filter.createdAtBefore;
-      }
-
-      if (filter.createdAtAfter) {
-        where.createdAt.gte = filter.createdAtAfter;
-      }
-    }
-
-    if (filter.lastUsedAtBefore || filter.lastUsedAtAfter) {
-      where.lastUsedAt = {};
-
-      if (filter.lastUsedAtBefore) {
-        where.lastUsedAt.lte = filter.lastUsedAtBefore;
-      }
-
-      if (filter.lastUsedAtAfter) {
-        where.lastUsedAt.gte = filter.lastUsedAtAfter;
-      }
-    }
-
-    return where;
-  }
 
   /**
    * Create a new repository instance with a transaction client

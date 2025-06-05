@@ -3,7 +3,7 @@ import { securityConfig } from '../../config/security-config';
 import { credentialRepository } from '../../data/repositories/credential.repository';
 import { passwordHistoryRepository } from '../../data/repositories/password-history.repository';
 import { userProfileRepository } from '../../data/repositories/user-profile.repository';
-import { userRepository } from '../../data/repositories/user.repository';
+import { userRepository } from '../../data/repositories/implementations/user.repository.impl';
 import { logger } from '../../infrastructure/logging/logger';
 import { encryption } from '../../infrastructure/security/crypto/encryption';
 import { passwordHasher } from '../../infrastructure/security/crypto/password-hasher';
@@ -11,6 +11,173 @@ import { BadRequestError, ConflictError, NotFoundError } from '../../utils/error
 import { emitEvent } from '../events/event-bus';
 import { EventType } from '../events/event-types';
 import { CredentialType } from '../../data/models/credential.model';
+
+/**
+ * User service for SSO integration
+ * This service is used by the SAML service for user provisioning and management
+ */
+export class UserService {
+  /**
+   * Find a user by email
+   * @param email User email
+   * @returns User or null if not found
+   */
+  async findByEmail(email: string): Promise<User | null> {
+    return await userRepository.findByEmail(email);
+  }
+
+  /**
+   * Create a new user
+   * @param userData User data
+   * @returns Created user
+   */
+  async create(userData: {
+    email: string;
+    emailVerified?: boolean;
+    firstName?: string | null;
+    lastName?: string | null;
+    displayName?: string | null;
+    username?: string | null;
+    groups?: string[];
+    roles?: string[];
+    [key: string]: any;
+  }): Promise<User> {
+    // Check if email already exists
+    const emailExists = await userRepository.findByEmail(userData.email);
+    if (emailExists) {
+      throw new ConflictError('Email already in use', 'EMAIL_IN_USE');
+    }
+
+    // Check if username already exists
+    if (userData.username) {
+      const usernameExists = await userRepository.findByUsername(userData.username);
+      if (usernameExists) {
+        throw new ConflictError('Username already in use', 'USERNAME_IN_USE');
+      }
+    }
+
+    // Create user
+    const user = await userRepository.create({
+      email: userData.email,
+      username: userData.username || null,
+      emailVerified: userData.emailVerified || false,
+      status: UserStatus.ACTIVE,
+      role: UserRole.USER,
+    });
+
+    // Create user profile
+    const profileData: Record<string, any> = {};
+    
+    if (userData.firstName !== undefined) profileData['firstName'] = userData.firstName;
+    if (userData.lastName !== undefined) profileData['lastName'] = userData.lastName;
+    if (userData.displayName !== undefined) profileData['displayName'] = userData.displayName;
+    
+    if (Object.keys(profileData).length > 0) {
+      await userProfileRepository.create({
+        userId: user.id,
+        ...profileData,
+      });
+    }
+
+    // Emit user registered event
+    emitEvent(EventType.USER_REGISTERED, {
+      userId: user.id,
+      email: user.email,
+      username: user.username,
+      timestamp: new Date(),
+      source: 'sso',
+    });
+
+    logger.info('User created via SSO', { userId: user.id, email: user.email });
+
+    return user;
+  }
+
+  /**
+   * Update a user
+   * @param id User ID
+   * @param userData User data to update
+   * @returns Updated user
+   */
+  async update(
+    id: string,
+    userData: {
+      email?: string;
+      username?: string | null;
+      firstName?: string | null;
+      lastName?: string | null;
+      displayName?: string | null;
+      [key: string]: any;
+    }
+  ): Promise<User> {
+    // Check if user exists
+    const user = await userRepository.findById(id);
+    if (!user) {
+      throw new NotFoundError('User not found', 'USER_NOT_FOUND');
+    }
+
+    // Check if email is being changed and if it's already in use
+    if (userData.email && userData.email !== user.email) {
+      const emailExists = await userRepository.findByEmail(userData.email);
+      if (emailExists && emailExists.id !== id) {
+        throw new ConflictError('Email already in use', 'EMAIL_IN_USE');
+      }
+    }
+
+    // Check if username is being changed and if it's already in use
+    if (userData.username && userData.username !== user.username) {
+      const usernameExists = await userRepository.findByUsername(userData.username);
+      if (usernameExists && usernameExists.id !== id) {
+        throw new ConflictError('Username already in use', 'USERNAME_IN_USE');
+      }
+    }
+
+    // Extract user data and profile data
+    const userUpdateData: Record<string, any> = {};
+    const profileUpdateData: Record<string, any> = {};
+
+    // User data
+    if (userData.email !== undefined) userUpdateData['email'] = userData.email;
+    if (userData.username !== undefined) userUpdateData['username'] = userData.username;
+
+    // Profile data
+    if (userData.firstName !== undefined) profileUpdateData['firstName'] = userData.firstName;
+    if (userData.lastName !== undefined) profileUpdateData['lastName'] = userData.lastName;
+    if (userData.displayName !== undefined) profileUpdateData['displayName'] = userData.displayName;
+
+    // Update user if there are user fields to update
+    let updatedUser = user;
+    if (Object.keys(userUpdateData).length > 0) {
+      updatedUser = await userRepository.update(id, userUpdateData);
+    }
+
+    // Update profile if there are profile fields to update
+    if (Object.keys(profileUpdateData).length > 0) {
+      const profile = await userProfileRepository.findByUserId(id);
+      if (profile) {
+        await userProfileRepository.updateByUserId(id, profileUpdateData);
+      } else {
+        await userProfileRepository.create({
+          userId: id,
+          ...profileUpdateData,
+        });
+      }
+    }
+
+    // Emit user updated event
+    emitEvent(EventType.USER_UPDATED, {
+      userId: updatedUser.id,
+      email: updatedUser.email,
+      username: updatedUser.username,
+      timestamp: new Date(),
+      source: 'sso',
+    });
+
+    logger.info('User updated via SSO', { userId: updatedUser.id });
+
+    return updatedUser;
+  }
+}
 
 /**
  * Identity service for managing user identities and profiles
@@ -233,6 +400,10 @@ export class IdentityService {
 
     // Get the first credential since we expect only one password credential per user
     const passwordCredential = credentials[0];
+    
+    if (!passwordCredential) {
+      throw new NotFoundError('Password credential not found', 'CREDENTIAL_NOT_FOUND');
+    }
 
     // Verify current password
     const isPasswordValid = await passwordHasher.verify(currentPassword, passwordCredential.secret);
@@ -305,6 +476,10 @@ export class IdentityService {
 
     // Get the first credential
     const passwordCredential = credentials[0];
+    
+    if (!passwordCredential) {
+      throw new NotFoundError('Password credential not found', 'CREDENTIAL_NOT_FOUND');
+    }
 
     // Hash new password
     const hashedPassword = await passwordHasher.hash(newPassword);

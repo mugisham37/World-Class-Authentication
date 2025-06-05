@@ -1,4 +1,4 @@
-import { userRepository } from '../../data/repositories/user.repository';
+import { userRepository } from '../../data/repositories/implementations/user.repository.impl';
 import { credentialRepository } from '../../data/repositories/credential.repository';
 import { sessionRepository } from '../../data/repositories/session.repository';
 import { auditLogRepository } from '../../data/repositories/audit-log.repository';

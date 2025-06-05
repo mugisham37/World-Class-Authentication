@@ -3,13 +3,11 @@ import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
 import {
   Session,
-  CreateSessionData,
   UpdateSessionData,
   SessionFilterOptions,
 } from '../models/session.model';
 import { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
-import { prisma } from '../prisma/client';
 
 /**
  * Session repository interface
@@ -134,6 +132,70 @@ export class PrismaSessionRepository
   protected readonly modelName = 'session';
 
   /**
+   * Find a session by ID
+   * @param id Session ID
+   * @returns Session or null if not found
+   */
+  override async findById(id: string): Promise<Session | null> {
+    try {
+      const session = await this.prisma.session.findUnique({
+        where: { id },
+      });
+      return this.transformSession(session);
+    } catch (error) {
+      logger.error('Error finding session by ID', { id, error });
+      throw new DatabaseError(
+        'Error finding session by ID',
+        'SESSION_FIND_BY_ID_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Find all sessions
+   * @returns List of sessions
+   */
+  override async findAll(): Promise<Session[]> {
+    try {
+      const sessions = await this.prisma.session.findMany();
+      return this.transformSessions(sessions);
+    } catch (error) {
+      logger.error('Error finding all sessions', { error });
+      throw new DatabaseError(
+        'Error finding all sessions',
+        'SESSION_FIND_ALL_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Transform a Prisma session to a Session model
+   * @param session Prisma session
+   * @returns Session model or null
+   */
+  private transformSession(session: any): Session | null {
+    if (!session) return null;
+    return {
+      ...session,
+      isRevoked: session.revokedAt !== null
+    };
+  }
+
+  /**
+   * Transform an array of Prisma sessions to Session models
+   * @param sessions Array of Prisma sessions
+   * @returns Array of Session models
+   */
+  private transformSessions(sessions: any[]): Session[] {
+    return sessions.map(session => ({
+      ...session,
+      isRevoked: session.revokedAt !== null
+    }));
+  }
+
+  /**
    * Find a session by token
    * @param token Session token
    * @returns Session or null if not found
@@ -143,7 +205,7 @@ export class PrismaSessionRepository
       const session = await this.prisma.session.findUnique({
         where: { token },
       });
-      return session;
+      return this.transformSession(session);
     } catch (error) {
       logger.error('Error finding session by token', { error });
       throw new DatabaseError(
@@ -164,7 +226,7 @@ export class PrismaSessionRepository
       const session = await this.prisma.session.findUnique({
         where: { refreshToken },
       });
-      return session;
+      return this.transformSession(session);
     } catch (error) {
       logger.error('Error finding session by refresh token', { error });
       throw new DatabaseError(
@@ -188,7 +250,7 @@ export class PrismaSessionRepository
         where,
         orderBy: { lastActiveAt: 'desc' },
       });
-      return sessions;
+      return this.transformSessions(sessions);
     } catch (error) {
       logger.error('Error finding sessions by user ID', { userId, options, error });
       throw new DatabaseError(
@@ -215,7 +277,7 @@ export class PrismaSessionRepository
         },
         orderBy: { lastActiveAt: 'desc' },
       });
-      return sessions;
+      return this.transformSessions(sessions);
     } catch (error) {
       logger.error('Error finding active sessions by user ID', { userId, error });
       throw new DatabaseError(
@@ -238,7 +300,7 @@ export class PrismaSessionRepository
         where: { token },
         data,
       });
-      return session;
+      return this.transformSession(session)!;
     } catch (error) {
       logger.error('Error updating session by token', { token, error });
       throw new DatabaseError(
@@ -337,7 +399,7 @@ export class PrismaSessionRepository
           revocationReason: reason || 'Manually revoked',
         },
       });
-      return session;
+      return this.transformSession(session)!;
     } catch (error) {
       logger.error('Error revoking session', { id, reason, error });
       throw new DatabaseError(
@@ -363,7 +425,7 @@ export class PrismaSessionRepository
           revocationReason: reason || 'Manually revoked',
         },
       });
-      return session;
+      return this.transformSession(session)!;
     } catch (error) {
       logger.error('Error revoking session by token', { token, reason, error });
       throw new DatabaseError(
@@ -433,7 +495,7 @@ export class PrismaSessionRepository
           lastActiveAt: new Date(),
         },
       });
-      return session;
+      return this.transformSession(session)!;
     } catch (error) {
       logger.error('Error updating session last active time', { id, error });
       throw new DatabaseError(
@@ -457,7 +519,7 @@ export class PrismaSessionRepository
           lastActiveAt: new Date(),
         },
       });
-      return session;
+      return this.transformSession(session)!;
     } catch (error) {
       logger.error('Error updating session last active time by token', { token, error });
       throw new DatabaseError(
@@ -618,6 +680,50 @@ export class PrismaSessionRepository
    * @param tx The transaction client
    * @returns A new repository instance with the transaction client
    */
+  /**
+   * Create a new session
+   * @param data Session data
+   * @returns Created session
+   */
+  override async create(data: any): Promise<Session> {
+    try {
+      const session = await this.prisma.session.create({
+        data,
+      });
+      return this.transformSession(session)!;
+    } catch (error) {
+      logger.error('Error creating session', { error });
+      throw new DatabaseError(
+        'Error creating session',
+        'SESSION_CREATE_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Update a session
+   * @param id Session ID
+   * @param data Session data
+   * @returns Updated session
+   */
+  override async update(id: string, data: any): Promise<Session> {
+    try {
+      const session = await this.prisma.session.update({
+        where: { id },
+        data,
+      });
+      return this.transformSession(session)!;
+    } catch (error) {
+      logger.error('Error updating session', { id, error });
+      throw new DatabaseError(
+        'Error updating session',
+        'SESSION_UPDATE_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
   protected withTransaction(tx: PrismaClient): BaseRepository<Session, string> {
     return new PrismaSessionRepository(tx);
   }

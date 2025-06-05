@@ -125,6 +125,22 @@ export class AuthorizationError extends AppError {
 }
 
 /**
+ * Unauthorized error
+ * Thrown when a request is unauthorized
+ */
+export class UnauthorizedError extends AppError {
+  /**
+   * Constructor
+   * @param message Error message
+   * @param code Error code
+   * @param originalError Original error
+   */
+  constructor(message: string, code: string = 'UNAUTHORIZED', originalError?: Error) {
+    super(message, code, originalError);
+  }
+}
+
+/**
  * Conflict error
  * Thrown when a conflict occurs
  */

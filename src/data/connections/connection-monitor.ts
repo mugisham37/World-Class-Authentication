@@ -1,6 +1,5 @@
 import { EventEmitter } from 'events';
 import { logger } from '../../infrastructure/logging/logger';
-import { dbConfig } from '../../config/database-config';
 import { getPostgresStatus } from './postgres';
 import { getRedisStatus } from './redis';
 import { checkDatabaseHealth as checkPrismaHealth } from '../prisma/client';

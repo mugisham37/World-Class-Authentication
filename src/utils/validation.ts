@@ -1,6 +1,24 @@
 import { z } from 'zod';
 import { logger } from '../infrastructure/logging/logger';
 
+// Type guard for Zod errors
+// function isZodError(error: unknown): error is z.ZodError {
+//   return error instanceof z.ZodError;
+// }
+
+// Interface for validation errors
+interface ValidationError {
+  status: number;
+  code: string;
+  message: string;
+  errors: Record<string, string>;
+}
+
+// Type for schemas that support withErrorMap
+type ZodTypeWithErrorMap = z.ZodType & {
+  withErrorMap: (errorMap: z.ZodErrorMap) => any;
+};
+
 /**
  * Validation Service
  * Implements comprehensive input validation with schema-based validation
@@ -100,32 +118,54 @@ class ValidationService {
     } = options;
 
     try {
-      // Parse with options
-      return schema.parse(data);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        // Transform Zod errors into a more API-friendly format
-        const formattedErrors = error.errors.reduce(
-          (acc, err) => {
-            const path = err.path.join('.') || '_general';
-            acc[path] = err.message;
-            return acc;
-          },
-          {} as Record<string, string>
-        );
-
-        // Log validation errors in debug mode
-        logger.debug('Validation error', { errors: formattedErrors, data });
-
-        // Throw a formatted error object that can be caught by API error middleware
-        throw {
-          status: 400,
-          code: errorCode,
-          message: errorMessage,
-          errors: formattedErrors,
-        };
+      // Use safeParse for better error handling
+      const result = schema.safeParse(data);
+      
+      if (result.success) {
+        // If stripUnknown is true and we're dealing with an object, remove unknown properties
+        if (stripUnknown && typeof result.data === 'object' && result.data !== null) {
+          // Get the schema shape to determine known properties
+          const knownProps = schema instanceof z.ZodObject 
+            ? Object.keys(schema.shape)
+            : [];
+          
+          // Create a new object with only known properties
+          const cleanedData = {} as any;
+          for (const key of knownProps) {
+            if (key in result.data) {
+              cleanedData[key] = (result.data as any)[key];
+            }
+          }
+          return cleanedData as z.infer<T>;
+        }
+        
+        return result.data;
       }
+      // If parsing failed, handle the error
+      const error = result.error;
+      // Transform Zod errors into a more API-friendly format
+      const formattedErrors = error.errors.reduce(
+        (acc, err) => {
+          const path = err.path.join('.') || '_general';
+          acc[path] = err.message;
+          return acc;
+        },
+        {} as Record<string, string>
+      );
 
+      // Log validation errors in debug mode
+      logger.debug('Validation error', { errors: formattedErrors, data });
+
+      // Throw a formatted error object that can be caught by API error middleware
+      const validationError: ValidationError = {
+        status: 400,
+        code: errorCode,
+        message: errorMessage,
+        errors: formattedErrors,
+      };
+      throw validationError;
+    } catch (error) {
+      // Handle any other errors that might occur
       throw error;
     }
   }
@@ -163,8 +203,8 @@ class ValidationService {
    * @param errorMap Custom error map
    * @returns Schema with custom error messages
    */
-  createCustomErrorValidator<T extends z.ZodType>(schema: T, errorMap: z.ZodErrorMap): T {
-    return schema.withErrorMap(errorMap);
+  createCustomErrorValidator<T extends ZodTypeWithErrorMap>(schema: T, errorMap: z.ZodErrorMap): T {
+    return schema.withErrorMap(errorMap) as T;
   }
 
   /**

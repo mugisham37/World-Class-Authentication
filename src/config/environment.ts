@@ -10,7 +10,7 @@ import { logger } from '../infrastructure/logging/logger';
  */
 export class Environment {
   private static instance: Environment;
-  private envCache: Record<string, string> = {};
+  private envCache: Record<string, string | undefined> = {};
   private initialized = false;
 
   private constructor() {
@@ -36,7 +36,7 @@ export class Environment {
       return;
     }
 
-    const nodeEnv = process.env.NODE_ENV || 'development';
+    const nodeEnv = process.env['NODE_ENV'] || 'development';
     const envFiles = [
       path.resolve(process.cwd(), '.env'),
       path.resolve(process.cwd(), `.env.${nodeEnv}`),
@@ -55,7 +55,7 @@ export class Environment {
       }
     });
 
-    // Cache all environment variables
+    // Cache all environment variables with proper typing
     this.envCache = { ...process.env };
     this.initialized = true;
   }
@@ -119,7 +119,7 @@ export class Environment {
    * @returns The current environment
    */
   public getEnvironment(): string {
-    return this.get('NODE_ENV', 'development');
+    return this.get('NODE_ENV', 'development') ?? 'development';
   }
 
   /**

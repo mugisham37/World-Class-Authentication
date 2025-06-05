@@ -24,19 +24,20 @@ export enum UserRole {
  * User model interface
  * Represents a user in the system
  */
-export interface User {
-  id: string;
-  email: string;
-  emailVerified: boolean;
+import { BaseUser } from "../../shared/types/user.types";
+
+export interface User extends BaseUser {
   username: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-  lastLoginAt: Date | null;
+  password: string;
   status: UserStatus;
   role: UserRole;
   active: boolean;
   lockedUntil: Date | null;
   failedLoginAttempts: number;
+  lastPasswordChange?: Date | null;
+  // Note: phoneNumber and lastLoginAt are inherited from BaseUser with compatible types
+  // BaseUser.phoneNumber?: string is compatible with string | null
+  // BaseUser.lastLoginAt?: Date is compatible with Date | null
 }
 
 /**
@@ -57,6 +58,7 @@ export interface UserProfile {
   birthDate: Date | null;
   bio: string | null;
   avatarUrl: string | null;
+  metadata?: Record<string, any> | null;
   createdAt: Date;
   updatedAt: Date;
   user?: User;
@@ -76,8 +78,11 @@ export interface UserWithProfile extends User {
  */
 export interface CreateUserData {
   email: string;
+  password: string;
   username?: string | null;
   emailVerified?: boolean;
+  phoneNumber?: string | null;
+  phoneVerified?: boolean;
   status?: UserStatus;
   role?: UserRole;
   profile?: {
@@ -92,6 +97,7 @@ export interface CreateUserData {
     birthDate?: Date | null;
     bio?: string | null;
     avatarUrl?: string | null;
+    metadata?: Record<string, any> | null;
   };
 }
 
@@ -102,10 +108,14 @@ export interface CreateUserData {
 export interface UpdateUserData {
   email?: string;
   username?: string | null;
+  password?: string;
   emailVerified?: boolean;
+  phoneNumber?: string | null;
+  phoneVerified?: boolean;
   status?: UserStatus;
   role?: UserRole;
   lastLoginAt?: Date | null;
+  lastPasswordChange?: Date | null;
   profile?: {
     firstName?: string | null;
     lastName?: string | null;
@@ -118,6 +128,7 @@ export interface UpdateUserData {
     birthDate?: Date | null;
     bio?: string | null;
     avatarUrl?: string | null;
+    metadata?: Record<string, any> | null;
   };
 }
 
@@ -129,9 +140,11 @@ export interface UserFilterOptions {
   id?: string;
   email?: string;
   username?: string;
+  phoneNumber?: string;
   status?: UserStatus;
   role?: UserRole;
   emailVerified?: boolean;
+  phoneVerified?: boolean;
   createdAtBefore?: Date;
   createdAtAfter?: Date;
   updatedAtBefore?: Date;

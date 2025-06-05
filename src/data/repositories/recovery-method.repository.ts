@@ -1,16 +1,42 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, RecoveryMethod as PrismaRecoveryMethod} from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
 import {
   RecoveryMethod,
-  RecoveryMethodType,
-  RecoveryMethodStatus,
-  CreateRecoveryMethodData,
-  UpdateRecoveryMethodData,
   RecoveryMethodFilterOptions,
+  RecoveryMethodStatus,
+  RecoveryMethodType
 } from '../models/recovery-method.model';
 import { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
+
+/**
+ * Mapper function to convert Prisma RecoveryMethod to application RecoveryMethod
+ * @param prismaMethod The Prisma RecoveryMethod object
+ * @returns The application RecoveryMethod object
+ */
+function mapPrismaRecoveryMethodToModel(prismaMethod: PrismaRecoveryMethod): RecoveryMethod {
+  return {
+    id: prismaMethod.id,
+    userId: prismaMethod.userId,
+    type: prismaMethod.type as unknown as RecoveryMethodType,
+    name: prismaMethod.name,
+    status: prismaMethod.status as unknown as RecoveryMethodStatus,
+    createdAt: prismaMethod.createdAt,
+    updatedAt: prismaMethod.updatedAt,
+    lastUsedAt: prismaMethod.lastUsedAt,
+    metadata: prismaMethod.metadata as Record<string, any> | null,
+  };
+}
+
+/**
+ * Mapper function to convert multiple Prisma RecoveryMethod objects to application RecoveryMethod objects
+ * @param prismaMethods Array of Prisma RecoveryMethod objects
+ * @returns Array of application RecoveryMethod objects
+ */
+function mapPrismaRecoveryMethodsToModels(prismaMethods: PrismaRecoveryMethod[]): RecoveryMethod[] {
+  return prismaMethods.map(mapPrismaRecoveryMethodToModel);
+}
 
 /**
  * Recovery method repository interface
@@ -123,7 +149,7 @@ export class PrismaRecoveryMethodRepository
         where: { userId },
         orderBy: { createdAt: 'desc' },
       });
-      return methods;
+      return mapPrismaRecoveryMethodsToModels(methods);
     } catch (error) {
       logger.error('Error finding recovery methods by user ID', { userId, error });
       throw new DatabaseError(
@@ -148,7 +174,7 @@ export class PrismaRecoveryMethodRepository
         },
         orderBy: { createdAt: 'desc' },
       });
-      return methods;
+      return mapPrismaRecoveryMethodsToModels(methods);
     } catch (error) {
       logger.error('Error finding active recovery methods by user ID', { userId, error });
       throw new DatabaseError(
@@ -174,7 +200,7 @@ export class PrismaRecoveryMethodRepository
         },
         orderBy: { createdAt: 'desc' },
       });
-      return methods;
+      return mapPrismaRecoveryMethodsToModels(methods);
     } catch (error) {
       logger.error('Error finding recovery methods by user ID and type', { userId, type, error });
       throw new DatabaseError(
@@ -204,7 +230,7 @@ export class PrismaRecoveryMethodRepository
         },
         orderBy: { createdAt: 'desc' },
       });
-      return methods;
+      return mapPrismaRecoveryMethodsToModels(methods);
     } catch (error) {
       logger.error('Error finding active recovery methods by user ID and type', {
         userId,
@@ -232,7 +258,7 @@ export class PrismaRecoveryMethodRepository
           lastUsedAt: new Date(),
         },
       });
-      return method;
+      return mapPrismaRecoveryMethodToModel(method);
     } catch (error) {
       logger.error('Error updating recovery method last used time', { id, error });
       throw new DatabaseError(
@@ -255,7 +281,7 @@ export class PrismaRecoveryMethodRepository
         where: { id },
         data: { status },
       });
-      return method;
+      return mapPrismaRecoveryMethodToModel(method);
     } catch (error) {
       logger.error('Error changing recovery method status', { id, status, error });
       throw new DatabaseError(
@@ -460,7 +486,7 @@ export class PrismaRecoveryMethodRepository
    * @param tx The transaction client
    * @returns A new repository instance with the transaction client
    */
-  protected override withTransaction(tx: PrismaClient): BaseRepository<RecoveryMethod, string> {
+  protected override withTransaction(tx: PrismaClient): RecoveryMethodRepository {
     return new PrismaRecoveryMethodRepository(tx);
   }
 }

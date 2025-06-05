@@ -12,7 +12,7 @@ class EventBus {
   private distributedMode: boolean;
   private readonly redisChannel = 'auth:events';
   private readonly maxRetries = 3;
-  private readonly retryDelay = 1000; // 1 second
+  // private readonly retryDelay = 1000; // 1 second
   private readonly deadLetterQueue: Map<string, any[]> = new Map();
 
   constructor() {

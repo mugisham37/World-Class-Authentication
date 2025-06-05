@@ -1,17 +1,14 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, MfaFactor as PrismaMfaFactor, MfaFactorType as PrismaMfaFactorType, MfaFactorStatus as PrismaMfaFactorStatus } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
 import {
   MfaFactor,
   MfaFactorType,
   MfaFactorStatus,
-  CreateMfaFactorData,
-  UpdateMfaFactorData,
   MfaFactorFilterOptions,
 } from '../models/mfa-factor.model';
 import { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
-import { prisma } from '../prisma/client';
 
 /**
  * MFA factor repository interface
@@ -128,6 +125,119 @@ export class PrismaMfaFactorRepository
   protected readonly modelName = 'mfaFactor';
 
   /**
+   * Maps a Prisma MFA factor to a domain MFA factor
+   * @param prismaMfaFactor Prisma MFA factor
+   * @returns Domain MFA factor
+   */
+  protected mapToDomainModel(prismaMfaFactor: PrismaMfaFactor): MfaFactor {
+    return {
+      id: prismaMfaFactor.id,
+      createdAt: prismaMfaFactor.createdAt,
+      updatedAt: prismaMfaFactor.updatedAt,
+      userId: prismaMfaFactor.userId,
+      type: this.mapToDomainType(prismaMfaFactor.type),
+      name: prismaMfaFactor.name,
+      secret: prismaMfaFactor.secret,
+      credentialId: prismaMfaFactor.credentialId,
+      phoneNumber: prismaMfaFactor.phoneNumber,
+      email: prismaMfaFactor.email,
+      deviceToken: prismaMfaFactor.deviceToken,
+      metadata: prismaMfaFactor.metadata as Record<string, any> | null,
+      verifiedAt: prismaMfaFactor.verifiedAt,
+      lastUsedAt: prismaMfaFactor.lastUsedAt,
+      status: this.mapToDomainStatus(prismaMfaFactor.status)
+    };
+  }
+
+  /**
+   * Maps a domain MFA factor type to a Prisma MFA factor type
+   * @param domainType Domain MFA factor type
+   * @returns Prisma MFA factor type
+   */
+  protected mapToPrismaType(domainType: MfaFactorType): PrismaMfaFactorType {
+    switch (domainType) {
+      case MfaFactorType.TOTP:
+        return 'TOTP';
+      case MfaFactorType.WEBAUTHN:
+        return 'WEBAUTHN';
+      case MfaFactorType.SMS:
+        return 'SMS';
+      case MfaFactorType.EMAIL:
+        return 'EMAIL';
+      case MfaFactorType.RECOVERY_CODE:
+        return 'RECOVERY_CODE';
+      case MfaFactorType.PUSH_NOTIFICATION:
+        return 'PUSH_NOTIFICATION';
+      default:
+        throw new Error(`Unknown MFA factor type: ${domainType}`);
+    }
+  }
+
+  /**
+   * Maps a Prisma MFA factor type to a domain MFA factor type
+   * @param prismaType Prisma MFA factor type
+   * @returns Domain MFA factor type
+   */
+  protected mapToDomainType(prismaType: PrismaMfaFactorType): MfaFactorType {
+    switch (prismaType) {
+      case 'TOTP':
+        return MfaFactorType.TOTP;
+      case 'WEBAUTHN':
+        return MfaFactorType.WEBAUTHN;
+      case 'SMS':
+        return MfaFactorType.SMS;
+      case 'EMAIL':
+        return MfaFactorType.EMAIL;
+      case 'RECOVERY_CODE':
+        return MfaFactorType.RECOVERY_CODE;
+      case 'PUSH_NOTIFICATION':
+        return MfaFactorType.PUSH_NOTIFICATION;
+      default:
+        throw new Error(`Unknown MFA factor type: ${prismaType}`);
+    }
+  }
+
+  /**
+   * Maps a domain MFA factor status to a Prisma MFA factor status
+   * @param domainStatus Domain MFA factor status
+   * @returns Prisma MFA factor status
+   */
+  protected mapToPrismaStatus(domainStatus: MfaFactorStatus): PrismaMfaFactorStatus {
+    switch (domainStatus) {
+      case MfaFactorStatus.ACTIVE:
+        return 'ACTIVE';
+      case MfaFactorStatus.PENDING:
+        return 'PENDING';
+      case MfaFactorStatus.DISABLED:
+        return 'DISABLED';
+      case MfaFactorStatus.REVOKED:
+        return 'REVOKED';
+      default:
+        throw new Error(`Unknown MFA factor status: ${domainStatus}`);
+    }
+  }
+
+  /**
+   * Maps a Prisma MFA factor status to a domain MFA factor status
+   * @param prismaStatus Prisma MFA factor status
+   * @returns Domain MFA factor status
+   */
+  protected mapToDomainStatus(prismaStatus: PrismaMfaFactorStatus): MfaFactorStatus {
+    switch (prismaStatus) {
+      case 'ACTIVE':
+        return MfaFactorStatus.ACTIVE;
+      case 'PENDING':
+        return MfaFactorStatus.PENDING;
+      case 'DISABLED':
+        return MfaFactorStatus.DISABLED;
+      case 'REVOKED':
+        return MfaFactorStatus.REVOKED;
+      default:
+        throw new Error(`Unknown MFA factor status: ${prismaStatus}`);
+    }
+  }
+
+  /**
    * Find MFA factors by user ID
    * @param userId User ID
    * @param options Filter options
@@ -140,7 +250,7 @@ export class PrismaMfaFactorRepository
         where,
         orderBy: { createdAt: 'desc' },
       });
-      return factors;
+      return factors.map(factor => this.mapToDomainModel(factor));
     } catch (error) {
       logger.error('Error finding MFA factors by user ID', { userId, options, error });
       throw new DatabaseError(
@@ -161,11 +271,11 @@ export class PrismaMfaFactorRepository
       const factors = await this.prisma.mfaFactor.findMany({
         where: {
           userId,
-          status: MfaFactorStatus.ACTIVE,
+          status: this.mapToPrismaStatus(MfaFactorStatus.ACTIVE),
         },
         orderBy: { createdAt: 'desc' },
       });
-      return factors;
+      return factors.map(factor => this.mapToDomainModel(factor));
     } catch (error) {
       logger.error('Error finding active MFA factors by user ID', { userId, error });
       throw new DatabaseError(
@@ -187,11 +297,11 @@ export class PrismaMfaFactorRepository
       const factors = await this.prisma.mfaFactor.findMany({
         where: {
           userId,
-          type,
+          type: this.mapToPrismaType(type),
         },
         orderBy: { createdAt: 'desc' },
       });
-      return factors;
+      return factors.map(factor => this.mapToDomainModel(factor));
     } catch (error) {
       logger.error('Error finding MFA factors by user ID and type', { userId, type, error });
       throw new DatabaseError(
@@ -212,7 +322,7 @@ export class PrismaMfaFactorRepository
       const factor = await this.prisma.mfaFactor.findFirst({
         where: { credentialId },
       });
-      return factor;
+      return factor ? this.mapToDomainModel(factor) : null;
     } catch (error) {
       logger.error('Error finding MFA factor by credential ID', { credentialId, error });
       throw new DatabaseError(
@@ -233,7 +343,7 @@ export class PrismaMfaFactorRepository
       const factor = await this.prisma.mfaFactor.findFirst({
         where: { phoneNumber },
       });
-      return factor;
+      return factor ? this.mapToDomainModel(factor) : null;
     } catch (error) {
       logger.error('Error finding MFA factor by phone number', { phoneNumber, error });
       throw new DatabaseError(
@@ -254,7 +364,7 @@ export class PrismaMfaFactorRepository
       const factor = await this.prisma.mfaFactor.findFirst({
         where: { email },
       });
-      return factor;
+      return factor ? this.mapToDomainModel(factor) : null;
     } catch (error) {
       logger.error('Error finding MFA factor by email', { email, error });
       throw new DatabaseError(
@@ -275,7 +385,7 @@ export class PrismaMfaFactorRepository
       const factor = await this.prisma.mfaFactor.findFirst({
         where: { deviceToken },
       });
-      return factor;
+      return factor ? this.mapToDomainModel(factor) : null;
     } catch (error) {
       logger.error('Error finding MFA factor by device token', { deviceToken, error });
       throw new DatabaseError(
@@ -296,9 +406,9 @@ export class PrismaMfaFactorRepository
     try {
       const factor = await this.prisma.mfaFactor.update({
         where: { id },
-        data: { status },
+        data: { status: this.mapToPrismaStatus(status) },
       });
-      return factor;
+      return this.mapToDomainModel(factor);
     } catch (error) {
       logger.error('Error updating MFA factor status', { id, status, error });
       throw new DatabaseError(
@@ -320,10 +430,10 @@ export class PrismaMfaFactorRepository
         where: { id },
         data: {
           verifiedAt: new Date(),
-          status: MfaFactorStatus.ACTIVE,
+          status: this.mapToPrismaStatus(MfaFactorStatus.ACTIVE),
         },
       });
-      return factor;
+      return this.mapToDomainModel(factor);
     } catch (error) {
       logger.error('Error marking MFA factor as verified', { id, error });
       throw new DatabaseError(
@@ -347,7 +457,7 @@ export class PrismaMfaFactorRepository
           lastUsedAt: new Date(),
         },
       });
-      return factor;
+      return this.mapToDomainModel(factor);
     } catch (error) {
       logger.error('Error updating MFA factor last used time', { id, error });
       throw new DatabaseError(

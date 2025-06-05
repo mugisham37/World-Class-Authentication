@@ -3,8 +3,6 @@ import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
 import {
   SecurityQuestion,
-  CreateSecurityQuestionData,
-  UpdateSecurityQuestionData,
   SecurityQuestionFilterOptions,
   SecurityQuestionVerificationResult,
 } from '../models/security-question.model';

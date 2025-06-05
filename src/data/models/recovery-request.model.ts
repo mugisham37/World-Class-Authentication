@@ -1,25 +1,10 @@
-/**
- * Recovery request type enum
- * Represents the type of recovery request in the system
- */
-export enum RecoveryRequestType {
-  PASSWORD_RESET = 'PASSWORD_RESET',
-  ACCOUNT_RECOVERY = 'ACCOUNT_RECOVERY',
-  MFA_RESET = 'MFA_RESET',
-}
+import { RecoveryRequestType, RecoveryRequestStatus, AdminApprovalStatus } from '@prisma/client';
 
 /**
- * Recovery request status enum
- * Represents the status of a recovery request in the system
+ * Re-export Prisma's enums
+ * Represents the types and statuses in the system
  */
-export enum RecoveryRequestStatus {
-  PENDING = 'PENDING',
-  APPROVED = 'APPROVED',
-  DENIED = 'DENIED',
-  COMPLETED = 'COMPLETED',
-  EXPIRED = 'EXPIRED',
-  CANCELLED = 'CANCELLED',
-}
+export { RecoveryRequestType, RecoveryRequestStatus, AdminApprovalStatus };
 
 /**
  * Recovery request model interface
@@ -47,16 +32,6 @@ export interface CreateRecoveryRequestData {
   status?: RecoveryRequestStatus;
   ipAddress?: string;
   userAgent?: string;
-  metadata?: Record<string, any>;
-}
-
-/**
- * Update recovery request data interface
- * Represents the data needed to update an existing recovery request
- */
-export interface UpdateRecoveryRequestData {
-  status?: RecoveryRequestStatus;
-  completedAt?: Date | null;
   metadata?: Record<string, any>;
 }
 
@@ -96,16 +71,6 @@ export interface AdminApproval {
   notes?: string | null;
   createdAt: Date;
   updatedAt: Date;
-}
-
-/**
- * Admin approval status enum
- * Represents the status of an admin approval in the system
- */
-export enum AdminApprovalStatus {
-  PENDING = 'PENDING',
-  APPROVED = 'APPROVED',
-  DENIED = 'DENIED',
 }
 
 /**

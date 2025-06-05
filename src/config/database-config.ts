@@ -1,4 +1,5 @@
 import { env } from './environment';
+import { Prisma } from '@prisma/client';
 
 /**
  * PostgreSQL configuration interface
@@ -51,7 +52,7 @@ export interface RedisConfig {
  * Prisma configuration interface
  */
 export interface PrismaConfig {
-  logLevel: string[];
+  logLevel: Prisma.LogLevel[];
   errorFormat: string;
   queryLogLevel: string;
 }
@@ -119,7 +120,7 @@ export const databaseConfig = {
     },
   },
   prisma: {
-    logLevel: (env.get('PRISMA_LOG_LEVEL', 'warn') || 'warn').split(','),
+    logLevel: (env.get('PRISMA_LOG_LEVEL', 'warn') || 'warn').split(',') as Prisma.LogLevel[],
     errorFormat: env.get('PRISMA_ERROR_FORMAT', 'pretty') || 'pretty',
     queryLogLevel: env.get('PRISMA_QUERY_LOG_LEVEL', 'info') || 'info',
   },
@@ -134,3 +135,6 @@ export const databaseConfig = {
     directory: env.get('DB_MIGRATIONS_DIRECTORY', './prisma/migrations') || './prisma/migrations',
   },
 } as DatabaseConfig;
+
+// Export alias for backward compatibility
+export { databaseConfig as dbConfig };

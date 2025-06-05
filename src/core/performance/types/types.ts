@@ -11,15 +11,8 @@ export interface PerformanceConfig {
   };
 }
 
-export interface PrismaMiddlewareParams {
-  model?: string;
-  action: string;
-  args: any;
-  dataPath: string[];
-  runInTransaction: boolean;
-}
-
-export type PrismaMiddlewareNext = (params: PrismaMiddlewareParams) => Promise<any>;
+// Note: PrismaMiddlewareParams and PrismaMiddlewareNext types have been removed
+// as we now use the official Prisma types directly from @prisma/client
 
 export interface QueryStats {
   count: number;

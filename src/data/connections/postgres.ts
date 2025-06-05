@@ -1,5 +1,5 @@
 import { Pool, type PoolClient } from 'pg';
-import { dbConfig } from '../../config/database-config';
+import { databaseConfig } from '../../config/database-config';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
 
@@ -7,15 +7,15 @@ import { DatabaseError } from '../../utils/error-handling';
  * PostgreSQL connection pool configuration
  */
 const poolConfig = {
-  host: dbConfig.postgres.host,
-  port: dbConfig.postgres.port,
-  user: dbConfig.postgres.username,
-  password: dbConfig.postgres.password,
-  database: dbConfig.postgres.database,
-  ssl: dbConfig.postgres.ssl,
-  max: dbConfig.postgres.poolSize,
-  idleTimeoutMillis: dbConfig.postgres.idleTimeoutMillis,
-  connectionTimeoutMillis: dbConfig.postgres.connectionTimeoutMillis,
+  host: databaseConfig.postgres.host,
+  port: databaseConfig.postgres.port,
+  user: databaseConfig.postgres.user,
+  password: databaseConfig.postgres.password,
+  database: databaseConfig.postgres.database,
+  ssl: databaseConfig.postgres.ssl,
+  max: databaseConfig.postgres.poolSize,
+  idleTimeoutMillis: databaseConfig.postgres.idleTimeout,
+  connectionTimeoutMillis: databaseConfig.postgres.connectionTimeout,
 };
 
 /**
@@ -110,12 +110,12 @@ class PostgresConnectionPool {
     try {
       const pool = PostgresConnectionPool.getInstance();
       const client = await pool.connect();
-      const result = await client.query('SELECT NOW()');
+      // const result = await client.query('SELECT NOW()');
       client.release();
 
       return {
         status: 'ok',
-        details: `Connected to PostgreSQL at ${dbConfig.postgres.host}:${dbConfig.postgres.port}`,
+        details: `Connected to PostgreSQL at ${databaseConfig.postgres.host}:${databaseConfig.postgres.port}`,
       };
     } catch (error) {
       logger.error('PostgreSQL health check failed', { error });

@@ -1,17 +1,14 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient} from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
 import {
   MfaChallenge,
   MfaChallengeStatus,
-  CreateMfaChallengeData,
-  UpdateMfaChallengeData,
   MfaChallengeFilterOptions,
   MfaChallengeVerificationResult,
 } from '../models/mfa-challenge.model';
 import { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
-import { prisma } from '../prisma/client';
 
 /**
  * MFA challenge repository interface
@@ -113,6 +110,65 @@ export class PrismaMfaChallengeRepository
   protected readonly modelName = 'mfaChallenge';
 
   /**
+   * Maps a Prisma MFA challenge to a domain model
+   * @param prismaMfaChallenge The Prisma MFA challenge
+   * @returns The domain MFA challenge
+   */
+  protected mapToDomainModel(prismaMfaChallenge: any): MfaChallenge {
+    // Map the Prisma status to the domain status
+    let status: MfaChallengeStatus;
+    switch (prismaMfaChallenge.status) {
+      case 'PENDING':
+        status = MfaChallengeStatus.PENDING;
+        break;
+      case 'COMPLETED':
+        status = MfaChallengeStatus.COMPLETED;
+        break;
+      case 'FAILED':
+        status = MfaChallengeStatus.FAILED;
+        break;
+      case 'EXPIRED':
+        status = MfaChallengeStatus.EXPIRED;
+        break;
+      default:
+        status = MfaChallengeStatus.PENDING;
+    }
+
+    return {
+      id: prismaMfaChallenge.id,
+      factorId: prismaMfaChallenge.factorId,
+      challenge: prismaMfaChallenge.challenge,
+      response: prismaMfaChallenge.response,
+      expiresAt: prismaMfaChallenge.expiresAt,
+      createdAt: prismaMfaChallenge.createdAt,
+      completedAt: prismaMfaChallenge.completedAt,
+      status,
+      attempts: prismaMfaChallenge.attempts,
+      metadata: prismaMfaChallenge.metadata,
+    };
+  }
+
+  /**
+   * Maps a domain status to a Prisma status
+   * @param status The domain status
+   * @returns The Prisma status
+   */
+  protected mapToPrismaStatus(status: MfaChallengeStatus): string {
+    switch (status) {
+      case MfaChallengeStatus.PENDING:
+        return 'PENDING';
+      case MfaChallengeStatus.COMPLETED:
+        return 'COMPLETED';
+      case MfaChallengeStatus.FAILED:
+        return 'FAILED';
+      case MfaChallengeStatus.EXPIRED:
+        return 'EXPIRED';
+      default:
+        return 'PENDING';
+    }
+  }
+
+  /**
    * Find MFA challenges by factor ID
    * @param factorId Factor ID
    * @param options Filter options
@@ -128,7 +184,7 @@ export class PrismaMfaChallengeRepository
         where,
         orderBy: { createdAt: 'desc' },
       });
-      return challenges;
+      return challenges.map(challenge => this.mapToDomainModel(challenge));
     } catch (error) {
       logger.error('Error finding MFA challenges by factor ID', { factorId, options, error });
       throw new DatabaseError(
@@ -150,12 +206,12 @@ export class PrismaMfaChallengeRepository
       const challenges = await this.prisma.mfaChallenge.findMany({
         where: {
           factorId,
-          status: MfaChallengeStatus.PENDING,
+          status: 'PENDING' as any,
           expiresAt: { gt: now },
         },
         orderBy: { createdAt: 'desc' },
       });
-      return challenges;
+      return challenges.map(challenge => this.mapToDomainModel(challenge));
     } catch (error) {
       logger.error('Error finding active MFA challenges by factor ID', { factorId, error });
       throw new DatabaseError(
@@ -176,7 +232,7 @@ export class PrismaMfaChallengeRepository
       const mfaChallenge = await this.prisma.mfaChallenge.findFirst({
         where: { challenge },
       });
-      return mfaChallenge;
+      return mfaChallenge ? this.mapToDomainModel(mfaChallenge) : null;
     } catch (error) {
       logger.error('Error finding MFA challenge by challenge string', { challenge, error });
       throw new DatabaseError(
@@ -195,11 +251,12 @@ export class PrismaMfaChallengeRepository
    */
   async updateStatus(id: string, status: MfaChallengeStatus): Promise<MfaChallenge> {
     try {
+      const prismaStatus = this.mapToPrismaStatus(status);
       const challenge = await this.prisma.mfaChallenge.update({
         where: { id },
-        data: { status },
+        data: { status: prismaStatus as any },
       });
-      return challenge;
+      return this.mapToDomainModel(challenge);
     } catch (error) {
       logger.error('Error updating MFA challenge status', { id, status, error });
       throw new DatabaseError(
@@ -218,15 +275,21 @@ export class PrismaMfaChallengeRepository
    */
   async markAsCompleted(id: string, response?: string): Promise<MfaChallenge> {
     try {
+      const data: any = {
+        status: 'COMPLETED',
+        completedAt: new Date(),
+      };
+      
+      if (response !== undefined) {
+        data.response = response;
+      }
+      
       const challenge = await this.prisma.mfaChallenge.update({
         where: { id },
-        data: {
-          status: MfaChallengeStatus.COMPLETED,
-          completedAt: new Date(),
-          response,
-        },
+        data
       });
-      return challenge;
+      
+      return this.mapToDomainModel(challenge);
     } catch (error) {
       logger.error('Error marking MFA challenge as completed', { id, error });
       throw new DatabaseError(
@@ -247,11 +310,11 @@ export class PrismaMfaChallengeRepository
       const challenge = await this.prisma.mfaChallenge.update({
         where: { id },
         data: {
-          status: MfaChallengeStatus.FAILED,
+          status: 'FAILED' as any,
           completedAt: new Date(),
         },
       });
-      return challenge;
+      return this.mapToDomainModel(challenge);
     } catch (error) {
       logger.error('Error marking MFA challenge as failed', { id, error });
       throw new DatabaseError(
@@ -272,10 +335,10 @@ export class PrismaMfaChallengeRepository
       const challenge = await this.prisma.mfaChallenge.update({
         where: { id },
         data: {
-          status: MfaChallengeStatus.EXPIRED,
+          status: 'EXPIRED' as any,
         },
       });
-      return challenge;
+      return this.mapToDomainModel(challenge);
     } catch (error) {
       logger.error('Error marking MFA challenge as expired', { id, error });
       throw new DatabaseError(
@@ -301,7 +364,7 @@ export class PrismaMfaChallengeRepository
           },
         },
       });
-      return challenge;
+      return this.mapToDomainModel(challenge);
     } catch (error) {
       logger.error('Error incrementing MFA challenge attempts', { id, error });
       throw new DatabaseError(
@@ -321,17 +384,19 @@ export class PrismaMfaChallengeRepository
   async verifyChallenge(id: string, response: string): Promise<MfaChallengeVerificationResult> {
     try {
       // Get the challenge
-      const challenge = await this.prisma.mfaChallenge.findUnique({
+      const prismaChallenge = await this.prisma.mfaChallenge.findUnique({
         where: { id },
       });
 
-      if (!challenge) {
+      if (!prismaChallenge) {
         return {
           success: false,
           challenge: null as any, // This will be handled by the caller
           message: 'Challenge not found',
         };
       }
+
+      const challenge = this.mapToDomainModel(prismaChallenge);
 
       // Check if the challenge is still valid
       const now = new Date();
@@ -405,7 +470,7 @@ export class PrismaMfaChallengeRepository
       const result = await this.prisma.mfaChallenge.deleteMany({
         where: {
           expiresAt: { lt: now },
-          status: MfaChallengeStatus.PENDING,
+          status: 'PENDING',
         },
       });
       return result.count;
@@ -463,7 +528,7 @@ export class PrismaMfaChallengeRepository
     }
 
     if (filter.status) {
-      where.status = filter.status;
+      where.status = this.mapToPrismaStatus(filter.status);
     }
 
     // Date range filters

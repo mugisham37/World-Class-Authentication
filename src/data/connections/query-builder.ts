@@ -407,7 +407,7 @@ export class QueryBuilder {
     // Build WHERE clause
     let whereClause = '';
     if (this.whereConditions.length > 0) {
-      const conditions = this.whereConditions.map((condition, index) => {
+      const conditions = this.whereConditions.map((condition) => {
         if (condition.operator === 'RAW') {
           return condition.value;
         }

@@ -1,15 +1,19 @@
-import { createClient, type RedisClientType, type RedisClientOptions } from 'redis';
-import { dbConfig } from '../../config/database-config';
+import { createClient, type RedisClientOptions, type RedisClientType, type RedisFunctions, type RedisModules, type RedisScripts } from 'redis';
+import { databaseConfig } from '../../config/database-config';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
+
+// Define a specific Redis client type with all required type parameters
+type TypedRedisClient = RedisClientType<RedisModules, RedisFunctions, RedisScripts>;
 
 /**
  * Redis connection configuration
  */
 const redisConfig: RedisClientOptions = {
-  url: `redis://${dbConfig.redis?.host || 'localhost'}:${dbConfig.redis?.port || 6379}`,
-  password: dbConfig.redis?.password,
-  database: dbConfig.redis?.db || 0,
+  url: `redis://${databaseConfig.redis?.host || 'localhost'}:${databaseConfig.redis?.port || 6379}`,
+  // Only include password if it exists
+  ...(databaseConfig.redis?.password ? { password: databaseConfig.redis.password } : {}),
+  database: databaseConfig.redis?.db || 0,
   socket: {
     reconnectStrategy: retries => {
       // Exponential backoff with max delay of 10 seconds
@@ -17,7 +21,7 @@ const redisConfig: RedisClientOptions = {
       logger.debug(`Redis reconnect attempt ${retries}, retrying in ${delay}ms`);
       return delay;
     },
-    connectTimeout: dbConfig.redis?.connectionTimeoutMillis || 5000,
+    connectTimeout: 5000, // Default connection timeout
   },
 };
 
@@ -26,12 +30,12 @@ const redisConfig: RedisClientOptions = {
  * Implements connection pooling, health monitoring, and circuit breaker pattern
  */
 class RedisConnectionManager {
-  private static instance: RedisClientType;
+  private static instance: TypedRedisClient;
   private static isInitialized = false;
   private static connectionFailures = 0;
   private static circuitOpen = false;
   private static circuitResetTimeout: NodeJS.Timeout | null = null;
-  private static subscribers: Map<string, RedisClientType> = new Map();
+  private static subscribers: Map<string, TypedRedisClient> = new Map();
   private static healthCheckInterval: NodeJS.Timeout | null = null;
 
   // Circuit breaker configuration
@@ -42,7 +46,7 @@ class RedisConnectionManager {
    * Get the Redis client instance
    * Creates a new instance if one doesn't exist
    */
-  public static getInstance(): RedisClientType {
+  public static getInstance(): TypedRedisClient {
     if (RedisConnectionManager.circuitOpen) {
       throw new DatabaseError(
         'Redis circuit breaker is open due to multiple connection failures',
@@ -51,7 +55,7 @@ class RedisConnectionManager {
     }
 
     if (!RedisConnectionManager.instance) {
-      RedisConnectionManager.instance = createClient(redisConfig);
+      RedisConnectionManager.instance = createClient(redisConfig) as TypedRedisClient;
 
       // Set up event handlers
       RedisConnectionManager.setupEventHandlers();
@@ -212,13 +216,13 @@ class RedisConnectionManager {
    * @param channel The channel to subscribe to
    * @returns A Redis client subscribed to the channel
    */
-  public static async getSubscriber(channel: string): Promise<RedisClientType> {
+  public static async getSubscriber(channel: string): Promise<TypedRedisClient> {
     if (RedisConnectionManager.subscribers.has(channel)) {
       return RedisConnectionManager.subscribers.get(channel)!;
     }
 
     try {
-      const subscriber = createClient(redisConfig);
+      const subscriber = createClient(redisConfig) as TypedRedisClient;
       await subscriber.connect();
 
       RedisConnectionManager.subscribers.set(channel, subscriber);
@@ -259,7 +263,7 @@ class RedisConnectionManager {
 
       return {
         status: ping === 'PONG' ? 'ok' : 'error',
-        details: `Connected to Redis at ${dbConfig.redis?.host || 'localhost'}:${dbConfig.redis?.port || 6379}`,
+        details: `Connected to Redis at ${databaseConfig.redis?.host || 'localhost'}:${databaseConfig.redis?.port || 6379}`,
       };
     } catch (error) {
       logger.error('Redis health check failed', { error });
@@ -292,13 +296,26 @@ export class RedisCache {
   private static readonly MEMORY_CACHE_TTL = 60; // 1 minute in seconds
 
   /**
+   * Get the key prefix from config or default to empty string
+   * @returns The key prefix as a string
+   */
+  private static getKeyPrefix(): string {
+    // Ensure we always return a string, even if redis config is undefined
+    if (!databaseConfig.redis || typeof databaseConfig.redis.keyPrefix !== 'string') {
+      return '';
+    }
+    return databaseConfig.redis.keyPrefix;
+  }
+
+  /**
    * Set a value in the cache
    * @param key The cache key
    * @param value The value to cache
    * @param ttl Time to live in seconds (optional)
    */
   public static async set(key: string, value: any, ttl?: number): Promise<void> {
-    const prefixedKey = `${dbConfig.redis?.keyPrefix || ''}${key}`;
+    const keyPrefix = RedisCache.getKeyPrefix();
+    const prefixedKey = `${keyPrefix}${key}`;
     const serializedValue = JSON.stringify(value);
 
     try {
@@ -308,7 +325,8 @@ export class RedisCache {
       if (ttl) {
         await client.set(prefixedKey, serializedValue, { EX: ttl });
       } else {
-        await client.set(prefixedKey, serializedValue);
+        // Use DEFAULT_TTL when no ttl is provided
+        await client.set(prefixedKey, serializedValue, { EX: RedisCache.DEFAULT_TTL });
       }
 
       // Set in memory cache
@@ -335,7 +353,8 @@ export class RedisCache {
    * @returns The cached value or null if not found
    */
   public static async get<T = any>(key: string): Promise<T | null> {
-    const prefixedKey = `${dbConfig.redis?.keyPrefix || ''}${key}`;
+    const keyPrefix = RedisCache.getKeyPrefix();
+    const prefixedKey = `${keyPrefix}${key}`;
 
     try {
       // Check memory cache first (L1)
@@ -377,7 +396,8 @@ export class RedisCache {
    * @returns Number of keys removed
    */
   public static async delete(key: string): Promise<number> {
-    const prefixedKey = `${dbConfig.redis?.keyPrefix || ''}${key}`;
+    const keyPrefix = RedisCache.getKeyPrefix();
+    const prefixedKey = `${keyPrefix}${key}`;
 
     try {
       // Remove from memory cache
@@ -402,7 +422,8 @@ export class RedisCache {
    * @returns True if the key exists, false otherwise
    */
   public static async exists(key: string): Promise<boolean> {
-    const prefixedKey = `${dbConfig.redis?.keyPrefix || ''}${key}`;
+    const keyPrefix = RedisCache.getKeyPrefix();
+    const prefixedKey = `${keyPrefix}${key}`;
 
     try {
       // Check memory cache first
@@ -430,7 +451,8 @@ export class RedisCache {
    * @returns Object with keys and values
    */
   public static async mget<T = any>(keys: string[]): Promise<Record<string, T | null>> {
-    const prefixedKeys = keys.map(key => `${dbConfig.redis?.keyPrefix || ''}${key}`);
+    const keyPrefix = RedisCache.getKeyPrefix();
+    const prefixedKeys = keys.map(key => `${keyPrefix}${key}`);
     const result: Record<string, T | null> = {};
 
     try {
@@ -443,14 +465,21 @@ export class RedisCache {
       const keysToFetch: string[] = [];
       const now = Date.now();
 
-      prefixedKeys.forEach((prefixedKey, index) => {
+      // Use a traditional for loop instead of forEach for better type safety
+      for (let i = 0; i < prefixedKeys.length; i++) {
+        const prefixedKey = prefixedKeys[i];
+        const originalKey = keys[i];
+        
+        // Skip if either key is undefined
+        if (!prefixedKey || !originalKey) continue;
+        
         const memoryCache = RedisCache.MEMORY_CACHE.get(prefixedKey);
         if (memoryCache && memoryCache.expiry > now) {
-          result[keys[index]] = memoryCache.value as T;
+          result[originalKey] = memoryCache.value as T;
         } else {
           keysToFetch.push(prefixedKey);
         }
-      });
+      }
 
       // If all keys were found in memory cache, return early
       if (keysToFetch.length === 0) {
@@ -461,20 +490,34 @@ export class RedisCache {
       const client = RedisConnectionManager.getInstance();
       const values = await client.mGet(keysToFetch);
 
-      // Process Redis results
-      values.forEach((value, index) => {
-        if (value) {
-          const originalKey = keys[prefixedKeys.indexOf(keysToFetch[index])];
+      // Process Redis results using a for loop instead of forEach to properly handle continue statements
+      for (let i = 0; i < values.length; i++) {
+        const value = values[i];
+        if (!value) continue;
+
+        // Find the original key by matching the prefixed key
+        const prefixedKey = keysToFetch[i];
+        if (!prefixedKey) continue; // Skip if prefixedKey is undefined
+        
+        const originalKeyIndex = prefixedKeys.indexOf(prefixedKey);
+        if (originalKeyIndex === -1) continue;
+
+        const originalKey = keys[originalKeyIndex];
+        if (!originalKey) continue; // Skip if originalKey is undefined
+        
+        try {
           const parsed = JSON.parse(value) as T;
           result[originalKey] = parsed;
 
           // Update memory cache
-          RedisCache.MEMORY_CACHE.set(keysToFetch[index], {
+          RedisCache.MEMORY_CACHE.set(prefixedKey, {
             value: parsed,
             expiry: now + RedisCache.MEMORY_CACHE_TTL * 1000,
           });
+        } catch (error) {
+          logger.error('Failed to parse cache value', { error });
         }
-      });
+      }
 
       return result;
     } catch (error) {
@@ -494,17 +537,19 @@ export class RedisCache {
       const client = RedisConnectionManager.getInstance();
       const now = Date.now();
       const pipeline = client.multi();
+      const keyPrefix = RedisCache.getKeyPrefix();
 
       // Process each entry
       for (const [key, value] of Object.entries(entries)) {
-        const prefixedKey = `${dbConfig.redis?.keyPrefix || ''}${key}`;
+        const prefixedKey = `${keyPrefix}${key}`;
         const serializedValue = JSON.stringify(value);
 
         // Add to Redis pipeline
         if (ttl) {
           pipeline.set(prefixedKey, serializedValue, { EX: ttl });
         } else {
-          pipeline.set(prefixedKey, serializedValue);
+          // Use DEFAULT_TTL when no ttl is provided, for consistency with set method
+          pipeline.set(prefixedKey, serializedValue, { EX: RedisCache.DEFAULT_TTL });
         }
 
         // Update memory cache
@@ -533,7 +578,8 @@ export class RedisCache {
    * @returns The new value
    */
   public static async increment(key: string, increment = 1): Promise<number> {
-    const prefixedKey = `${dbConfig.redis?.keyPrefix || ''}${key}`;
+    const keyPrefix = RedisCache.getKeyPrefix();
+    const prefixedKey = `${keyPrefix}${key}`;
 
     try {
       const client = RedisConnectionManager.getInstance();
@@ -588,8 +634,10 @@ export class RedisCache {
   ): Promise<void> {
     try {
       const subscriber = await RedisConnectionManager.getSubscriber(channel);
-      await subscriber.subscribe(channel, (message, channel) => {
-        callback(message, channel);
+      await subscriber.subscribe(channel, (message, channelName) => {
+        // Ensure message is always a string
+        const messageStr = typeof message === 'string' ? message : String(message);
+        callback(messageStr, channelName);
       });
 
       logger.debug('Subscribed to channel', { channel });
@@ -609,10 +657,13 @@ export class RedisCache {
    */
   public static async unsubscribe(channel: string): Promise<void> {
     try {
-      if (RedisConnectionManager['subscribers'].has(channel)) {
-        const subscriber = RedisConnectionManager['subscribers'].get(channel)!;
-        await subscriber.unsubscribe(channel);
-        logger.debug('Unsubscribed from channel', { channel });
+      // Ensure channel is a string before using it as a Map key
+      if (typeof channel === 'string' && RedisConnectionManager['subscribers'].has(channel)) {
+        const subscriber = RedisConnectionManager['subscribers'].get(channel);
+        if (subscriber) {
+          await subscriber.unsubscribe(channel);
+          logger.debug('Unsubscribed from channel', { channel });
+        }
       }
     } catch (error) {
       logger.error('Failed to unsubscribe from channel', { channel, error });
@@ -644,7 +695,7 @@ export const isRedisConnected = RedisConnectionManager.isConnected;
  * @returns The Redis client instance
  * @throws Error if Redis is not connected
  */
-export function getRedisClient(): RedisClientType {
+export function getRedisClient(): TypedRedisClient {
   return RedisConnectionManager.getInstance();
 }
 

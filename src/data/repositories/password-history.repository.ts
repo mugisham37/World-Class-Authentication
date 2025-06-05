@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
 import type { PasswordHistory } from '../models/password-history.model';
@@ -75,11 +76,17 @@ export class PrismaPasswordHistoryRepository
 
   async findByUserId(userId: string, limit?: number): Promise<PasswordHistory[]> {
     try {
-      const entries = await this.prisma.passwordHistory.findMany({
+      const queryOptions: Prisma.PasswordHistoryFindManyArgs = {
         where: { userId },
         orderBy: { createdAt: 'desc' },
-        take: limit,
-      });
+      };
+      
+      // Only add take property if limit is defined
+      if (typeof limit === 'number') {
+        queryOptions.take = limit;
+      }
+      
+      const entries = await this.prisma.passwordHistory.findMany(queryOptions);
       return entries;
     } catch (error) {
       logger.error('Error finding password history entries by user ID', { userId, error });
@@ -93,11 +100,17 @@ export class PrismaPasswordHistoryRepository
 
   async findByCredentialId(credentialId: string, limit?: number): Promise<PasswordHistory[]> {
     try {
-      const entries = await this.prisma.passwordHistory.findMany({
+      const queryOptions: Prisma.PasswordHistoryFindManyArgs = {
         where: { credentialId },
         orderBy: { createdAt: 'desc' },
-        take: limit,
-      });
+      };
+      
+      // Only add take property if limit is defined
+      if (typeof limit === 'number') {
+        queryOptions.take = limit;
+      }
+      
+      const entries = await this.prisma.passwordHistory.findMany(queryOptions);
       return entries;
     } catch (error) {
       logger.error('Error finding password history entries by credential ID', {

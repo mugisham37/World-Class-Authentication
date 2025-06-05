@@ -1,5 +1,5 @@
 import { recoveryTokenRepository } from '../../data/repositories/recovery-token.repository';
-import { userRepository } from '../../data/repositories/user.repository';
+import { userRepository } from '../../data/repositories/implementations/user.repository.impl';
 import { logger } from '../../infrastructure/logging/logger';
 import { generateSecureToken } from '../../infrastructure/security/crypto/encryption';
 import { NotFoundError, BadRequestError } from '../../utils/error-handling';

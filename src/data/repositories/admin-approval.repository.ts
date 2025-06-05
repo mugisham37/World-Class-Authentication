@@ -1,14 +1,24 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, AdminApproval as PrismaAdminApproval } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
 import {
   AdminApproval,
   AdminApprovalStatus,
-  CreateAdminApprovalData,
-  UpdateAdminApprovalData,
 } from '../models/recovery-request.model';
 import { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
+
+/**
+ * Maps a Prisma AdminApproval to the domain AdminApproval model
+ * @param prismaModel The Prisma AdminApproval model
+ * @returns The domain AdminApproval model
+ */
+function mapToDomainModel(prismaModel: PrismaAdminApproval): AdminApproval {
+  return {
+    ...prismaModel,
+    status: prismaModel.status as unknown as AdminApprovalStatus
+  };
+}
 
 /**
  * Admin approval filter options interface
@@ -141,7 +151,7 @@ export class PrismaAdminApprovalRepository
         where: { recoveryRequestId },
         orderBy: { createdAt: 'desc' },
       });
-      return approvals;
+      return approvals.map(mapToDomainModel);
     } catch (error) {
       logger.error('Error finding admin approvals by recovery request ID', {
         recoveryRequestId,
@@ -166,7 +176,7 @@ export class PrismaAdminApprovalRepository
         where: { adminId },
         orderBy: { createdAt: 'desc' },
       });
-      return approvals;
+      return approvals.map(mapToDomainModel);
     } catch (error) {
       logger.error('Error finding admin approvals by admin ID', { adminId, error });
       throw new DatabaseError(
@@ -191,11 +201,11 @@ export class PrismaAdminApprovalRepository
       const approvals = await this.prisma.adminApproval.findMany({
         where: {
           recoveryRequestId,
-          status,
+          status: status as unknown as any,
         },
         orderBy: { createdAt: 'desc' },
       });
-      return approvals;
+      return approvals.map(mapToDomainModel);
     } catch (error) {
       logger.error('Error finding admin approvals by recovery request ID and status', {
         recoveryRequestId,
@@ -227,7 +237,7 @@ export class PrismaAdminApprovalRepository
           adminId,
         },
       });
-      return approval;
+      return approval ? mapToDomainModel(approval) : null;
     } catch (error) {
       logger.error('Error finding admin approval by recovery request ID and admin ID', {
         recoveryRequestId,
@@ -255,7 +265,7 @@ export class PrismaAdminApprovalRepository
     notes?: string
   ): Promise<AdminApproval> {
     try {
-      const data: any = { status };
+      const data: any = { status: status as unknown as any };
 
       if (notes !== undefined) {
         data.notes = notes;
@@ -265,7 +275,7 @@ export class PrismaAdminApprovalRepository
         where: { id },
         data,
       });
-      return approval;
+      return mapToDomainModel(approval);
     } catch (error) {
       logger.error('Error updating admin approval status', { id, status, notes, error });
       throw new DatabaseError(
@@ -334,7 +344,7 @@ export class PrismaAdminApprovalRepository
       const count = await this.prisma.adminApproval.count({
         where: {
           recoveryRequestId,
-          status,
+          status: status as unknown as any,
         },
       });
       return count;
@@ -365,7 +375,10 @@ export class PrismaAdminApprovalRepository
           recoveryRequestId,
           adminId,
           status: {
-            in: [AdminApprovalStatus.APPROVED, AdminApprovalStatus.DENIED],
+            in: [
+              AdminApprovalStatus.APPROVED as unknown as any, 
+              AdminApprovalStatus.DENIED as unknown as any
+            ],
           },
         },
       });
@@ -409,7 +422,7 @@ export class PrismaAdminApprovalRepository
     }
 
     if (filter.status) {
-      where.status = filter.status;
+      where.status = filter.status as unknown as any;
     }
 
     // Date range filters

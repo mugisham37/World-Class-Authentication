@@ -5,10 +5,10 @@ import {
   RecoveryRequest,
   RecoveryRequestType,
   RecoveryRequestStatus,
-  CreateRecoveryRequestData,
-  UpdateRecoveryRequestData,
   RecoveryRequestFilterOptions,
   RecoveryRequestWithApprovals,
+  AdminApproval,
+  AdminApprovalStatus,
 } from '../models/recovery-request.model';
 import { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
@@ -31,6 +31,21 @@ export interface RecoveryRequestRepository extends BaseRepository<RecoveryReques
    * @returns Array of pending recovery requests
    */
   findPendingByUserId(userId: string): Promise<RecoveryRequest[]>;
+  
+  /**
+   * Find active recovery requests by user ID
+   * @param userId The user ID
+   * @returns Array of active recovery requests
+   */
+  findActiveByUserId(userId: string): Promise<RecoveryRequest[]>;
+  
+  /**
+   * Find recent recovery requests by user ID within a cooldown period
+   * @param userId The user ID
+   * @param cooldownPeriod The cooldown period in seconds
+   * @returns Array of recent recovery requests
+   */
+  findRecentByUserId(userId: string, cooldownPeriod: number): Promise<RecoveryRequest[]>;
 
   /**
    * Find recovery requests by user ID and type
@@ -116,6 +131,41 @@ export class PrismaRecoveryRequestRepository
   protected readonly modelName = 'recoveryRequest';
 
   /**
+   * Map Prisma record to model
+   * @param prismaRecord The Prisma record
+   * @returns The model
+   */
+  protected mapToModel(prismaRecord: any): RecoveryRequest {
+    return {
+      ...prismaRecord,
+      type: prismaRecord.type as RecoveryRequestType,
+      status: prismaRecord.status as RecoveryRequestStatus,
+      metadata: prismaRecord.metadata || null
+    };
+  }
+
+  /**
+   * Map Prisma records to models
+   * @param prismaRecords The Prisma records
+   * @returns The models
+   */
+  protected mapToModels(prismaRecords: any[]): RecoveryRequest[] {
+    return prismaRecords.map(record => this.mapToModel(record));
+  }
+  
+  /**
+   * Map admin approvals from Prisma to model
+   * @param adminApprovals The admin approvals from Prisma
+   * @returns The mapped admin approvals
+   */
+  protected mapAdminApprovals(adminApprovals: any[]): AdminApproval[] {
+    return adminApprovals.map(approval => ({
+      ...approval,
+      status: approval.status as AdminApprovalStatus
+    }));
+  }
+
+  /**
    * Find recovery requests by user ID
    * @param userId The user ID
    * @returns Array of recovery requests
@@ -126,7 +176,7 @@ export class PrismaRecoveryRequestRepository
         where: { userId },
         orderBy: { initiatedAt: 'desc' },
       });
-      return requests;
+      return this.mapToModels(requests);
     } catch (error) {
       logger.error('Error finding recovery requests by user ID', { userId, error });
       throw new DatabaseError(
@@ -151,12 +201,66 @@ export class PrismaRecoveryRequestRepository
         },
         orderBy: { initiatedAt: 'desc' },
       });
-      return requests;
+      return this.mapToModels(requests);
     } catch (error) {
       logger.error('Error finding pending recovery requests by user ID', { userId, error });
       throw new DatabaseError(
         'Error finding pending recovery requests by user ID',
         'RECOVERY_REQUEST_FIND_PENDING_BY_USER_ID_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+  
+  /**
+   * Find active recovery requests by user ID
+   * @param userId The user ID
+   * @returns Array of active recovery requests
+   */
+  async findActiveByUserId(userId: string): Promise<RecoveryRequest[]> {
+    try {
+      const requests = await this.prisma.recoveryRequest.findMany({
+        where: {
+          userId,
+          status: RecoveryRequestStatus.PENDING,
+        },
+        orderBy: { initiatedAt: 'desc' },
+      });
+      return this.mapToModels(requests);
+    } catch (error) {
+      logger.error('Error finding active recovery requests by user ID', { userId, error });
+      throw new DatabaseError(
+        'Error finding active recovery requests by user ID',
+        'RECOVERY_REQUEST_FIND_ACTIVE_BY_USER_ID_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+  
+  /**
+   * Find recent recovery requests by user ID within a cooldown period
+   * @param userId The user ID
+   * @param cooldownPeriod The cooldown period in seconds
+   * @returns Array of recent recovery requests
+   */
+  async findRecentByUserId(userId: string, cooldownPeriod: number): Promise<RecoveryRequest[]> {
+    try {
+      const cutoffDate = new Date(Date.now() - cooldownPeriod * 1000);
+      const requests = await this.prisma.recoveryRequest.findMany({
+        where: {
+          userId,
+          initiatedAt: {
+            gte: cutoffDate,
+          },
+        },
+        orderBy: { initiatedAt: 'desc' },
+      });
+      return this.mapToModels(requests);
+    } catch (error) {
+      logger.error('Error finding recent recovery requests by user ID', { userId, cooldownPeriod, error });
+      throw new DatabaseError(
+        'Error finding recent recovery requests by user ID',
+        'RECOVERY_REQUEST_FIND_RECENT_BY_USER_ID_ERROR',
         error instanceof Error ? error : undefined
       );
     }
@@ -177,7 +281,7 @@ export class PrismaRecoveryRequestRepository
         },
         orderBy: { initiatedAt: 'desc' },
       });
-      return requests;
+      return this.mapToModels(requests);
     } catch (error) {
       logger.error('Error finding recovery requests by user ID and type', { userId, type, error });
       throw new DatabaseError(
@@ -199,7 +303,7 @@ export class PrismaRecoveryRequestRepository
         where: { status },
         orderBy: { initiatedAt: 'desc' },
       });
-      return requests;
+      return this.mapToModels(requests);
     } catch (error) {
       logger.error('Error finding recovery requests by status', { status, error });
       throw new DatabaseError(
@@ -225,7 +329,15 @@ export class PrismaRecoveryRequestRepository
           },
         },
       });
-      return request as RecoveryRequestWithApprovals | null;
+      
+      if (!request) {
+        return null;
+      }
+      
+      return {
+        ...this.mapToModel(request),
+        adminApprovals: this.mapAdminApprovals(request.adminApprovals),
+      };
     } catch (error) {
       logger.error('Error finding recovery request with approvals', { id, error });
       throw new DatabaseError(
@@ -263,7 +375,7 @@ export class PrismaRecoveryRequestRepository
         where: { id },
         data,
       });
-      return request;
+      return this.mapToModel(request);
     } catch (error) {
       logger.error('Error updating recovery request status', { id, status, error });
       throw new DatabaseError(

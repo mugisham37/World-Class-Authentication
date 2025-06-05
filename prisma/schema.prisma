@@ -35,6 +35,12 @@ model User {
   trustedContacts   TrustedContact[]
   recoveryRequests  RecoveryRequest[]
   adminApprovals    AdminApproval[]
+  dataSubjectRequests DataSubjectRequest[]
+  webAuthnCredentials WebAuthnCredential[]
+  magicLinks        MagicLink[]
+  otps              OTP[]
+  certificateCredentials CertificateCredential[]
+  passwordlessSessions PasswordlessSession[]
 
   @@map("users")
 }
@@ -380,4 +386,173 @@ enum AdminApprovalStatus {
   PENDING
   APPROVED
   DENIED
+}
+
+// Data Subject Request model (GDPR, CCPA, etc.)
+model DataSubjectRequest {
+  id                  String                  @id @default(uuid())
+  type                DataSubjectRequestType
+  status              DataSubjectRequestStatus @default(PENDING_VERIFICATION)
+  email               String
+  firstName           String?
+  lastName            String?
+  userId              String?
+  requestReason       String?
+  additionalInfo      Json?
+  requestedBy         String?
+  ipAddress           String?
+  userAgent           String?
+  verificationToken   String?
+  expiresAt           DateTime?
+  verifiedAt          DateTime?
+  processingStartedAt DateTime?
+  completedAt         DateTime?
+  result              Json?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  user                User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@map("data_subject_requests")
+}
+
+enum DataSubjectRequestType {
+  ACCESS
+  DELETION
+  RECTIFICATION
+  RESTRICTION
+  PORTABILITY
+  OBJECTION
+}
+
+enum DataSubjectRequestStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+// Risk Assessment model
+model RiskAssessment {
+  id          String    @id @default(uuid())
+  userId      String?
+  sessionId   String?
+  ipAddress   String?
+  userAgent   String?
+  deviceId    String?
+  location    String?
+  riskLevel   String
+  riskFactors Json
+  riskScore   Float?
+  action      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  resolvedAt  DateTime?
+  resolution  String?
+
+  @@map("risk_assessment")
+}
+
+// WebAuthn Credential model
+model WebAuthnCredential {
+  id           String    @id @default(uuid())
+  userId       String
+  credentialId String    @unique
+  publicKey    Bytes
+  counter      Int
+  deviceType   String    @default("unknown")
+  deviceName   String?
+  transports   String[]
+  metadata     Json      @default("{}")
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("webauthn_credentials")
+}
+
+// Magic Link model
+model MagicLink {
+  id        String   @id @default(uuid())
+  userId    String
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("magic_links")
+}
+
+// OTP model
+model OTP {
+  id          String   @id @default(uuid())
+  userId      String
+  destination String
+  code        String
+  type        String
+  expiresAt   DateTime
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(3)
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("otps")
+}
+
+// Certificate Credential model
+model CertificateCredential {
+  id           String    @id @default(uuid())
+  userId       String
+  subjectDN    String
+  issuerDN     String
+  serialNumber String
+  fingerprint  String    @unique
+  notBefore    DateTime
+  notAfter     DateTime
+  metadata     Json      @default("{}")
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([fingerprint])
+  @@map("certificate_credentials")
+}
+
+// Passwordless Session model
+model PasswordlessSession {
+  id            String    @id @default(uuid())
+  userId        String
+  method        String
+  identifier    String
+  challengeId   String    @unique
+  expiresAt     DateTime
+  isRegistration Boolean   @default(false)
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  metadata      Json      @default("{}")
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([challengeId])
+  @@map("passwordless_sessions")
 }

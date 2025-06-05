@@ -87,19 +87,19 @@ export class PostgresConnection {
    * Set up event listeners for the connection pool
    */
   private setupEventListeners(): void {
-    this.pool.on('connect', (client: PoolClient) => {
+    this.pool.on('connect', () => {
       this.isConnected = true;
       this.connectionAttempts = 0;
       logger.info('New client connected to PostgreSQL pool');
       this.metricsCollector.incrementCounter('postgres_connections_total');
     });
 
-    this.pool.on('error', (err: Error, client: PoolClient) => {
+    this.pool.on('error', (err: Error) => {
       logger.error('Unexpected error on idle PostgreSQL client', { error: err });
       this.metricsCollector.incrementCounter('postgres_connection_errors_total');
     });
 
-    this.pool.on('remove', (client: PoolClient) => {
+    this.pool.on('remove', () => {
       logger.debug('Client removed from PostgreSQL pool');
       this.metricsCollector.decrementGauge('postgres_active_connections');
     });
@@ -202,7 +202,7 @@ export class PostgresConnection {
 
       return result;
     } catch (error) {
-      const duration = Date.now() - startTime;
+      // const duration = Date.now() - startTime;
       logger.error('Error executing PostgreSQL query', { error, query: text });
       this.metricsCollector.incrementCounter('postgres_query_errors_total');
       throw new DatabaseError(

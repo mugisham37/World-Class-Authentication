@@ -2,10 +2,8 @@ import { Injectable } from '@tsed/di';
 import { logger } from '../../infrastructure/logging/logger';
 import { performanceConfig } from '../../config/performance-config';
 import { prisma } from '../../data/prisma/client';
-import type { PrismaClient } from '@prisma/client';
+import type { PrismaClient, Prisma } from '@prisma/client';
 import type {
-  PrismaMiddlewareParams,
-  PrismaMiddlewareNext,
   QueryStats,
   SlowQuery,
   CacheEntry,
@@ -36,7 +34,10 @@ export class DatabaseOptimizerService {
    */
   private setupQueryLogging(): void {
     if (performanceConfig.database.query.logging) {
-      this.prismaClient.$use(async (params: PrismaMiddlewareParams, next: PrismaMiddlewareNext) => {
+      this.prismaClient.$use(async (
+        params: Prisma.MiddlewareParams,
+        next: (params: Prisma.MiddlewareParams) => Promise<any>
+      ) => {
         const startTime = Date.now();
         const result = await next(params);
         const duration = Date.now() - startTime;
@@ -262,14 +263,17 @@ export class DatabaseOptimizerService {
    * @param queries Query functions
    * @returns Query results
    */
-  async executeInTransaction<T>(queries: (() => Promise<any>)[]): Promise<T[]> {
+  async executeInTransaction<T>(queries: (() => Promise<T>)[]): Promise<T[]> {
     try {
-      return await this.prismaClient.$transaction(
-        queries.map(query => query()),
-        {
-          timeout: performanceConfig.database.query.timeout * 2, // Double timeout for transactions
+      return await this.prismaClient.$transaction(async (tx) => {
+        const results: T[] = [];
+        for (const query of queries) {
+          results.push(await query());
         }
-      );
+        return results;
+      }, {
+        timeout: performanceConfig.database.query.timeout * 2, // Double timeout for transactions
+      });
     } catch (error) {
       logger.error('Transaction failed', { error });
       throw error;

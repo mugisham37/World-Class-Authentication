@@ -177,7 +177,7 @@ export type UpdateData<T> = Omit<Partial<T>, 'id' | 'createdAt' | 'updatedAt'>;
  * Transaction callback function
  * @template T The return type
  */
-export type TransactionCallback<T> = () => Promise<T>;
+export type TransactionCallback<T> = (tx?: any) => Promise<T>;
 
 /**
  * Transaction options
@@ -204,5 +204,8 @@ export interface TransactionManager {
    * @param options Transaction options
    * @returns The result of the callback function
    */
-  transaction<T>(callback: TransactionCallback<T>, options?: TransactionOptions): Promise<T>;
+  transaction<R>(
+    callback: (tx: any) => Promise<R>,
+    options?: TransactionOptions
+  ): Promise<R>;
 }
