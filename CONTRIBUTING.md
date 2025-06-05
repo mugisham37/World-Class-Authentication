@@ -52,28 +52,33 @@ Enhancement suggestions are welcome! Please include:
 ## Development Setup
 
 1. Clone the repository
+
    ```bash
    git clone https://github.com/yourusername/world-class-authentication.git
    cd world-class-authentication
    ```
 
 2. Install dependencies
+
    ```bash
    npm install
    ```
 
 3. Set up environment variables
+
    ```bash
    cp .env.example .env
    # Edit .env with your configuration
    ```
 
 4. Start development database (using Docker)
+
    ```bash
    npm run docker:dev
    ```
 
 5. Run database migrations
+
    ```bash
    npm run db:migrate
    ```
@@ -127,6 +132,7 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
 ```
 
 Types include:
+
 - `feat`: A new feature
 - `fix`: A bug fix
 - `docs`: Documentation changes
@@ -138,6 +144,7 @@ Types include:
 - `security`: Security-related changes
 
 Examples:
+
 - `feat(auth): add support for WebAuthn authentication`
 - `fix(mfa): resolve issue with TOTP verification`
 - `docs(readme): update installation instructions`

@@ -1,21 +1,21 @@
-import { Injectable } from "@tsed/di"
-import { PrismaBaseRepository } from "./prisma-base.repository"
-import { PrismaClient } from "@prisma/client"
-import { logger } from "../../infrastructure/logging/logger"
-import { BaseRepository } from "./base.repository"
+import { Injectable } from '@tsed/di';
+import { PrismaBaseRepository } from './prisma-base.repository';
+import { PrismaClient } from '@prisma/client';
+import { logger } from '../../infrastructure/logging/logger';
+import { BaseRepository } from './base.repository';
 
 /**
  * Repository for user login history
  */
 @Injectable()
 export class UserLoginHistoryRepository extends PrismaBaseRepository<any, string> {
-  protected override readonly prisma: PrismaClient
-  protected readonly modelName: string = "userLoginHistory"
-  protected logger = logger
+  protected override readonly prisma: PrismaClient;
+  protected readonly modelName: string = 'userLoginHistory';
+  protected logger = logger;
 
   constructor(prisma: PrismaClient) {
-    super(prisma)
-    this.prisma = prisma
+    super(prisma);
+    this.prisma = prisma;
   }
 
   /**
@@ -24,8 +24,8 @@ export class UserLoginHistoryRepository extends PrismaBaseRepository<any, string
    * @returns A new repository instance with the transaction client
    */
   protected withTransaction(tx: PrismaClient): BaseRepository<any, string> {
-    const repo = new UserLoginHistoryRepository(tx)
-    return repo
+    const repo = new UserLoginHistoryRepository(tx);
+    return repo;
   }
 
   /**
@@ -38,12 +38,12 @@ export class UserLoginHistoryRepository extends PrismaBaseRepository<any, string
     try {
       return await this.model.findMany({
         where: { userId },
-        orderBy: { timestamp: "desc" },
+        orderBy: { timestamp: 'desc' },
         take: limit,
-      })
+      });
     } catch (error) {
-      this.logger.error("Error finding recent login history by user ID", { error, userId, limit })
-      return []
+      this.logger.error('Error finding recent login history by user ID', { error, userId, limit });
+      return [];
     }
   }
 
@@ -62,11 +62,11 @@ export class UserLoginHistoryRepository extends PrismaBaseRepository<any, string
             gte: since,
           },
         },
-        orderBy: { timestamp: "desc" },
-      })
+        orderBy: { timestamp: 'desc' },
+      });
     } catch (error) {
-      this.logger.error("Error finding login history by user ID", { error, userId, since })
-      return []
+      this.logger.error('Error finding login history by user ID', { error, userId, since });
+      return [];
     }
   }
 
@@ -78,7 +78,7 @@ export class UserLoginHistoryRepository extends PrismaBaseRepository<any, string
    */
   async findRecentByIpAddress(ipAddress: string, timeWindow: number): Promise<any[]> {
     try {
-      const since = new Date(Date.now() - timeWindow)
+      const since = new Date(Date.now() - timeWindow);
       return await this.model.findMany({
         where: {
           ipAddress,
@@ -86,11 +86,15 @@ export class UserLoginHistoryRepository extends PrismaBaseRepository<any, string
             gte: since,
           },
         },
-        orderBy: { timestamp: "desc" },
-      })
+        orderBy: { timestamp: 'desc' },
+      });
     } catch (error) {
-      this.logger.error("Error finding recent login history by IP address", { error, ipAddress, timeWindow })
-      return []
+      this.logger.error('Error finding recent login history by IP address', {
+        error,
+        ipAddress,
+        timeWindow,
+      });
+      return [];
     }
   }
 
@@ -100,9 +104,12 @@ export class UserLoginHistoryRepository extends PrismaBaseRepository<any, string
    * @param timeWindow Time window in milliseconds
    * @returns Login history records
    */
-  async findRecentByDeviceFingerprint(deviceFingerprint: string, timeWindow: number): Promise<any[]> {
+  async findRecentByDeviceFingerprint(
+    deviceFingerprint: string,
+    timeWindow: number
+  ): Promise<any[]> {
     try {
-      const since = new Date(Date.now() - timeWindow)
+      const since = new Date(Date.now() - timeWindow);
       return await this.model.findMany({
         where: {
           deviceFingerprint,
@@ -110,15 +117,15 @@ export class UserLoginHistoryRepository extends PrismaBaseRepository<any, string
             gte: since,
           },
         },
-        orderBy: { timestamp: "desc" },
-      })
+        orderBy: { timestamp: 'desc' },
+      });
     } catch (error) {
-      this.logger.error("Error finding recent login history by device fingerprint", {
+      this.logger.error('Error finding recent login history by device fingerprint', {
         error,
         deviceFingerprint,
         timeWindow,
-      })
-      return []
+      });
+      return [];
     }
   }
 }

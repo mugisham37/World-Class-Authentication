@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "A comprehensive, enterprise-grade authentication system built with Node.js, TypeScript, and modern security practices",
   "main": "dist/server.js",
+  "type": "module",
   "scripts": {
     "build": "rimraf dist && tsc -p tsconfig.build.json",
     "start": "node dist/server.js",

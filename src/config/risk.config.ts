@@ -7,7 +7,7 @@ export const riskConfig = {
    */
   ipReputation: {
     enabled: true,
-    providers: ["local", "abuseipdb", "ipqualityscore", "ipinfo"],
+    providers: ['local', 'abuseipdb', 'ipqualityscore', 'ipinfo'],
     cacheTime: 3600, // Cache time in seconds
     thresholds: {
       low: 20,
@@ -21,9 +21,9 @@ export const riskConfig = {
    */
   geolocation: {
     enabled: true,
-    providers: ["local", "ipinfo", "maxmind", "ipgeolocation"],
+    providers: ['local', 'ipinfo', 'maxmind', 'ipgeolocation'],
     cacheTime: 3600, // Cache time in seconds
-    highRiskCountries: ["KP", "IR", "SY", "SD", "CU"], // ISO country codes
+    highRiskCountries: ['KP', 'IR', 'SY', 'SD', 'CU'], // ISO country codes
     riskFactors: {
       vpnDetected: 60,
       torDetected: 80,
@@ -40,34 +40,34 @@ export const riskConfig = {
   deviceFingerprint: {
     enabled: true,
     components: [
-      "userAgent",
-      "language",
-      "colorDepth",
-      "deviceMemory",
-      "hardwareConcurrency",
-      "screenResolution",
-      "availableScreenResolution",
-      "timezoneOffset",
-      "timezone",
-      "sessionStorage",
-      "localStorage",
-      "indexedDb",
-      "addBehavior",
-      "openDatabase",
-      "cpuClass",
-      "platform",
-      "plugins",
-      "canvas",
-      "webgl",
-      "webglVendorAndRenderer",
-      "adBlock",
-      "hasLiedLanguages",
-      "hasLiedResolution",
-      "hasLiedOs",
-      "hasLiedBrowser",
-      "touchSupport",
-      "fonts",
-      "audio",
+      'userAgent',
+      'language',
+      'colorDepth',
+      'deviceMemory',
+      'hardwareConcurrency',
+      'screenResolution',
+      'availableScreenResolution',
+      'timezoneOffset',
+      'timezone',
+      'sessionStorage',
+      'localStorage',
+      'indexedDb',
+      'addBehavior',
+      'openDatabase',
+      'cpuClass',
+      'platform',
+      'plugins',
+      'canvas',
+      'webgl',
+      'webglVendorAndRenderer',
+      'adBlock',
+      'hasLiedLanguages',
+      'hasLiedResolution',
+      'hasLiedOs',
+      'hasLiedBrowser',
+      'touchSupport',
+      'fonts',
+      'audio',
     ],
     riskFactors: {
       deviceSpoofing: 80,
@@ -113,7 +113,7 @@ export const riskConfig = {
    */
   threatIntelligence: {
     enabled: true,
-    providers: ["local", "virustotal", "abuseipdb", "haveibeenpwned"],
+    providers: ['local', 'virustotal', 'abuseipdb', 'haveibeenpwned'],
     cacheTime: 3600, // Cache time in seconds
     riskFactors: {
       knownThreatActor: 90,
@@ -171,41 +171,41 @@ export const riskConfig = {
         requireMfa: false,
         allowRememberDevice: true,
         sessionDuration: 24 * 60 * 60, // 24 hours in seconds
-        allowedActions: ["all"],
+        allowedActions: ['all'],
       },
       medium: {
         requireMfa: true,
         allowRememberDevice: true,
         sessionDuration: 12 * 60 * 60, // 12 hours in seconds
-        allowedActions: ["all"],
+        allowedActions: ['all'],
       },
       high: {
         requireMfa: true,
         allowRememberDevice: false,
         sessionDuration: 1 * 60 * 60, // 1 hour in seconds
-        allowedActions: ["read", "basic"],
+        allowedActions: ['read', 'basic'],
       },
       critical: {
         requireMfa: true,
         allowRememberDevice: false,
         sessionDuration: 30 * 60, // 30 minutes in seconds
-        allowedActions: ["read"],
+        allowedActions: ['read'],
         requireAdditionalVerification: true,
       },
     },
     stepUpAuth: {
       enabled: true,
       sensitiveActions: [
-        "updateProfile",
-        "changePassword",
-        "changeEmail",
-        "changePhone",
-        "addPaymentMethod",
-        "makePayment",
-        "transferFunds",
-        "deleteAccount",
-        "addRecoveryMethod",
-        "disableMfa",
+        'updateProfile',
+        'changePassword',
+        'changeEmail',
+        'changePhone',
+        'addPaymentMethod',
+        'makePayment',
+        'transferFunds',
+        'deleteAccount',
+        'addRecoveryMethod',
+        'disableMfa',
       ],
     },
   },
@@ -218,13 +218,7 @@ export const riskConfig = {
     assessmentInterval: 5 * 60, // 5 minutes in seconds
     riskDecayRate: 0.1, // 10% decay rate per assessment
     maxRiskIncrement: 20, // Maximum risk score increase per assessment
-    triggerEvents: [
-      "pageNavigation",
-      "sensitiveAction",
-      "idleTimeout",
-      "ipChange",
-      "deviceChange",
-    ],
+    triggerEvents: ['pageNavigation', 'sensitiveAction', 'idleTimeout', 'ipChange', 'deviceChange'],
   },
 
   /**
@@ -232,8 +226,8 @@ export const riskConfig = {
    */
   rules: {
     enabled: true,
-    evaluationOrder: ["whitelist", "blacklist", "custom"],
-    defaultAction: "allow",
+    evaluationOrder: ['whitelist', 'blacklist', 'custom'],
+    defaultAction: 'allow',
   },
 
   /**
@@ -243,21 +237,21 @@ export const riskConfig = {
     notifyUser: {
       enabled: true,
       events: [
-        "risk.high.detected",
-        "risk.critical.detected",
-        "risk.location.change.detected",
-        "risk.device.change.detected",
-        "risk.compromised.credentials.detected",
+        'risk.high.detected',
+        'risk.critical.detected',
+        'risk.location.change.detected',
+        'risk.device.change.detected',
+        'risk.compromised.credentials.detected',
       ],
     },
     notifyAdmin: {
       enabled: true,
       events: [
-        "risk.critical.detected",
-        "risk.threat.detected",
-        "risk.impossible.travel.detected",
-        "risk.botnet.activity.detected",
+        'risk.critical.detected',
+        'risk.threat.detected',
+        'risk.impossible.travel.detected',
+        'risk.botnet.activity.detected',
       ],
     },
   },
-}
+};

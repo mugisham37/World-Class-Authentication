@@ -7,7 +7,7 @@ declare global {
       NODE_ENV?: string;
       PORT?: string;
       APP_URL?: string;
-      
+
       // Database
       DATABASE_URL?: string;
       DATABASE_HOST?: string;
@@ -15,11 +15,11 @@ declare global {
       DATABASE_NAME?: string;
       DATABASE_USER?: string;
       DATABASE_PASSWORD?: string;
-      
+
       // JWT
       JWT_SECRET?: string;
       JWT_EXPIRATION?: string;
-      
+
       // Passwordless
       PASSWORDLESS_WEBAUTHN_ENABLED?: string;
       PASSWORDLESS_WEBAUTHN_RP_NAME?: string;
@@ -31,7 +31,7 @@ declare global {
       PASSWORDLESS_WEBAUTHN_AUTHENTICATOR_ATTACHMENT?: string;
       PASSWORDLESS_WEBAUTHN_USER_VERIFICATION?: string;
       PASSWORDLESS_WEBAUTHN_CREDENTIAL_TIMEOUT?: string;
-      
+
       PASSWORDLESS_MAGIC_LINK_ENABLED?: string;
       PASSWORDLESS_MAGIC_LINK_TOKEN_LENGTH?: string;
       PASSWORDLESS_MAGIC_LINK_TOKEN_EXPIRATION?: string;
@@ -40,7 +40,7 @@ declare global {
       PASSWORDLESS_MAGIC_LINK_MAX_TOKENS_PER_USER?: string;
       PASSWORDLESS_MAGIC_LINK_REUSE_WINDOW?: string;
       PASSWORDLESS_MAGIC_LINK_REQUIRE_VERIFIED_EMAIL?: string;
-      
+
       PASSWORDLESS_EMAIL_OTP_ENABLED?: string;
       PASSWORDLESS_EMAIL_OTP_CODE_LENGTH?: string;
       PASSWORDLESS_EMAIL_OTP_CODE_EXPIRATION?: string;
@@ -49,7 +49,7 @@ declare global {
       PASSWORDLESS_EMAIL_OTP_REQUIRE_VERIFIED_EMAIL?: string;
       PASSWORDLESS_EMAIL_OTP_RATE_LIMIT_WINDOW?: string;
       PASSWORDLESS_EMAIL_OTP_RATE_LIMIT_MAX?: string;
-      
+
       PASSWORDLESS_SMS_OTP_ENABLED?: string;
       PASSWORDLESS_SMS_OTP_CODE_LENGTH?: string;
       PASSWORDLESS_SMS_OTP_CODE_EXPIRATION?: string;
@@ -58,17 +58,17 @@ declare global {
       PASSWORDLESS_SMS_OTP_RATE_LIMIT_WINDOW?: string;
       PASSWORDLESS_SMS_OTP_RATE_LIMIT_MAX?: string;
       PASSWORDLESS_SMS_OTP_PROVIDERS?: string;
-      
+
       PASSWORDLESS_CERTIFICATE_AUTH_ENABLED?: string;
       PASSWORDLESS_CERTIFICATE_AUTH_TRUSTED_CAS?: string;
       PASSWORDLESS_CERTIFICATE_AUTH_SUBJECT_DN_PATTERN?: string;
       PASSWORDLESS_CERTIFICATE_AUTH_ISSUER_DN_PATTERN?: string;
       PASSWORDLESS_CERTIFICATE_AUTH_VERIFY_REVOCATION?: string;
       PASSWORDLESS_CERTIFICATE_AUTH_ALLOW_SELF_SIGNED?: string;
-      
+
       PASSWORDLESS_BIOMETRIC_ENABLED?: string;
       PASSWORDLESS_BIOMETRIC_REQUIRE_RESIDENT_KEY?: string;
-      
+
       PASSWORDLESS_SESSION_COOKIE_NAME?: string;
       PASSWORDLESS_SESSION_COOKIE_MAX_AGE?: string;
       PASSWORDLESS_SESSION_COOKIE_SECURE?: string;
@@ -79,4 +79,4 @@ declare global {
   }
 }
 
-export {}
+export {};

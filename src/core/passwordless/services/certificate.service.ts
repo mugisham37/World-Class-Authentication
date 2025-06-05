@@ -1,13 +1,13 @@
-import { Injectable } from "@tsed/di"
-import { v4 as uuidv4 } from "uuid"
-import { passwordlessConfig } from "../passwordless.config"
-import { logger } from "../../../infrastructure/logging/logger"
-import type { PasswordlessCredentialRepository } from "../../../data/repositories/passwordless/credential.repository"
-import type { UserRepository } from "../../../data/repositories/user.repository"
-import type { EventEmitter } from "../../../infrastructure/events/event-emitter"
-import { PasswordlessEvent } from "../passwordless-events"
-import { BadRequestError, NotFoundError } from "../../../utils/error-handling"
-import crypto from "crypto"
+import { Injectable } from '@tsed/di';
+import { v4 as uuidv4 } from 'uuid';
+import { passwordlessConfig } from '../passwordless.config';
+import { logger } from '../../../infrastructure/logging/logger';
+import type { PasswordlessCredentialRepository } from '../../../data/repositories/passwordless/credential.repository';
+import type { UserRepository } from '../../../data/repositories/user.repository';
+import type { EventEmitter } from '../../../infrastructure/events/event-emitter';
+import { PasswordlessEvent } from '../passwordless-events';
+import { BadRequestError, NotFoundError } from '../../../utils/error-handling';
+import crypto from 'crypto';
 
 /**
  * Certificate service for passwordless authentication
@@ -18,7 +18,7 @@ export class CertificateService {
   constructor(
     private credentialRepository: PasswordlessCredentialRepository,
     private userRepository: UserRepository,
-    private eventEmitter: EventEmitter,
+    private eventEmitter: EventEmitter
   ) {}
 
   /**
@@ -27,39 +27,42 @@ export class CertificateService {
    * @param options Additional options
    * @returns Registration challenge
    */
-  async generateRegistrationChallenge(userId: string, options: Record<string, any> = {}): Promise<Record<string, any>> {
+  async generateRegistrationChallenge(
+    userId: string,
+    options: Record<string, any> = {}
+  ): Promise<Record<string, any>> {
     try {
-      logger.debug("Generating certificate registration challenge", { userId })
+      logger.debug('Generating certificate registration challenge', { userId });
 
       // Check if certificate authentication is enabled
       if (!passwordlessConfig.certificateAuth.enabled) {
-        throw new BadRequestError("Certificate authentication is not enabled")
+        throw new BadRequestError('Certificate authentication is not enabled');
       }
 
       // Get user
-      const user = await this.userRepository.findById(userId)
+      const user = await this.userRepository.findById(userId);
       if (!user) {
-        throw new NotFoundError("User not found")
+        throw new NotFoundError('User not found');
       }
 
       // Generate challenge
-      const challenge = this.generateChallenge()
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
+      const challenge = this.generateChallenge();
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
       // Store challenge
-      const challengeId = uuidv4()
+      const challengeId = uuidv4();
       await this.credentialRepository.storeCertificateChallenge({
         id: challengeId,
         userId,
         challenge,
-        type: "registration",
+        type: 'registration',
         expiresAt,
         metadata: {
           ipAddress: options['ipAddress'],
           userAgent: options['userAgent'],
           origin: options['origin'],
         },
-      })
+      });
 
       // Emit event
       this.eventEmitter.emit(PasswordlessEvent.CERTIFICATE_REGISTRATION_STARTED, {
@@ -67,7 +70,7 @@ export class CertificateService {
         challengeId,
         expiresAt,
         timestamp: new Date(),
-      })
+      });
 
       return {
         id: challengeId,
@@ -76,10 +79,10 @@ export class CertificateService {
         metadata: {
           origin: options['origin'],
         },
-      }
+      };
     } catch (error) {
-      logger.error("Error generating certificate registration challenge", { error, userId })
-      throw error
+      logger.error('Error generating certificate registration challenge', { error, userId });
+      throw error;
     }
   }
 
@@ -93,46 +96,46 @@ export class CertificateService {
   async verifyRegistration(
     challengeId: string,
     response: Record<string, any>,
-    options: Record<string, any> = {},
+    options: Record<string, any> = {}
   ): Promise<Record<string, any>> {
     try {
-      logger.debug("Verifying certificate registration", { challengeId })
+      logger.debug('Verifying certificate registration', { challengeId });
 
       // Find challenge
-      const challenge = await this.credentialRepository.findCertificateChallengeById(challengeId)
+      const challenge = await this.credentialRepository.findCertificateChallengeById(challengeId);
       if (!challenge) {
-        throw new NotFoundError("Certificate challenge not found")
+        throw new NotFoundError('Certificate challenge not found');
       }
 
       // Check if challenge has expired
       if (challenge.expiresAt < new Date()) {
-        throw new BadRequestError("Certificate challenge has expired")
+        throw new BadRequestError('Certificate challenge has expired');
       }
 
       // Check if challenge type is registration
-      if (challenge.type !== "registration") {
-        throw new BadRequestError("Invalid challenge type")
+      if (challenge.type !== 'registration') {
+        throw new BadRequestError('Invalid challenge type');
       }
 
       // In a real implementation, this would verify the certificate
       // For now, we'll just extract the certificate data
-      const { certificate, signature } = response
+      const { certificate, signature } = response;
 
       // Verify certificate
       if (!this.verifyCertificate(certificate, options)) {
-        throw new BadRequestError("Invalid certificate")
+        throw new BadRequestError('Invalid certificate');
       }
 
       // Verify signature
       if (!this.verifySignature(challenge.challenge, signature, certificate)) {
-        throw new BadRequestError("Invalid signature")
+        throw new BadRequestError('Invalid signature');
       }
 
       // Extract certificate data
-      const certData = this.extractCertificateData(certificate)
+      const certData = this.extractCertificateData(certificate);
 
       // Store certificate
-      const credentialId = uuidv4()
+      const credentialId = uuidv4();
       await this.credentialRepository.storeCertificateCredential({
         id: credentialId,
         userId: challenge.userId,
@@ -150,23 +153,23 @@ export class CertificateService {
           userAgent: options['userAgent'],
           origin: options['origin'],
         },
-      })
+      });
 
       // Emit event
       this.eventEmitter.emit(PasswordlessEvent.CERTIFICATE_REGISTRATION_COMPLETED, {
         userId: challenge.userId,
         credentialId,
         timestamp: new Date(),
-      })
+      });
 
       return {
         success: true,
         userId: challenge.userId,
         credentialId,
-      }
+      };
     } catch (error) {
-      logger.error("Error verifying certificate registration", { error, challengeId })
-      throw error
+      logger.error('Error verifying certificate registration', { error, challengeId });
+      throw error;
     }
   }
 
@@ -178,46 +181,47 @@ export class CertificateService {
    */
   async generateAuthenticationChallenge(
     userId: string,
-    options: Record<string, any> = {},
+    options: Record<string, any> = {}
   ): Promise<Record<string, any>> {
     try {
-      logger.debug("Generating certificate authentication challenge", { userId })
+      logger.debug('Generating certificate authentication challenge', { userId });
 
       // Check if certificate authentication is enabled
       if (!passwordlessConfig.certificateAuth.enabled) {
-        throw new BadRequestError("Certificate authentication is not enabled")
+        throw new BadRequestError('Certificate authentication is not enabled');
       }
 
       // Get user
-      const user = await this.userRepository.findById(userId)
+      const user = await this.userRepository.findById(userId);
       if (!user) {
-        throw new NotFoundError("User not found")
+        throw new NotFoundError('User not found');
       }
 
       // Check if user has registered certificates
-      const certificates = await this.credentialRepository.findCertificateCredentialsByUserId(userId)
+      const certificates =
+        await this.credentialRepository.findCertificateCredentialsByUserId(userId);
       if (certificates.length === 0) {
-        throw new BadRequestError("No certificates found for user")
+        throw new BadRequestError('No certificates found for user');
       }
 
       // Generate challenge
-      const challenge = this.generateChallenge()
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
+      const challenge = this.generateChallenge();
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
       // Store challenge
-      const challengeId = uuidv4()
+      const challengeId = uuidv4();
       await this.credentialRepository.storeCertificateChallenge({
         id: challengeId,
         userId,
         challenge,
-        type: "authentication",
+        type: 'authentication',
         expiresAt,
         metadata: {
           ipAddress: options['ipAddress'],
           userAgent: options['userAgent'],
           origin: options['origin'],
         },
-      })
+      });
 
       // Emit event
       this.eventEmitter.emit(PasswordlessEvent.CERTIFICATE_AUTHENTICATION_STARTED, {
@@ -225,7 +229,7 @@ export class CertificateService {
         challengeId,
         expiresAt,
         timestamp: new Date(),
-      })
+      });
 
       return {
         id: challengeId,
@@ -234,10 +238,10 @@ export class CertificateService {
         metadata: {
           origin: options['origin'],
         },
-      }
+      };
     } catch (error) {
-      logger.error("Error generating certificate authentication challenge", { error, userId })
-      throw error
+      logger.error('Error generating certificate authentication challenge', { error, userId });
+      throw error;
     }
   }
 
@@ -251,75 +255,77 @@ export class CertificateService {
   async verifyAuthentication(
     challengeId: string,
     response: Record<string, any>,
-    options: Record<string, any> = {},
+    options: Record<string, any> = {}
   ): Promise<Record<string, any>> {
     try {
-      logger.debug("Verifying certificate authentication", { challengeId })
+      logger.debug('Verifying certificate authentication', { challengeId });
 
       // Find challenge
-      const challenge = await this.credentialRepository.findCertificateChallengeById(challengeId)
+      const challenge = await this.credentialRepository.findCertificateChallengeById(challengeId);
       if (!challenge) {
-        throw new NotFoundError("Certificate challenge not found")
+        throw new NotFoundError('Certificate challenge not found');
       }
 
       // Check if challenge has expired
       if (challenge.expiresAt < new Date()) {
-        throw new BadRequestError("Certificate challenge has expired")
+        throw new BadRequestError('Certificate challenge has expired');
       }
 
       // Check if challenge type is authentication
-      if (challenge.type !== "authentication") {
-        throw new BadRequestError("Invalid challenge type")
+      if (challenge.type !== 'authentication') {
+        throw new BadRequestError('Invalid challenge type');
       }
 
       // In a real implementation, this would verify the certificate
       // For now, we'll just extract the certificate data
-      const { certificate, signature } = response
+      const { certificate, signature } = response;
 
       // Verify certificate
       if (!this.verifyCertificate(certificate, options)) {
-        throw new BadRequestError("Invalid certificate")
+        throw new BadRequestError('Invalid certificate');
       }
 
       // Verify signature
       if (!this.verifySignature(challenge.challenge, signature, certificate)) {
-        throw new BadRequestError("Invalid signature")
+        throw new BadRequestError('Invalid signature');
       }
 
       // Extract certificate data
-      const certData = this.extractCertificateData(certificate)
+      const certData = this.extractCertificateData(certificate);
 
       // Find matching credential
-      const credential = await this.credentialRepository.findCertificateCredentialByFingerprint(certData.fingerprint)
+      const credential = await this.credentialRepository.findCertificateCredentialByFingerprint(
+        certData.fingerprint
+      );
       if (!credential) {
-        throw new BadRequestError("Certificate not registered")
+        throw new BadRequestError('Certificate not registered');
       }
 
       // Verify user ID
       if (credential.userId !== challenge.userId) {
-        throw new BadRequestError("User ID mismatch")
+        throw new BadRequestError('User ID mismatch');
       }
 
       // Update credential last used time
       await this.credentialRepository.updateCertificateCredential(credential.id, {
         lastUsedAt: new Date(),
-      })
+      });
 
       // Emit event
       this.eventEmitter.emit(PasswordlessEvent.CERTIFICATE_AUTHENTICATION_COMPLETED, {
         userId: challenge.userId,
         credentialId: credential.id,
         timestamp: new Date(),
-      })
+      });
 
       return {
         success: true,
         userId: challenge.userId,
         credentialId: credential.id,
-      }
+      };
     } catch (error) {
-      logger.error("Error verifying certificate authentication", { error, challengeId })
-      throw error
+      logger.error('Error verifying certificate authentication', { error, challengeId });
+      throw error;
     }
   }
 
@@ -331,34 +337,35 @@ export class CertificateService {
    */
   async deleteCredential(userId: string, credentialId: string): Promise<boolean> {
     try {
-      logger.debug("Deleting certificate credential", { userId, credentialId })
+      logger.debug('Deleting certificate credential', { userId, credentialId });
 
       // Find credential
-      const credential = await this.credentialRepository.findCertificateCredentialById(credentialId)
+      const credential =
+        await this.credentialRepository.findCertificateCredentialById(credentialId);
       if (!credential) {
-        throw new NotFoundError("Certificate credential not found")
+        throw new NotFoundError('Certificate credential not found');
       }
 
       // Verify user ID
       if (credential.userId !== userId) {
-        throw new BadRequestError("User ID mismatch")
+        throw new BadRequestError('User ID mismatch');
       }
 
       // Delete credential
-      const result = await this.credentialRepository.deleteCertificateCredential(credentialId)
+      const result = await this.credentialRepository.deleteCertificateCredential(credentialId);
 
       // Emit event
       this.eventEmitter.emit(PasswordlessEvent.CREDENTIAL_DELETED, {
         userId,
         credentialId,
-        type: "certificate",
+        type: 'certificate',
         timestamp: new Date(),
-      })
+      });
 
-      return result
+      return result;
     } catch (error) {
-      logger.error("Error deleting certificate credential", { error, userId, credentialId })
-      throw error
+      logger.error('Error deleting certificate credential', { error, userId, credentialId });
+      throw error;
     }
   }
 
@@ -367,8 +374,8 @@ export class CertificateService {
    * @returns Base64-encoded challenge
    */
   private generateChallenge(): string {
-    const buffer = crypto.randomBytes(32)
-    return buffer.toString("base64")
+    const buffer = crypto.randomBytes(32);
+    return buffer.toString('base64');
   }
 
   /**
@@ -381,10 +388,10 @@ export class CertificateService {
     try {
       // In a real implementation, this would verify the certificate against trusted CAs
       // For now, we'll just return true
-      return true
+      return true;
     } catch (error) {
-      logger.error("Error verifying certificate", { error })
-      return false
+      logger.error('Error verifying certificate', { error });
+      return false;
     }
   }
 
@@ -399,10 +406,10 @@ export class CertificateService {
     try {
       // In a real implementation, this would verify the signature using the certificate's public key
       // For now, we'll just return true
-      return true
+      return true;
     } catch (error) {
-      logger.error("Error verifying signature", { error })
-      return false
+      logger.error('Error verifying signature', { error });
+      return false;
     }
   }
 
@@ -412,27 +419,27 @@ export class CertificateService {
    * @returns Certificate data
    */
   private extractCertificateData(certificate: string): {
-    subject: string
-    issuer: string
-    serialNumber: string
-    validFrom: Date
-    validTo: Date
-    fingerprint: string
+    subject: string;
+    issuer: string;
+    serialNumber: string;
+    validFrom: Date;
+    validTo: Date;
+    fingerprint: string;
   } {
     try {
       // In a real implementation, this would extract data from the certificate
       // For now, we'll just return mock data
       return {
-        subject: "CN=Test User,O=Test Organization",
-        issuer: "CN=Test CA,O=Test Organization",
-        serialNumber: "12345678",
+        subject: 'CN=Test User,O=Test Organization',
+        issuer: 'CN=Test CA,O=Test Organization',
+        serialNumber: '12345678',
         validFrom: new Date(),
         validTo: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
-        fingerprint: crypto.createHash("sha256").update(certificate).digest("hex"),
-      }
+        fingerprint: crypto.createHash('sha256').update(certificate).digest('hex'),
+      };
     } catch (error) {
-      logger.error("Error extracting certificate data", { error })
-      throw error
+      logger.error('Error extracting certificate data', { error });
+      throw error;
     }
   }
 }

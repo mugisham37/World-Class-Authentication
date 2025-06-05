@@ -1,10 +1,10 @@
-import { Injectable } from "@tsed/di"
-import { v4 as uuidv4 } from "uuid"
-import { Token, TokenType, CreateTokenInput, UpdateTokenInput } from "../models/token.model"
-import { logger } from "../../../infrastructure/logging/logger"
-import { EventEmitter } from "../../../infrastructure/events/event-emitter"
-import { OAuthEvent } from "../oauth-events"
-import { NotFoundError } from "../../../utils/error-handling"
+import { Injectable } from '@tsed/di';
+import { v4 as uuidv4 } from 'uuid';
+import { Token, TokenType, CreateTokenInput, UpdateTokenInput } from '../models/token.model';
+import { logger } from '../../../infrastructure/logging/logger';
+import { EventEmitter } from '../../../infrastructure/events/event-emitter';
+import { OAuthEvent } from '../oauth-events';
+import { NotFoundError } from '../../../utils/error-handling';
 
 /**
  * Service for managing OAuth tokens
@@ -12,13 +12,13 @@ import { NotFoundError } from "../../../utils/error-handling"
 @Injectable()
 export class TokenService {
   constructor(
-    private eventEmitter: EventEmitter,
+    private eventEmitter: EventEmitter
     // In a real implementation, this would be injected from a repository
     // private tokenRepository: TokenRepository
   ) {}
 
   // In-memory token storage for demonstration
-  private tokens: Map<string, Token> = new Map()
+  private tokens: Map<string, Token> = new Map();
 
   /**
    * Find token by ID
@@ -28,11 +28,11 @@ export class TokenService {
   async findById(id: string): Promise<Token | null> {
     try {
       // In a real implementation, this would query the database
-      const token = this.tokens.get(id)
-      return token || null
+      const token = this.tokens.get(id);
+      return token || null;
     } catch (error) {
-      logger.error("Error finding token by ID", { error, id })
-      return null
+      logger.error('Error finding token by ID', { error, id });
+      return null;
     }
   }
 
@@ -47,13 +47,13 @@ export class TokenService {
       // In a real implementation, this would query the database
       for (const token of this.tokens.values()) {
         if (token.value === value && token.type === type) {
-          return token
+          return token;
         }
       }
-      return null
+      return null;
     } catch (error) {
-      logger.error("Error finding token by value", { error, type })
-      return null
+      logger.error('Error finding token by value', { error, type });
+      return null;
     }
   }
 
@@ -65,16 +65,16 @@ export class TokenService {
   async findByClientId(clientId: string): Promise<Token[]> {
     try {
       // In a real implementation, this would query the database
-      const tokens: Token[] = []
+      const tokens: Token[] = [];
       for (const token of this.tokens.values()) {
         if (token.clientId === clientId) {
-          tokens.push(token)
+          tokens.push(token);
         }
       }
-      return tokens
+      return tokens;
     } catch (error) {
-      logger.error("Error finding tokens by client ID", { error, clientId })
-      return []
+      logger.error('Error finding tokens by client ID', { error, clientId });
+      return [];
     }
   }
 
@@ -86,16 +86,16 @@ export class TokenService {
   async findByUserId(userId: string): Promise<Token[]> {
     try {
       // In a real implementation, this would query the database
-      const tokens: Token[] = []
+      const tokens: Token[] = [];
       for (const token of this.tokens.values()) {
         if (token.userId === userId) {
-          tokens.push(token)
+          tokens.push(token);
         }
       }
-      return tokens
+      return tokens;
     } catch (error) {
-      logger.error("Error finding tokens by user ID", { error, userId })
-      return []
+      logger.error('Error finding tokens by user ID', { error, userId });
+      return [];
     }
   }
 
@@ -107,17 +107,17 @@ export class TokenService {
   async create(data: CreateTokenInput): Promise<Token> {
     try {
       // Generate token ID
-      const id = uuidv4()
+      const id = uuidv4();
 
       // Create token
       const token: Token = {
         ...data,
         id,
         issuedAt: new Date(),
-      }
+      };
 
       // In a real implementation, this would save to the database
-      this.tokens.set(id, token)
+      this.tokens.set(id, token);
 
       // Emit token issued event for access and refresh tokens
       if (token.type === TokenType.ACCESS_TOKEN || token.type === TokenType.REFRESH_TOKEN) {
@@ -126,13 +126,13 @@ export class TokenService {
           userId: token.userId,
           tokenId: token.id,
           timestamp: new Date(),
-        })
+        });
       }
 
-      return token
+      return token;
     } catch (error) {
-      logger.error("Error creating token", { error })
-      throw error
+      logger.error('Error creating token', { error });
+      throw error;
     }
   }
 
@@ -145,24 +145,24 @@ export class TokenService {
   async update(id: string, data: UpdateTokenInput): Promise<Token> {
     try {
       // Find token
-      const token = await this.findById(id)
+      const token = await this.findById(id);
       if (!token) {
-        throw new NotFoundError("Token not found")
+        throw new NotFoundError('Token not found');
       }
 
       // Update token
       const updatedToken: Token = {
         ...token,
         ...data,
-      }
+      };
 
       // In a real implementation, this would update the database
-      this.tokens.set(id, updatedToken)
+      this.tokens.set(id, updatedToken);
 
-      return updatedToken
+      return updatedToken;
     } catch (error) {
-      logger.error("Error updating token", { error, id })
-      throw error
+      logger.error('Error updating token', { error, id });
+      throw error;
     }
   }
 
@@ -174,24 +174,24 @@ export class TokenService {
   async revoke(id: string): Promise<boolean> {
     try {
       // Find token
-      const token = await this.findById(id)
+      const token = await this.findById(id);
       if (!token) {
-        throw new NotFoundError("Token not found")
+        throw new NotFoundError('Token not found');
       }
 
       // Check if already revoked
       if (token.revokedAt) {
-        return true
+        return true;
       }
 
       // Revoke token
       const revokedToken: Token = {
         ...token,
         revokedAt: new Date(),
-      }
+      };
 
       // In a real implementation, this would update the database
-      this.tokens.set(id, revokedToken)
+      this.tokens.set(id, revokedToken);
 
       // Emit token revoked event
       this.eventEmitter.emit(OAuthEvent.TOKEN_REVOKED, {
@@ -199,12 +199,12 @@ export class TokenService {
         userId: token.userId,
         tokenId: token.id,
         timestamp: new Date(),
-      })
+      });
 
-      return true
+      return true;
     } catch (error) {
-      logger.error("Error revoking token", { error, id })
-      throw error
+      logger.error('Error revoking token', { error, id });
+      throw error;
     }
   }
 
@@ -216,21 +216,21 @@ export class TokenService {
   async revokeAllForClient(clientId: string): Promise<number> {
     try {
       // Find tokens for client
-      const tokens = await this.findByClientId(clientId)
-      let count = 0
+      const tokens = await this.findByClientId(clientId);
+      let count = 0;
 
       // Revoke each token
       for (const token of tokens) {
         if (!token.revokedAt) {
-          await this.revoke(token.id)
-          count++
+          await this.revoke(token.id);
+          count++;
         }
       }
 
-      return count
+      return count;
     } catch (error) {
-      logger.error("Error revoking all tokens for client", { error, clientId })
-      throw error
+      logger.error('Error revoking all tokens for client', { error, clientId });
+      throw error;
     }
   }
 
@@ -242,21 +242,21 @@ export class TokenService {
   async revokeAllForUser(userId: string): Promise<number> {
     try {
       // Find tokens for user
-      const tokens = await this.findByUserId(userId)
-      let count = 0
+      const tokens = await this.findByUserId(userId);
+      let count = 0;
 
       // Revoke each token
       for (const token of tokens) {
         if (!token.revokedAt) {
-          await this.revoke(token.id)
-          count++
+          await this.revoke(token.id);
+          count++;
         }
       }
 
-      return count
+      return count;
     } catch (error) {
-      logger.error("Error revoking all tokens for user", { error, userId })
-      throw error
+      logger.error('Error revoking all tokens for user', { error, userId });
+      throw error;
     }
   }
 
@@ -266,21 +266,21 @@ export class TokenService {
    */
   async cleanupExpiredTokens(): Promise<number> {
     try {
-      const now = new Date()
-      let count = 0
+      const now = new Date();
+      let count = 0;
 
       // In a real implementation, this would be a database query
       for (const [id, token] of this.tokens.entries()) {
         if (token.expiresAt < now) {
-          this.tokens.delete(id)
-          count++
+          this.tokens.delete(id);
+          count++;
         }
       }
 
-      return count
+      return count;
     } catch (error) {
-      logger.error("Error cleaning up expired tokens", { error })
-      throw error
+      logger.error('Error cleaning up expired tokens', { error });
+      throw error;
     }
   }
 
@@ -294,25 +294,25 @@ export class TokenService {
     value: string,
     type: TokenType
   ): Promise<{
-    valid: boolean
-    token?: Token
-    error?: string
+    valid: boolean;
+    token?: Token;
+    error?: string;
   }> {
     try {
       // Find token
-      const token = await this.findByValue(value, type)
+      const token = await this.findByValue(value, type);
       if (!token) {
-        return { valid: false, error: "Token not found" }
+        return { valid: false, error: 'Token not found' };
       }
 
       // Check if token is expired
       if (token.expiresAt < new Date()) {
-        return { valid: false, error: "Token expired" }
+        return { valid: false, error: 'Token expired' };
       }
 
       // Check if token is revoked
       if (token.revokedAt) {
-        return { valid: false, error: "Token revoked" }
+        return { valid: false, error: 'Token revoked' };
       }
 
       // Emit token validated event
@@ -321,12 +321,12 @@ export class TokenService {
         userId: token.userId,
         tokenId: token.id,
         timestamp: new Date(),
-      })
+      });
 
-      return { valid: true, token }
+      return { valid: true, token };
     } catch (error) {
-      logger.error("Error validating token", { error })
-      return { valid: false, error: "Error validating token" }
+      logger.error('Error validating token', { error });
+      return { valid: false, error: 'Error validating token' };
     }
   }
 }

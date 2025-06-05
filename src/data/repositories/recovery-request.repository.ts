@@ -31,14 +31,14 @@ export interface RecoveryRequestRepository extends BaseRepository<RecoveryReques
    * @returns Array of pending recovery requests
    */
   findPendingByUserId(userId: string): Promise<RecoveryRequest[]>;
-  
+
   /**
    * Find active recovery requests by user ID
    * @param userId The user ID
    * @returns Array of active recovery requests
    */
   findActiveByUserId(userId: string): Promise<RecoveryRequest[]>;
-  
+
   /**
    * Find recent recovery requests by user ID within a cooldown period
    * @param userId The user ID
@@ -140,7 +140,7 @@ export class PrismaRecoveryRequestRepository
       ...prismaRecord,
       type: prismaRecord.type as RecoveryRequestType,
       status: prismaRecord.status as RecoveryRequestStatus,
-      metadata: prismaRecord.metadata || null
+      metadata: prismaRecord.metadata || null,
     };
   }
 
@@ -152,7 +152,7 @@ export class PrismaRecoveryRequestRepository
   protected mapToModels(prismaRecords: any[]): RecoveryRequest[] {
     return prismaRecords.map(record => this.mapToModel(record));
   }
-  
+
   /**
    * Map admin approvals from Prisma to model
    * @param adminApprovals The admin approvals from Prisma
@@ -161,7 +161,7 @@ export class PrismaRecoveryRequestRepository
   protected mapAdminApprovals(adminApprovals: any[]): AdminApproval[] {
     return adminApprovals.map(approval => ({
       ...approval,
-      status: approval.status as AdminApprovalStatus
+      status: approval.status as AdminApprovalStatus,
     }));
   }
 
@@ -211,7 +211,7 @@ export class PrismaRecoveryRequestRepository
       );
     }
   }
-  
+
   /**
    * Find active recovery requests by user ID
    * @param userId The user ID
@@ -236,7 +236,7 @@ export class PrismaRecoveryRequestRepository
       );
     }
   }
-  
+
   /**
    * Find recent recovery requests by user ID within a cooldown period
    * @param userId The user ID
@@ -257,7 +257,11 @@ export class PrismaRecoveryRequestRepository
       });
       return this.mapToModels(requests);
     } catch (error) {
-      logger.error('Error finding recent recovery requests by user ID', { userId, cooldownPeriod, error });
+      logger.error('Error finding recent recovery requests by user ID', {
+        userId,
+        cooldownPeriod,
+        error,
+      });
       throw new DatabaseError(
         'Error finding recent recovery requests by user ID',
         'RECOVERY_REQUEST_FIND_RECENT_BY_USER_ID_ERROR',
@@ -329,11 +333,11 @@ export class PrismaRecoveryRequestRepository
           },
         },
       });
-      
+
       if (!request) {
         return null;
       }
-      
+
       return {
         ...this.mapToModel(request),
         adminApprovals: this.mapAdminApprovals(request.adminApprovals),

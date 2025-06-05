@@ -10,10 +10,10 @@ export default [
       '*.log',
       '.env*',
       'prisma/migrations/**',
-      '.eslintrc.js'
-    ]
+      '.eslintrc.js',
+    ],
   },
-  
+
   // Base configuration for all files
   {
     languageOptions: {
@@ -21,16 +21,16 @@ export default [
       sourceType: 'module',
       parser: tseslint.parser,
       parserOptions: {
-        project: './tsconfig.json'
+        project: './tsconfig.json',
       },
       globals: {
         node: true,
         jest: true,
-        es2022: true
-      }
+        es2022: true,
+      },
     },
     plugins: {
-      '@typescript-eslint': tseslint.plugin
+      '@typescript-eslint': tseslint.plugin,
     },
     rules: {
       // TypeScript specific rules
@@ -46,7 +46,7 @@ export default [
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/await-thenable': 'error',
       '@typescript-eslint/no-misused-promises': 'error',
-      
+
       // General rules
       'no-console': 'warn',
       'no-debugger': 'error',
@@ -59,21 +59,21 @@ export default [
       'consistent-return': 'error',
       'no-return-await': 'error',
       'require-await': 'error',
-      
+
       // Security rules
       'no-eval': 'error',
       'no-implied-eval': 'error',
       'no-new-func': 'error',
       'no-script-url': 'error',
-    }
+    },
   },
-  
+
   // Override for test files
   {
     files: ['**/*.test.ts', '**/*.spec.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       'no-console': 'off',
-    }
-  }
+    },
+  },
 ];

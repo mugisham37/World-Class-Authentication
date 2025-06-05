@@ -1,4 +1,9 @@
-import { PrismaClient, MfaFactor as PrismaMfaFactor, MfaFactorType as PrismaMfaFactorType, MfaFactorStatus as PrismaMfaFactorStatus } from '@prisma/client';
+import {
+  PrismaClient,
+  MfaFactor as PrismaMfaFactor,
+  MfaFactorType as PrismaMfaFactorType,
+  MfaFactorStatus as PrismaMfaFactorStatus,
+} from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
 import {
@@ -145,7 +150,7 @@ export class PrismaMfaFactorRepository
       metadata: prismaMfaFactor.metadata as Record<string, any> | null,
       verifiedAt: prismaMfaFactor.verifiedAt,
       lastUsedAt: prismaMfaFactor.lastUsedAt,
-      status: this.mapToDomainStatus(prismaMfaFactor.status)
+      status: this.mapToDomainStatus(prismaMfaFactor.status),
     };
   }
 

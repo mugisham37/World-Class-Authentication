@@ -1,20 +1,20 @@
-import { Injectable } from "@tsed/di";
-import { logger } from "../../../infrastructure/logging/logger";
-import { recoveryConfig } from "../../../config/recovery.config";
-import { userRepository } from "../../../data/repositories";
-import { RecoveryOptions, AdminRecoveryVerificationData, StoredVerificationData } from "./types";
-import { recoveryMethodRepository } from "../../../data/repositories/recovery-method.repository";
-import { recoveryRequestRepository } from "../../../data/repositories/recovery-request.repository";
-import { auditLogRepository } from "../../../data/repositories/audit-log.repository";
+import { Injectable } from '@tsed/di';
+import { logger } from '../../../infrastructure/logging/logger';
+import { recoveryConfig } from '../../../config/recovery.config';
+import { userRepository } from '../../../data/repositories';
+import { RecoveryOptions, AdminRecoveryVerificationData, StoredVerificationData } from './types';
+import { recoveryMethodRepository } from '../../../data/repositories/recovery-method.repository';
+import { recoveryRequestRepository } from '../../../data/repositories/recovery-request.repository';
+import { auditLogRepository } from '../../../data/repositories/audit-log.repository';
 import {
   BaseRecoveryMethod,
   RecoveryInitiationResult,
   RecoveryVerificationResult,
   RecoveryMethodType,
-} from "../recovery-method";
-import { RecoveryMethodStatus } from "../../../data/models/recovery-method.model";
-import { BadRequestError, NotFoundError, UnauthorizedError } from "../../../utils/error-handling";
-import { UserRole } from "../../../data/models/user.model";
+} from '../recovery-method';
+import { RecoveryMethodStatus } from '../../../data/models/recovery-method.model';
+import { BadRequestError, NotFoundError, UnauthorizedError } from '../../../utils/error-handling';
+import { UserRole } from '../../../data/models/user.model';
 
 /**
  * Admin recovery service
@@ -44,7 +44,7 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
       // Admin recovery is always available if enabled in config
       return recoveryConfig.admin.enabled;
     } catch (error) {
-      logger.error("Failed to check if admin recovery is available", { error, userId });
+      logger.error('Failed to check if admin recovery is available', { error, userId });
       return false;
     }
   }
@@ -61,19 +61,19 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
       // Check if user exists
       const user = await userRepository.findById(userId);
       if (!user) {
-        throw new NotFoundError("User not found");
+        throw new NotFoundError('User not found');
       }
 
       // Check if admin recovery is enabled
       if (!recoveryConfig.admin.enabled) {
-        throw new BadRequestError("Admin recovery is not enabled");
+        throw new BadRequestError('Admin recovery is not enabled');
       }
 
       // Create recovery method
       const method = await recoveryMethodRepository.create({
         userId,
         type: RecoveryMethodType.ADMIN_RECOVERY,
-        name: name || "Admin Recovery",
+        name: name || 'Admin Recovery',
         status: RecoveryMethodStatus.ACTIVE,
         metadata: {
           ...data,
@@ -83,8 +83,8 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
       // Log the registration
       await auditLogRepository.create({
         userId,
-        action: "RECOVERY_METHOD_REGISTERED",
-        entityType: "RECOVERY_METHOD",
+        action: 'RECOVERY_METHOD_REGISTERED',
+        entityType: 'RECOVERY_METHOD',
         entityId: method.id,
         metadata: {
           type: RecoveryMethodType.ADMIN_RECOVERY,
@@ -94,7 +94,7 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
 
       return method.id;
     } catch (error) {
-      logger.error("Failed to register admin recovery", { error, userId });
+      logger.error('Failed to register admin recovery', { error, userId });
       throw error;
     }
   }
@@ -114,48 +114,48 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
     try {
       // Check if admin recovery is enabled
       if (!recoveryConfig.admin.enabled) {
-        throw new BadRequestError("Admin recovery is not enabled");
+        throw new BadRequestError('Admin recovery is not enabled');
       }
 
       // Get user
       const user = await userRepository.findById(userId);
       if (!user) {
-        throw new NotFoundError("User not found");
+        throw new NotFoundError('User not found');
       }
 
       // Get recovery request
       const request = await recoveryRequestRepository.findById(requestId);
       if (!request) {
-        throw new NotFoundError("Recovery request not found");
+        throw new NotFoundError('Recovery request not found');
       }
 
       // Verify admin privileges
       const adminId = options['adminId'];
       if (!adminId) {
-        throw new BadRequestError("Admin ID is required");
+        throw new BadRequestError('Admin ID is required');
       }
 
       const admin = await userRepository.findById(adminId);
       if (!admin) {
-        throw new NotFoundError("Admin user not found");
+        throw new NotFoundError('Admin user not found');
       }
 
       if (admin.role !== UserRole.ADMIN && admin.role !== UserRole.SUPER_ADMIN) {
-        throw new UnauthorizedError("Administrative privileges required");
+        throw new UnauthorizedError('Administrative privileges required');
       }
 
       // Check if minimum admin role is met
       if (
-        recoveryConfig.admin.minApproverRole === "SUPER_ADMIN" &&
+        recoveryConfig.admin.minApproverRole === 'SUPER_ADMIN' &&
         admin.role !== UserRole.SUPER_ADMIN
       ) {
-        throw new UnauthorizedError("Super admin privileges required for recovery approval");
+        throw new UnauthorizedError('Super admin privileges required for recovery approval');
       }
 
       // Check if reason is provided when required
       const reason = options['reason'];
       if (recoveryConfig.admin.requireReason && (!reason || reason.trim().length === 0)) {
-        throw new BadRequestError("Recovery reason is required");
+        throw new BadRequestError('Recovery reason is required');
       }
 
       // Store verification data
@@ -163,7 +163,7 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
       this.verificationData.set(requestId, {
         userId,
         adminId,
-        reason: reason || "Administrative recovery",
+        reason: reason || 'Administrative recovery',
         expiresAt,
       });
 
@@ -181,13 +181,13 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
       // Log the recovery initiation
       await auditLogRepository.create({
         userId: adminId,
-        action: "ADMIN_RECOVERY_INITIATED",
-        entityType: "RECOVERY_REQUEST",
+        action: 'ADMIN_RECOVERY_INITIATED',
+        entityType: 'RECOVERY_REQUEST',
         entityId: requestId,
         metadata: {
           targetUserId: userId,
           targetUserEmail: user.email,
-          reason: reason || "Administrative recovery",
+          reason: reason || 'Administrative recovery',
         },
       });
 
@@ -199,7 +199,7 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
           expiresAt,
         },
         clientData: {
-          message: "Administrative recovery initiated",
+          message: 'Administrative recovery initiated',
           targetUser: user.email,
           requiresApproval: recoveryConfig.admin.requireMultipleApprovals,
           requiredApprovals: recoveryConfig.admin.requiredApprovals,
@@ -207,7 +207,7 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
         },
       };
     } catch (error) {
-      logger.error("Failed to initiate admin recovery", { error, userId, requestId });
+      logger.error('Failed to initiate admin recovery', { error, userId, requestId });
       throw error;
     }
   }
@@ -228,7 +228,7 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
       if (!storedData) {
         return {
           success: false,
-          message: "Invalid or expired recovery session",
+          message: 'Invalid or expired recovery session',
         };
       }
 
@@ -237,7 +237,7 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
         this.verificationData.delete(requestId);
         return {
           success: false,
-          message: "Recovery session has expired",
+          message: 'Recovery session has expired',
         };
       }
 
@@ -248,14 +248,14 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
       if (!adminId) {
         return {
           success: false,
-          message: "Admin ID is required",
+          message: 'Admin ID is required',
         };
       }
 
       if (adminId !== storedData.adminId) {
         return {
           success: false,
-          message: "Admin ID does not match the initiating admin",
+          message: 'Admin ID does not match the initiating admin',
         };
       }
 
@@ -266,16 +266,16 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
         if (!confirmationCode) {
           return {
             success: false,
-            message: "Confirmation code is required",
+            message: 'Confirmation code is required',
           };
         }
 
         // In a real implementation, verify the confirmation code
         // For now, we'll use a simple check
-        if (confirmationCode !== "ADMIN_CONFIRMATION_CODE") {
+        if (confirmationCode !== 'ADMIN_CONFIRMATION_CODE') {
           return {
             success: false,
-            message: "Invalid confirmation code",
+            message: 'Invalid confirmation code',
           };
         }
       } else {
@@ -283,16 +283,16 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
         if (!adminCode) {
           return {
             success: false,
-            message: "Admin verification code is required",
+            message: 'Admin verification code is required',
           };
         }
 
         // In a real implementation, verify the admin code
         // For now, we'll use a simple check
-        if (adminCode !== "ADMIN_RECOVERY_CODE") {
+        if (adminCode !== 'ADMIN_RECOVERY_CODE') {
           return {
             success: false,
-            message: "Invalid admin verification code",
+            message: 'Invalid admin verification code',
           };
         }
       }
@@ -303,8 +303,8 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
       // Log the successful verification
       await auditLogRepository.create({
         userId: adminId,
-        action: "ADMIN_RECOVERY_VERIFIED",
-        entityType: "RECOVERY_REQUEST",
+        action: 'ADMIN_RECOVERY_VERIFIED',
+        entityType: 'RECOVERY_REQUEST',
         entityId: requestId,
         metadata: {
           targetUserId: storedData.userId,
@@ -314,13 +314,13 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
 
       return {
         success: true,
-        message: "Admin recovery verification successful",
+        message: 'Admin recovery verification successful',
       };
     } catch (error) {
-      logger.error("Failed to verify admin recovery", { error, requestId });
+      logger.error('Failed to verify admin recovery', { error, requestId });
       return {
         success: false,
-        message: "An error occurred during verification",
+        message: 'An error occurred during verification',
       };
     }
   }
@@ -341,30 +341,30 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
       // Get recovery request
       const request = await recoveryRequestRepository.findById(requestId);
       if (!request) {
-        throw new NotFoundError("Recovery request not found");
+        throw new NotFoundError('Recovery request not found');
       }
 
       // Verify admin privileges
       const admin = await userRepository.findById(adminId);
       if (!admin) {
-        throw new NotFoundError("Admin user not found");
+        throw new NotFoundError('Admin user not found');
       }
 
       if (admin.role !== UserRole.ADMIN && admin.role !== UserRole.SUPER_ADMIN) {
-        throw new UnauthorizedError("Administrative privileges required");
+        throw new UnauthorizedError('Administrative privileges required');
       }
 
       // Check if minimum admin role is met
       if (
-        recoveryConfig.admin.minApproverRole === "SUPER_ADMIN" &&
+        recoveryConfig.admin.minApproverRole === 'SUPER_ADMIN' &&
         admin.role !== UserRole.SUPER_ADMIN
       ) {
-        throw new UnauthorizedError("Super admin privileges required for recovery approval");
+        throw new UnauthorizedError('Super admin privileges required for recovery approval');
       }
 
       // In a real implementation, create an admin approval record
       // For now, we'll just log it
-      logger.info("Admin approval for recovery request", {
+      logger.info('Admin approval for recovery request', {
         requestId,
         adminId,
         notes,
@@ -373,8 +373,8 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
       // Log the approval
       await auditLogRepository.create({
         userId: adminId,
-        action: "ADMIN_RECOVERY_APPROVED",
-        entityType: "RECOVERY_REQUEST",
+        action: 'ADMIN_RECOVERY_APPROVED',
+        entityType: 'RECOVERY_REQUEST',
         entityId: requestId,
         metadata: {
           targetUserId: request.userId,
@@ -384,10 +384,10 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
 
       return {
         success: true,
-        message: "Recovery request approved successfully",
+        message: 'Recovery request approved successfully',
       };
     } catch (error) {
-      logger.error("Failed to approve recovery request", { error, requestId, adminId });
+      logger.error('Failed to approve recovery request', { error, requestId, adminId });
       throw error;
     }
   }
@@ -408,22 +408,22 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
       // Get recovery request
       const request = await recoveryRequestRepository.findById(requestId);
       if (!request) {
-        throw new NotFoundError("Recovery request not found");
+        throw new NotFoundError('Recovery request not found');
       }
 
       // Verify admin privileges
       const admin = await userRepository.findById(adminId);
       if (!admin) {
-        throw new NotFoundError("Admin user not found");
+        throw new NotFoundError('Admin user not found');
       }
 
       if (admin.role !== UserRole.ADMIN && admin.role !== UserRole.SUPER_ADMIN) {
-        throw new UnauthorizedError("Administrative privileges required");
+        throw new UnauthorizedError('Administrative privileges required');
       }
 
       // In a real implementation, create an admin denial record
       // For now, we'll just log it
-      logger.info("Admin denial for recovery request", {
+      logger.info('Admin denial for recovery request', {
         requestId,
         adminId,
         reason,
@@ -432,8 +432,8 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
       // Log the denial
       await auditLogRepository.create({
         userId: adminId,
-        action: "ADMIN_RECOVERY_DENIED",
-        entityType: "RECOVERY_REQUEST",
+        action: 'ADMIN_RECOVERY_DENIED',
+        entityType: 'RECOVERY_REQUEST',
         entityId: requestId,
         metadata: {
           targetUserId: request.userId,
@@ -443,10 +443,10 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
 
       return {
         success: true,
-        message: "Recovery request denied successfully",
+        message: 'Recovery request denied successfully',
       };
     } catch (error) {
-      logger.error("Failed to deny recovery request", { error, requestId, adminId });
+      logger.error('Failed to deny recovery request', { error, requestId, adminId });
       throw error;
     }
   }

@@ -1,4 +1,4 @@
-import { z } from "zod"
+import { z } from 'zod';
 
 /**
  * Scope schema
@@ -14,12 +14,12 @@ export const scopeSchema = z.object({
   isOpenId: z.boolean().default(false),
   createdAt: z.date().default(() => new Date()),
   updatedAt: z.date().default(() => new Date()),
-})
+});
 
 /**
  * Scope type
  */
-export type Scope = z.infer<typeof scopeSchema>
+export type Scope = z.infer<typeof scopeSchema>;
 
 /**
  * Create scope input schema
@@ -28,19 +28,19 @@ export const createScopeSchema = scopeSchema.omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-})
+});
 
 /**
  * Create scope input type
  */
-export type CreateScopeInput = z.infer<typeof createScopeSchema>
+export type CreateScopeInput = z.infer<typeof createScopeSchema>;
 
 /**
  * Update scope input schema
  */
-export const updateScopeSchema = createScopeSchema.partial()
+export const updateScopeSchema = createScopeSchema.partial();
 
 /**
  * Update scope input type
  */
-export type UpdateScopeInput = z.infer<typeof updateScopeSchema>
+export type UpdateScopeInput = z.infer<typeof updateScopeSchema>;

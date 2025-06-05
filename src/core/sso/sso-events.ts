@@ -3,38 +3,38 @@
  */
 export enum SSOEvent {
   // SAML events
-  SAML_REQUEST_GENERATED = "sso.saml.request_generated",
-  SAML_RESPONSE_RECEIVED = "sso.saml.response_received",
-  SAML_ASSERTION_VALIDATED = "sso.saml.assertion_validated",
-  SAML_ASSERTION_INVALID = "sso.saml.assertion_invalid",
-  SAML_LOGOUT_REQUEST_GENERATED = "sso.saml.logout_request_generated",
-  SAML_LOGOUT_RESPONSE_RECEIVED = "sso.saml.logout_response_received",
-  
+  SAML_REQUEST_GENERATED = 'sso.saml.request_generated',
+  SAML_RESPONSE_RECEIVED = 'sso.saml.response_received',
+  SAML_ASSERTION_VALIDATED = 'sso.saml.assertion_validated',
+  SAML_ASSERTION_INVALID = 'sso.saml.assertion_invalid',
+  SAML_LOGOUT_REQUEST_GENERATED = 'sso.saml.logout_request_generated',
+  SAML_LOGOUT_RESPONSE_RECEIVED = 'sso.saml.logout_response_received',
+
   // Identity Provider events
-  IDP_ADDED = "sso.idp.added",
-  IDP_UPDATED = "sso.idp.updated",
-  IDP_REMOVED = "sso.idp.removed",
-  IDP_ENABLED = "sso.idp.enabled",
-  IDP_DISABLED = "sso.idp.disabled",
-  
+  IDP_ADDED = 'sso.idp.added',
+  IDP_UPDATED = 'sso.idp.updated',
+  IDP_REMOVED = 'sso.idp.removed',
+  IDP_ENABLED = 'sso.idp.enabled',
+  IDP_DISABLED = 'sso.idp.disabled',
+
   // User provisioning events
-  USER_PROVISIONED = "sso.user.provisioned",
-  USER_LINKED = "sso.user.linked",
-  USER_UNLINKED = "sso.user.unlinked",
-  
+  USER_PROVISIONED = 'sso.user.provisioned',
+  USER_LINKED = 'sso.user.linked',
+  USER_UNLINKED = 'sso.user.unlinked',
+
   // Session events
-  SSO_SESSION_CREATED = "sso.session.created",
-  SSO_SESSION_VALIDATED = "sso.session.validated",
-  SSO_SESSION_EXPIRED = "sso.session.expired",
-  SSO_SESSION_TERMINATED = "sso.session.terminated",
-  
+  SSO_SESSION_CREATED = 'sso.session.created',
+  SSO_SESSION_VALIDATED = 'sso.session.validated',
+  SSO_SESSION_EXPIRED = 'sso.session.expired',
+  SSO_SESSION_TERMINATED = 'sso.session.terminated',
+
   // Error events
-  INVALID_SAML_REQUEST = "sso.error.invalid_saml_request",
-  INVALID_SAML_RESPONSE = "sso.error.invalid_saml_response",
-  INVALID_SIGNATURE = "sso.error.invalid_signature",
-  INVALID_CERTIFICATE = "sso.error.invalid_certificate",
-  UNKNOWN_IDP = "sso.error.unknown_idp",
-  PROVISIONING_ERROR = "sso.error.provisioning_error",
+  INVALID_SAML_REQUEST = 'sso.error.invalid_saml_request',
+  INVALID_SAML_RESPONSE = 'sso.error.invalid_saml_response',
+  INVALID_SIGNATURE = 'sso.error.invalid_signature',
+  INVALID_CERTIFICATE = 'sso.error.invalid_certificate',
+  UNKNOWN_IDP = 'sso.error.unknown_idp',
+  PROVISIONING_ERROR = 'sso.error.provisioning_error',
 }
 
 /**

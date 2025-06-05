@@ -1,6 +1,6 @@
-import { Injectable } from "@tsed/di"
-import * as crypto from "crypto"
-import * as jwt from "jsonwebtoken"
+import { Injectable } from '@tsed/di';
+import * as crypto from 'crypto';
+import * as jwt from 'jsonwebtoken';
 
 /**
  * Crypto Service
@@ -14,7 +14,10 @@ export class CryptoService {
    * @returns Random string
    */
   generateRandomString(length: number): string {
-    return crypto.randomBytes(Math.ceil(length / 2)).toString("hex").slice(0, length)
+    return crypto
+      .randomBytes(Math.ceil(length / 2))
+      .toString('hex')
+      .slice(0, length);
   }
 
   /**
@@ -22,7 +25,7 @@ export class CryptoService {
    * @returns UUID
    */
   generateUuid(): string {
-    return crypto.randomUUID()
+    return crypto.randomUUID();
   }
 
   /**
@@ -31,7 +34,7 @@ export class CryptoService {
    * @returns Hashed string
    */
   hash(value: string): string {
-    return crypto.createHash("sha256").update(value).digest("hex")
+    return crypto.createHash('sha256').update(value).digest('hex');
   }
 
   /**
@@ -40,8 +43,8 @@ export class CryptoService {
    * @returns Code challenge
    */
   generateCodeChallenge(codeVerifier: string): string {
-    const hash = crypto.createHash("sha256").update(codeVerifier).digest("base64")
-    return hash.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "")
+    const hash = crypto.createHash('sha256').update(codeVerifier).digest('base64');
+    return hash.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
   }
 
   /**
@@ -51,9 +54,12 @@ export class CryptoService {
    * @returns Token hash
    */
   generateTokenHash(token: string, algorithm: string): string {
-    const hash = crypto.createHash(algorithm === "RS256" ? "sha256" : "sha1").update(token).digest()
-    const halfHash = Buffer.from(hash.slice(0, hash.length / 2))
-    return halfHash.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "")
+    const hash = crypto
+      .createHash(algorithm === 'RS256' ? 'sha256' : 'sha1')
+      .update(token)
+      .digest();
+    const halfHash = Buffer.from(hash.slice(0, hash.length / 2));
+    return halfHash.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
   }
 
   /**
@@ -63,8 +69,12 @@ export class CryptoService {
    * @param options Options
    * @returns Signed JWT
    */
-  async sign(payload: Record<string, any>, secret: string, options?: jwt.SignOptions): Promise<string> {
-    return jwt.sign(payload, secret, options)
+  async sign(
+    payload: Record<string, any>,
+    secret: string,
+    options?: jwt.SignOptions
+  ): Promise<string> {
+    return jwt.sign(payload, secret, options);
   }
 
   /**
@@ -74,8 +84,12 @@ export class CryptoService {
    * @param options Options
    * @returns Decoded payload
    */
-  async verifyJwt(token: string, secret: string, options?: jwt.VerifyOptions): Promise<Record<string, any>> {
-    return jwt.verify(token, secret, options) as Record<string, any>
+  async verifyJwt(
+    token: string,
+    secret: string,
+    options?: jwt.VerifyOptions
+  ): Promise<Record<string, any>> {
+    return jwt.verify(token, secret, options) as Record<string, any>;
   }
 
   /**
@@ -84,7 +98,7 @@ export class CryptoService {
    * @returns Decoded payload
    */
   decodeJwt(token: string): Record<string, any> | null {
-    return jwt.decode(token) as Record<string, any> | null
+    return jwt.decode(token) as Record<string, any> | null;
   }
 
   /**
@@ -94,11 +108,11 @@ export class CryptoService {
    * @returns Encrypted value
    */
   encrypt(value: string, key: string): string {
-    const iv = crypto.randomBytes(16)
-    const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(key), iv)
-    let encrypted = cipher.update(value, "utf8", "hex")
-    encrypted += cipher.final("hex")
-    return `${iv.toString("hex")}:${encrypted}`
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(key), iv);
+    let encrypted = cipher.update(value, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    return `${iv.toString('hex')}:${encrypted}`;
   }
 
   /**
@@ -108,22 +122,22 @@ export class CryptoService {
    * @returns Decrypted value
    */
   decrypt(value: string, key: string): string {
-    const parts = value.split(":")
+    const parts = value.split(':');
     if (parts.length !== 2) {
-      throw new Error("Invalid encrypted value format")
+      throw new Error('Invalid encrypted value format');
     }
-    
-    const ivHex = parts[0]
-    const encryptedHex = parts[1]
-    
+
+    const ivHex = parts[0];
+    const encryptedHex = parts[1];
+
     if (!ivHex || !encryptedHex) {
-      throw new Error("Invalid encrypted value format")
+      throw new Error('Invalid encrypted value format');
     }
-    
-    const iv = Buffer.from(ivHex, "hex")
-    const decipher = crypto.createDecipheriv("aes-256-cbc", Buffer.from(key), iv)
-    let decrypted = decipher.update(encryptedHex, "hex", "utf8")
-    decrypted += decipher.final("utf8")
-    return decrypted
+
+    const iv = Buffer.from(ivHex, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(key), iv);
+    let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
   }
 }

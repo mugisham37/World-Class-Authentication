@@ -80,12 +80,12 @@ export class PrismaPasswordHistoryRepository
         where: { userId },
         orderBy: { createdAt: 'desc' },
       };
-      
+
       // Only add take property if limit is defined
       if (typeof limit === 'number') {
         queryOptions.take = limit;
       }
-      
+
       const entries = await this.prisma.passwordHistory.findMany(queryOptions);
       return entries;
     } catch (error) {
@@ -104,12 +104,12 @@ export class PrismaPasswordHistoryRepository
         where: { credentialId },
         orderBy: { createdAt: 'desc' },
       };
-      
+
       // Only add take property if limit is defined
       if (typeof limit === 'number') {
         queryOptions.take = limit;
       }
-      
+
       const entries = await this.prisma.passwordHistory.findMany(queryOptions);
       return entries;
     } catch (error) {

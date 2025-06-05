@@ -1,27 +1,27 @@
-import { Injectable } from "@tsed/di";
-import { recoveryConfig } from "../../../config/recovery.config";
-import { RecoveryMethodStatus } from "../../../data/models/recovery-method.model";
-import { auditLogRepository } from "../../../data/repositories/audit-log.repository";
-import { recoveryMethodRepository } from "../../../data/repositories/recovery-method.repository";
-import { recoveryRequestRepository } from "../../../data/repositories/recovery-request.repository";
-import { userProfileRepository } from "../../../data/repositories/user-profile.repository";
-import { userRepository } from "../../../data/repositories/user.repository";
-import { logger } from "../../../infrastructure/logging/logger";
-import { encryption } from "../../../infrastructure/security/crypto/encryption";
-import { BadRequestError, NotFoundError } from "../../../utils/error-handling";
+import { Injectable } from '@tsed/di';
+import { recoveryConfig } from '../../../config/recovery.config';
+import { RecoveryMethodStatus } from '../../../data/models/recovery-method.model';
+import { auditLogRepository } from '../../../data/repositories/audit-log.repository';
+import { recoveryMethodRepository } from '../../../data/repositories/recovery-method.repository';
+import { recoveryRequestRepository } from '../../../data/repositories/recovery-request.repository';
+import { userProfileRepository } from '../../../data/repositories/user-profile.repository';
+import { userRepository } from '../../../data/repositories/user.repository';
+import { logger } from '../../../infrastructure/logging/logger';
+import { encryption } from '../../../infrastructure/security/crypto/encryption';
+import { BadRequestError, NotFoundError } from '../../../utils/error-handling';
 import {
   BaseRecoveryMethod,
   RecoveryInitiationResult,
   RecoveryMethodType,
   RecoveryVerificationResult,
-} from "../recovery-method";
+} from '../recovery-method';
 import {
   EncryptedSecurityQuestion,
   SecurityQuestion,
   SecurityQuestionsSetupResponse,
   SecurityQuestionsVerificationData,
-  SelectedQuestion
-} from "./types";
+  SelectedQuestion,
+} from './types';
 
 /**
  * Security questions recovery service
@@ -55,14 +55,21 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
 
       // Check if security questions are set up
       const metadata = profile.metadata as Record<string, any> | null;
-      if (!metadata || !metadata['securityQuestions'] || !Array.isArray(metadata['securityQuestions'])) {
+      if (
+        !metadata ||
+        !metadata['securityQuestions'] ||
+        !Array.isArray(metadata['securityQuestions'])
+      ) {
         return false;
       }
 
       // Check if there are enough security questions
       return metadata['securityQuestions'].length >= recoveryConfig.securityQuestions.minQuestions;
     } catch (error) {
-      logger.error("Failed to check if security questions recovery is available", { error, userId });
+      logger.error('Failed to check if security questions recovery is available', {
+        error,
+        userId,
+      });
       return false;
     }
   }
@@ -79,18 +86,24 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
       // Check if user exists
       const user = await userRepository.findById(userId);
       if (!user) {
-        throw new NotFoundError("User not found");
+        throw new NotFoundError('User not found');
       }
 
       // Check if security questions are set up
       const profile = await userProfileRepository.findByUserId(userId);
       if (!profile) {
-        throw new NotFoundError("User profile not found");
+        throw new NotFoundError('User profile not found');
       }
 
       const metadata = profile.metadata as Record<string, any> | null;
-      if (!metadata || !metadata['securityQuestions'] || !Array.isArray(metadata['securityQuestions'])) {
-        throw new BadRequestError("Security questions must be set up before registering this recovery method");
+      if (
+        !metadata ||
+        !metadata['securityQuestions'] ||
+        !Array.isArray(metadata['securityQuestions'])
+      ) {
+        throw new BadRequestError(
+          'Security questions must be set up before registering this recovery method'
+        );
       }
 
       if (metadata['securityQuestions'].length < recoveryConfig.securityQuestions.minQuestions) {
@@ -103,7 +116,7 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
       const method = await recoveryMethodRepository.create({
         userId,
         type: RecoveryMethodType.SECURITY_QUESTIONS,
-        name: name || "Security Questions Recovery",
+        name: name || 'Security Questions Recovery',
         status: RecoveryMethodStatus.ACTIVE,
         metadata: {
           questionCount: metadata['securityQuestions'].length,
@@ -114,8 +127,8 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
       // Log the registration
       await auditLogRepository.create({
         userId,
-        action: "RECOVERY_METHOD_REGISTERED",
-        entityType: "RECOVERY_METHOD",
+        action: 'RECOVERY_METHOD_REGISTERED',
+        entityType: 'RECOVERY_METHOD',
         entityId: method.id,
         metadata: {
           type: RecoveryMethodType.SECURITY_QUESTIONS,
@@ -126,7 +139,7 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
 
       return method.id;
     } catch (error) {
-      logger.error("Failed to register security questions recovery", { error, userId });
+      logger.error('Failed to register security questions recovery', { error, userId });
       throw error;
     }
   }
@@ -137,44 +150,49 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
    * @param requestId Recovery request ID
    * @returns Recovery data
    */
-  async initiateRecovery(
-    userId: string,
-    requestId: string
-  ): Promise<RecoveryInitiationResult> {
+  async initiateRecovery(userId: string, requestId: string): Promise<RecoveryInitiationResult> {
     try {
       // Get user
       const user = await userRepository.findById(userId);
       if (!user) {
-        throw new NotFoundError("User not found");
+        throw new NotFoundError('User not found');
       }
 
       // Get user profile
       const profile = await userProfileRepository.findByUserId(userId);
       if (!profile) {
-        throw new NotFoundError("User profile not found");
+        throw new NotFoundError('User profile not found');
       }
 
       // Get security questions
       const metadata = profile.metadata as Record<string, any> | null;
-      if (!metadata || !metadata['securityQuestions'] || !Array.isArray(metadata['securityQuestions'])) {
-        throw new BadRequestError("Security questions not set up");
+      if (
+        !metadata ||
+        !metadata['securityQuestions'] ||
+        !Array.isArray(metadata['securityQuestions'])
+      ) {
+        throw new BadRequestError('Security questions not set up');
       }
 
       // Get recovery request
       const request = await recoveryRequestRepository.findById(requestId);
       if (!request) {
-        throw new NotFoundError("Recovery request not found");
+        throw new NotFoundError('Recovery request not found');
       }
 
       // Select a subset of questions to ask
       const questions = metadata['securityQuestions'] as any[];
-      const questionsToAsk = Math.min(recoveryConfig.securityQuestions.questionsToAsk, questions.length);
+      const questionsToAsk = Math.min(
+        recoveryConfig.securityQuestions.questionsToAsk,
+        questions.length
+      );
       const selectedIndices = this.selectRandomIndices(questions.length, questionsToAsk);
-      const selectedQuestions: SelectedQuestion[] = selectedIndices.map((index) => {
+      const selectedQuestions: SelectedQuestion[] = selectedIndices.map(index => {
         const question = questions[index];
         return {
           index,
-          question: question && typeof question === 'object' ? question.question : 'Question not available',
+          question:
+            question && typeof question === 'object' ? question.question : 'Question not available',
         };
       });
 
@@ -199,8 +217,8 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
       // Log the recovery initiation
       await auditLogRepository.create({
         userId,
-        action: "SECURITY_QUESTIONS_RECOVERY_INITIATED",
-        entityType: "RECOVERY_REQUEST",
+        action: 'SECURITY_QUESTIONS_RECOVERY_INITIATED',
+        entityType: 'RECOVERY_REQUEST',
         entityId: requestId,
         metadata: {
           questionCount: selectedQuestions.length,
@@ -216,13 +234,13 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
         },
         clientData: {
           questions: selectedQuestions,
-          message: "Please answer the security questions to recover your account",
+          message: 'Please answer the security questions to recover your account',
           expiresAt,
           requiredCorrect: recoveryConfig.securityQuestions.minCorrectAnswers || 1,
         },
       };
     } catch (error) {
-      logger.error("Failed to initiate security questions recovery", { error, userId, requestId });
+      logger.error('Failed to initiate security questions recovery', { error, userId, requestId });
       throw error;
     }
   }
@@ -243,7 +261,7 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
       if (!storedData) {
         return {
           success: false,
-          message: "Invalid or expired recovery session",
+          message: 'Invalid or expired recovery session',
         };
       }
 
@@ -252,7 +270,7 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
       if (!answers || !Array.isArray(answers)) {
         return {
           success: false,
-          message: "Answers are required",
+          message: 'Answers are required',
         };
       }
 
@@ -261,7 +279,7 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
         this.verificationData.delete(requestId);
         return {
           success: false,
-          message: "Recovery session has expired",
+          message: 'Recovery session has expired',
         };
       }
 
@@ -274,7 +292,7 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
         this.verificationData.delete(requestId);
         return {
           success: false,
-          message: "Maximum verification attempts reached",
+          message: 'Maximum verification attempts reached',
         };
       }
 
@@ -283,16 +301,20 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
       if (!profile) {
         return {
           success: false,
-          message: "User profile not found",
+          message: 'User profile not found',
         };
       }
 
       // Get security questions
       const metadata = profile.metadata as Record<string, any> | null;
-      if (!metadata || !metadata['securityQuestions'] || !Array.isArray(metadata['securityQuestions'])) {
+      if (
+        !metadata ||
+        !metadata['securityQuestions'] ||
+        !Array.isArray(metadata['securityQuestions'])
+      ) {
         return {
           success: false,
-          message: "Security questions not set up",
+          message: 'Security questions not set up',
         };
       }
 
@@ -306,7 +328,7 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
         if (index === undefined || index < 0 || index >= questions.length) {
           return {
             success: false,
-            message: "Invalid question index",
+            message: 'Invalid question index',
           };
         }
 
@@ -341,7 +363,7 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
         recoveryConfig.securityQuestions.minCorrectAnswers || 1,
         selectedIndices.length
       );
-      
+
       if (correctAnswers >= requiredCorrect) {
         // Remove verification data
         this.verificationData.delete(requestId);
@@ -349,8 +371,8 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
         // Log successful verification
         await auditLogRepository.create({
           userId: storedData.userId,
-          action: "SECURITY_QUESTIONS_RECOVERY_VERIFIED",
-          entityType: "RECOVERY_REQUEST",
+          action: 'SECURITY_QUESTIONS_RECOVERY_VERIFIED',
+          entityType: 'RECOVERY_REQUEST',
           entityId: requestId,
           metadata: {
             correctAnswers,
@@ -360,14 +382,14 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
 
         return {
           success: true,
-          message: "Security questions verification successful",
+          message: 'Security questions verification successful',
         };
       } else {
         // Log failed verification
         await auditLogRepository.create({
           userId: storedData.userId,
-          action: "SECURITY_QUESTIONS_RECOVERY_VERIFICATION_FAILED",
-          entityType: "RECOVERY_REQUEST",
+          action: 'SECURITY_QUESTIONS_RECOVERY_VERIFICATION_FAILED',
+          entityType: 'RECOVERY_REQUEST',
           entityId: requestId,
           metadata: {
             correctAnswers,
@@ -384,10 +406,10 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
         };
       }
     } catch (error) {
-      logger.error("Failed to verify security questions recovery", { error, requestId });
+      logger.error('Failed to verify security questions recovery', { error, requestId });
       return {
         success: false,
-        message: "An error occurred during verification",
+        message: 'An error occurred during verification',
       };
     }
   }
@@ -404,7 +426,11 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
   ): Promise<SecurityQuestionsSetupResponse> {
     try {
       // Validate questions
-      if (!questions || !Array.isArray(questions) || questions.length < recoveryConfig.securityQuestions.minQuestions) {
+      if (
+        !questions ||
+        !Array.isArray(questions) ||
+        questions.length < recoveryConfig.securityQuestions.minQuestions
+      ) {
         throw new BadRequestError(
           `At least ${recoveryConfig.securityQuestions.minQuestions} security questions are required`
         );
@@ -413,7 +439,7 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
       // Validate each question and answer
       for (const q of questions) {
         if (!q.question || !q.answer) {
-          throw new BadRequestError("Each question must have both a question and an answer");
+          throw new BadRequestError('Each question must have both a question and an answer');
         }
 
         if (
@@ -437,7 +463,7 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
       }
 
       // Encrypt answers
-      const encryptedQuestions: EncryptedSecurityQuestion[] = questions.map((q) => ({
+      const encryptedQuestions: EncryptedSecurityQuestion[] = questions.map(q => ({
         question: q.question,
         answer: encryption.encrypt(q.answer),
         createdAt: new Date().toISOString(),
@@ -455,7 +481,7 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
       // Log the setup
       await auditLogRepository.create({
         userId,
-        action: "SECURITY_QUESTIONS_SETUP",
+        action: 'SECURITY_QUESTIONS_SETUP',
         metadata: {
           count: encryptedQuestions.length,
         },
@@ -466,7 +492,7 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
         count: encryptedQuestions.length,
       };
     } catch (error) {
-      logger.error("Failed to set up security questions", { error, userId });
+      logger.error('Failed to set up security questions', { error, userId });
       throw error;
     }
   }
@@ -511,8 +537,8 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
     return answer
       .toLowerCase()
       .trim()
-      .replace(/\s+/g, " ") // Replace multiple spaces with a single space
-      .replace(/[^\w\s]/g, ""); // Remove special characters
+      .replace(/\s+/g, ' ') // Replace multiple spaces with a single space
+      .replace(/[^\w\s]/g, ''); // Remove special characters
   }
 
   /**
@@ -526,54 +552,54 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
     if (!str1 || !str2) {
       return false;
     }
-    
+
     // Normalize strings for comparison
     const s1 = str1.toLowerCase();
     const s2 = str2.toLowerCase();
-    
+
     // For exact matches, return true immediately
     if (s1 === s2) {
       return true;
     }
-    
+
     // For very short strings, use character-by-character comparison
     if (s1.length <= 3 || s2.length <= 3) {
       // If length difference is too big, strings are not similar
       if (Math.abs(s1.length - s2.length) > 1) {
         return false;
       }
-      
+
       // Count matching characters
       let matches = 0;
       const minLength = Math.min(s1.length, s2.length);
-      
+
       for (let i = 0; i < minLength; i++) {
         if (s1[i] === s2[i]) {
           matches++;
         }
       }
-      
+
       // Calculate similarity as percentage of matching characters
       const similarity = matches / Math.max(s1.length, s2.length);
       return similarity >= threshold;
     }
-    
+
     // For longer strings, use a simplified similarity measure
     // Count common characters
     const s1Chars = new Set(s1.split(''));
     const s2Chars = new Set(s2.split(''));
-    
+
     let commonChars = 0;
     for (const char of s1Chars) {
       if (s2Chars.has(char)) {
         commonChars++;
       }
     }
-    
+
     // Calculate Jaccard similarity coefficient
     const totalUniqueChars = s1Chars.size + s2Chars.size - commonChars;
     const similarity = commonChars / totalUniqueChars;
-    
+
     return similarity >= threshold;
   }
 
@@ -588,59 +614,59 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
     // Ensure we have valid strings
     const s1 = str1 || '';
     const s2 = str2 || '';
-    
+
     // For empty strings, return the length of the other string
     if (s1.length === 0) return s2.length;
     if (s2.length === 0) return s1.length;
-    
+
     // For identical strings, return 0
     if (s1 === s2) return 0;
-    
+
     // For strings with very different lengths, use length difference as approximation
     const lengthDiff = Math.abs(s1.length - s2.length);
     if (lengthDiff > Math.min(s1.length, s2.length)) {
       return lengthDiff;
     }
-    
+
     // For short strings, use character-by-character comparison
     if (s1.length < 5 && s2.length < 5) {
       let distance = 0;
       const minLength = Math.min(s1.length, s2.length);
-      
+
       for (let i = 0; i < minLength; i++) {
         if (s1[i] !== s2[i]) {
           distance++;
         }
       }
-      
+
       // Add the difference in length
       distance += lengthDiff;
       return distance;
     }
-    
+
     // For longer strings, use a simplified approach
     // Count different characters as a rough approximation
     const s1Chars = s1.split('');
     const s2Chars = s2.split('');
-    
+
     // Count characters that appear in one string but not the other
     const s1Set = new Set(s1Chars);
     const s2Set = new Set(s2Chars);
-    
+
     let uniqueToS1 = 0;
     for (const char of s1Set) {
       if (!s2Set.has(char)) {
         uniqueToS1++;
       }
     }
-    
+
     let uniqueToS2 = 0;
     for (const char of s2Set) {
       if (!s1Set.has(char)) {
         uniqueToS2++;
       }
     }
-    
+
     // Return the sum of unique characters as an approximation of edit distance
     return uniqueToS1 + uniqueToS2;
   }
@@ -655,7 +681,7 @@ export class SecurityQuestionsService extends BaseRecoveryMethod {
     if (max <= 0 || count <= 0) {
       return [];
     }
-    
+
     const indices: number[] = [];
     const available = Array.from({ length: max }, (_, i) => i);
 

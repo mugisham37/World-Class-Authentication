@@ -1,9 +1,13 @@
-import { Injectable } from "@tsed/di"
-import { PrismaBaseRepository } from "../../repositories/prisma-base.repository"
-import { PrismaClient } from "@prisma/client"
-import { BaseRepository } from "../../repositories/base.repository"
-import { OAuthClient, CreateOAuthClientData, UpdateOAuthClientData } from "../../models/oauth-client.model"
-import { initPrismaClientWithOAuthClient } from "../../prisma/oauth-client.prisma"
+import { Injectable } from '@tsed/di';
+import { PrismaBaseRepository } from '../../repositories/prisma-base.repository';
+import { PrismaClient } from '@prisma/client';
+import { BaseRepository } from '../../repositories/base.repository';
+import {
+  OAuthClient,
+  CreateOAuthClientData,
+  UpdateOAuthClientData,
+} from '../../models/oauth-client.model';
+import { initPrismaClientWithOAuthClient } from '../../prisma/oauth-client.prisma';
 
 /**
  * OAuth client repository
@@ -14,7 +18,7 @@ export class ClientRepository extends PrismaBaseRepository<OAuthClient, string> 
   /**
    * Protected model name for Prisma
    */
-  protected readonly modelName = "oauthClient"
+  protected readonly modelName = 'oauthClient';
 
   /**
    * Constructor
@@ -22,8 +26,8 @@ export class ClientRepository extends PrismaBaseRepository<OAuthClient, string> 
    */
   constructor(prisma: PrismaClient) {
     // Initialize the Prisma client with the OAuthClient model
-    const prismaWithOAuthClient = initPrismaClientWithOAuthClient(prisma)
-    super(prismaWithOAuthClient)
+    const prismaWithOAuthClient = initPrismaClientWithOAuthClient(prisma);
+    super(prismaWithOAuthClient);
   }
 
   /**
@@ -33,8 +37,8 @@ export class ClientRepository extends PrismaBaseRepository<OAuthClient, string> 
    */
   protected withTransaction(tx: PrismaClient): BaseRepository<OAuthClient, string> {
     // Initialize the transaction client with the OAuthClient model
-    const txWithOAuthClient = initPrismaClientWithOAuthClient(tx)
-    return new ClientRepository(txWithOAuthClient)
+    const txWithOAuthClient = initPrismaClientWithOAuthClient(tx);
+    return new ClientRepository(txWithOAuthClient);
   }
 
   /**
@@ -45,7 +49,7 @@ export class ClientRepository extends PrismaBaseRepository<OAuthClient, string> 
   override async findById(id: string): Promise<OAuthClient | null> {
     return this.model.findUnique({
       where: { id },
-    }) as Promise<OAuthClient | null>
+    }) as Promise<OAuthClient | null>;
   }
 
   /**
@@ -56,7 +60,7 @@ export class ClientRepository extends PrismaBaseRepository<OAuthClient, string> 
   override async create(client: CreateOAuthClientData): Promise<OAuthClient> {
     return this.model.create({
       data: client,
-    }) as Promise<OAuthClient>
+    }) as Promise<OAuthClient>;
   }
 
   /**
@@ -69,7 +73,7 @@ export class ClientRepository extends PrismaBaseRepository<OAuthClient, string> 
     return this.model.update({
       where: { id },
       data,
-    }) as Promise<OAuthClient>
+    }) as Promise<OAuthClient>;
   }
 
   /**
@@ -81,13 +85,13 @@ export class ClientRepository extends PrismaBaseRepository<OAuthClient, string> 
     try {
       await this.model.delete({
         where: { id },
-      })
-      return true
+      });
+      return true;
     } catch (error) {
       if (error instanceof Error && error.message.includes('Record to delete does not exist')) {
-        return false
+        return false;
       }
-      throw error
+      throw error;
     }
   }
 
@@ -99,7 +103,7 @@ export class ClientRepository extends PrismaBaseRepository<OAuthClient, string> 
   async findByUserId(userId: string): Promise<OAuthClient[]> {
     return this.model.findMany({
       where: { userId },
-    }) as Promise<OAuthClient[]>
+    }) as Promise<OAuthClient[]>;
   }
 
   /**
@@ -110,6 +114,6 @@ export class ClientRepository extends PrismaBaseRepository<OAuthClient, string> 
   async findByClientId(clientId: string): Promise<OAuthClient | null> {
     return this.model.findFirst({
       where: { clientId },
-    }) as Promise<OAuthClient | null>
+    }) as Promise<OAuthClient | null>;
   }
 }

@@ -1,6 +1,6 @@
-import { User, UserProfile, CreateUserData, UpdateUserData } from "../../models/user.model";
-import { Session } from "../../models/session.model";
-import { UserRepository } from "../user.repository";
+import { User, UserProfile, CreateUserData, UpdateUserData } from '../../models/user.model';
+import { Session } from '../../models/session.model';
+import { UserRepository } from '../user.repository';
 
 /**
  * Implementation of the UserRepository interface
@@ -14,11 +14,11 @@ export class UserRepositoryImpl implements UserRepository {
     // Implementation would go here
     // This is a placeholder for demonstration purposes
     const user = {} as User; // Mock user
-    
+
     // Handle phoneNumber null to undefined conversion
     return this.normalizeUser(user);
   }
-  
+
   /**
    * Find user by email
    * @param email User email
@@ -27,11 +27,11 @@ export class UserRepositoryImpl implements UserRepository {
     // Implementation would go here
     // This is a placeholder for demonstration purposes
     const user = {} as User; // Mock user
-    
+
     // Handle phoneNumber null to undefined conversion
     return this.normalizeUser(user);
   }
-  
+
   /**
    * Find user by phone number
    * @param phone User phone number
@@ -40,11 +40,11 @@ export class UserRepositoryImpl implements UserRepository {
     // Implementation would go here
     // This is a placeholder for demonstration purposes
     const user = {} as User; // Mock user
-    
+
     // Handle phoneNumber null to undefined conversion
     return this.normalizeUser(user);
   }
-  
+
   /**
    * Find user by username
    * @param username Username
@@ -53,11 +53,11 @@ export class UserRepositoryImpl implements UserRepository {
     // Implementation would go here
     // This is a placeholder for demonstration purposes
     const user = {} as User; // Mock user
-    
+
     // Handle phoneNumber null to undefined conversion
     return this.normalizeUser(user);
   }
-  
+
   /**
    * Create a new user
    * @param data User data
@@ -66,11 +66,11 @@ export class UserRepositoryImpl implements UserRepository {
     // Implementation would go here
     // This is a placeholder for demonstration purposes
     const user = {} as User; // Mock user
-    
+
     // Handle phoneNumber null to undefined conversion
     return this.normalizeUser(user)!; // Non-null assertion as we know user is not null here
   }
-  
+
   /**
    * Update user data
    * @param id User ID
@@ -80,7 +80,7 @@ export class UserRepositoryImpl implements UserRepository {
     // Implementation would go here
     // This is a placeholder for demonstration purposes
     const user = {} as User; // Mock user
-    
+
     // Handle phoneNumber null to undefined conversion
     return this.normalizeUser(user)!; // Non-null assertion as we know user is not null here
   }
@@ -104,7 +104,7 @@ export class UserRepositoryImpl implements UserRepository {
     // Implementation would go here
     // This is a placeholder for demonstration purposes
     const user = {} as User; // Mock user
-    
+
     // Handle phoneNumber null to undefined conversion
     return this.normalizeUser(user)!; // Non-null assertion as we know user is not null here
   }
@@ -118,7 +118,7 @@ export class UserRepositoryImpl implements UserRepository {
     // Implementation would go here
     // This is a placeholder for demonstration purposes
     const user = {} as User; // Mock user
-    
+
     // Handle phoneNumber null to undefined conversion
     return this.normalizeUser(user)!; // Non-null assertion as we know user is not null here
   }
@@ -132,7 +132,7 @@ export class UserRepositoryImpl implements UserRepository {
     // Implementation would go here
     // This is a placeholder for demonstration purposes
     const user = {} as User; // Mock user
-    
+
     // Handle phoneNumber null to undefined conversion
     return this.normalizeUser(user)!; // Non-null assertion as we know user is not null here
   }
@@ -188,13 +188,13 @@ export class UserRepositoryImpl implements UserRepository {
    */
   private normalizeUser(user: User | null): User | null {
     if (!user) return null;
-    
+
     return {
       ...user,
       // Convert null phoneNumber to undefined to match the BaseUser interface
       phoneNumber: user.phoneNumber === null ? undefined : user.phoneNumber,
       // Convert null lastLoginAt to undefined to match the BaseUser interface
-      lastLoginAt: user.lastLoginAt === null ? undefined : user.lastLoginAt
+      lastLoginAt: user.lastLoginAt === null ? undefined : user.lastLoginAt,
     };
   }
 }

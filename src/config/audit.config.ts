@@ -1,14 +1,14 @@
-import { validateConfig } from "../utils/validation"
-import { z } from "zod"
-import { env } from "./environment"
+import { validateConfig } from '../utils/validation';
+import { z } from 'zod';
+import { env } from './environment';
 
 // Initialize environment
-env.initialize()
+env.initialize();
 
 // Define audit config schema with Zod
 const auditConfigSchema = z.object({
   enabled: z.boolean().default(true),
-  logLevel: z.enum(["debug", "info", "warning", "error", "critical"]).default("info"),
+  logLevel: z.enum(['debug', 'info', 'warning', 'error', 'critical']).default('info'),
   retention: z.object({
     enabled: z.boolean().default(true),
     period: z.number().int().positive().default(365), // days
@@ -16,22 +16,21 @@ const auditConfigSchema = z.object({
     archivePeriod: z.number().int().positive().default(730), // days
   }),
   storage: z.object({
-    type: z.enum(["database", "file", "external"]).default("database"),
+    type: z.enum(['database', 'file', 'external']).default('database'),
     path: z.string().optional(),
     rotationEnabled: z.boolean().default(true),
-    rotationSize: z.number().int().positive().default(10 * 1024 * 1024), // 10MB
+    rotationSize: z
+      .number()
+      .int()
+      .positive()
+      .default(10 * 1024 * 1024), // 10MB
     rotationPeriod: z.number().int().positive().default(7), // days
   }),
   redaction: z.object({
     enabled: z.boolean().default(true),
-    fields: z.array(z.string()).default([
-      "password",
-      "secret",
-      "token",
-      "apiKey",
-      "creditCard",
-      "ssn",
-    ]),
+    fields: z
+      .array(z.string())
+      .default(['password', 'secret', 'token', 'apiKey', 'creditCard', 'ssn']),
   }),
   events: z.object({
     authentication: z.boolean().default(true),
@@ -50,7 +49,7 @@ const auditConfigSchema = z.object({
     flushInterval: z.number().int().positive().default(5000), // 5 seconds
     asyncProcessing: z.boolean().default(true),
   }),
-})
+});
 
 // Parse and validate environment variables
 const rawConfig = {
@@ -72,12 +71,12 @@ const rawConfig = {
   redaction: {
     enabled: env.getBoolean('AUDIT_REDACTION_ENABLED', true),
     fields: env.get('AUDIT_REDACTION_FIELDS')?.split(',') || [
-      "password",
-      "secret",
-      "token",
-      "apiKey",
-      "creditCard",
-      "ssn",
+      'password',
+      'secret',
+      'token',
+      'apiKey',
+      'creditCard',
+      'ssn',
     ],
   },
   events: {
@@ -97,10 +96,10 @@ const rawConfig = {
     flushInterval: env.getNumber('AUDIT_PERFORMANCE_FLUSH_INTERVAL', 5000),
     asyncProcessing: env.getBoolean('AUDIT_PERFORMANCE_ASYNC_PROCESSING', true),
   },
-}
+};
 
 // Validate and export config
-export const auditConfig = validateConfig(auditConfigSchema, rawConfig)
+export const auditConfig = validateConfig(auditConfigSchema, rawConfig);
 
 // Export config type
-export type AuditConfig = typeof auditConfig
+export type AuditConfig = typeof auditConfig;

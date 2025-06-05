@@ -10,7 +10,7 @@
  */
 export function validateRequiredEnvVars(requiredVars: string[]): void {
   const missing = requiredVars.filter(key => process.env[key] === undefined);
-  
+
   if (missing.length > 0) {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
@@ -25,10 +25,10 @@ export function validateRequiredEnvVars(requiredVars: string[]): void {
 export function validateEnvVars(requiredVars: string[], optionalVars: string[] = []): void {
   // Check required variables
   validateRequiredEnvVars(requiredVars);
-  
+
   // Check optional variables and log warnings
   const missingOptional = optionalVars.filter(key => process.env[key] === undefined);
-  
+
   if (missingOptional.length > 0) {
     console.warn(`Warning: Missing optional environment variables: ${missingOptional.join(', ')}`);
   }

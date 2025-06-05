@@ -1,5 +1,5 @@
-import { Injectable } from "@tsed/di"
-import { logger } from "../../infrastructure/logging/logger"
+import { Injectable } from '@tsed/di';
+import { logger } from '../../infrastructure/logging/logger';
 
 /**
  * Email service for sending notifications
@@ -24,13 +24,13 @@ export class EmailService {
     }
   ): Promise<boolean> {
     try {
-      logger.debug("Sending magic link email", { email, userId: options.userId })
-      
+      logger.debug('Sending magic link email', { email, userId: options.userId });
+
       // In a real implementation, this would send an actual email
       // For now, we'll just log the information
-      
-      const subject = "Your Magic Link"
-      
+
+      const subject = 'Your Magic Link';
+
       const body = `
         Hello,
         
@@ -44,17 +44,17 @@ export class EmailService {
         
         Thank you,
         Your Company Name
-      `
-      
-      logger.info("Magic link email would be sent", { email, subject })
-      
-      return true
+      `;
+
+      logger.info('Magic link email would be sent', { email, subject });
+
+      return true;
     } catch (error) {
-      logger.error("Failed to send magic link email", { error, email })
-      return false
+      logger.error('Failed to send magic link email', { error, email });
+      return false;
     }
   }
-  
+
   /**
    * Send an OTP code to the user's email
    * @param email Recipient email
@@ -73,13 +73,13 @@ export class EmailService {
     }
   ): Promise<boolean> {
     try {
-      logger.debug("Sending OTP code email", { email, userId: options.userId })
-      
+      logger.debug('Sending OTP code email', { email, userId: options.userId });
+
       // In a real implementation, this would send an actual email
       // For now, we'll just log the information
-      
-      const subject = "Your One-Time Password"
-      
+
+      const subject = 'Your One-Time Password';
+
       const body = `
         Hello,
         
@@ -91,14 +91,14 @@ export class EmailService {
         
         Thank you,
         Your Company Name
-      `
-      
-      logger.info("OTP code email would be sent", { email, subject })
-      
-      return true
+      `;
+
+      logger.info('OTP code email would be sent', { email, subject });
+
+      return true;
     } catch (error) {
-      logger.error("Failed to send OTP code email", { error, email })
-      return false
+      logger.error('Failed to send OTP code email', { error, email });
+      return false;
     }
   }
   /**
@@ -108,16 +108,20 @@ export class EmailService {
    * @param requestId Request ID
    * @returns Success status
    */
-  async sendDataAccessRequestVerification(email: string, token: string, requestId: string): Promise<boolean> {
+  async sendDataAccessRequestVerification(
+    email: string,
+    token: string,
+    requestId: string
+  ): Promise<boolean> {
     try {
-      logger.debug("Sending data access request verification email", { email, requestId })
-      
+      logger.debug('Sending data access request verification email', { email, requestId });
+
       // In a real implementation, this would send an actual email
       // For now, we'll just log the information
-      
-      const subject = "Verify Your Data Access Request"
-      const verificationLink = `https://yourdomain.com/gdpr/verify-access/${requestId}?token=${token}`
-      
+
+      const subject = 'Verify Your Data Access Request';
+      const verificationLink = `https://yourdomain.com/gdpr/verify-access/${requestId}?token=${token}`;
+
       const body = `
         Hello,
         
@@ -131,17 +135,25 @@ export class EmailService {
         
         Thank you,
         Your Company Name
-      `
-      
-      logger.info("Data access request verification email would be sent", { email, subject, verificationLink })
-      
-      return true
+      `;
+
+      logger.info('Data access request verification email would be sent', {
+        email,
+        subject,
+        verificationLink,
+      });
+
+      return true;
     } catch (error) {
-      logger.error("Failed to send data access request verification email", { error, email, requestId })
-      return false
+      logger.error('Failed to send data access request verification email', {
+        error,
+        email,
+        requestId,
+      });
+      return false;
     }
   }
-  
+
   /**
    * Send a notification when data access request is completed
    * @param email Recipient email
@@ -150,14 +162,14 @@ export class EmailService {
    */
   async sendDataAccessRequestCompleted(email: string, requestId: string): Promise<boolean> {
     try {
-      logger.debug("Sending data access request completed email", { email, requestId })
-      
+      logger.debug('Sending data access request completed email', { email, requestId });
+
       // In a real implementation, this would send an actual email
       // For now, we'll just log the information
-      
-      const subject = "Your Data Access Request is Complete"
-      const accessLink = `https://yourdomain.com/gdpr/access/${requestId}`
-      
+
+      const subject = 'Your Data Access Request is Complete';
+      const accessLink = `https://yourdomain.com/gdpr/access/${requestId}`;
+
       const body = `
         Hello,
         
@@ -169,17 +181,25 @@ export class EmailService {
         
         Thank you,
         Your Company Name
-      `
-      
-      logger.info("Data access request completed email would be sent", { email, subject, accessLink })
-      
-      return true
+      `;
+
+      logger.info('Data access request completed email would be sent', {
+        email,
+        subject,
+        accessLink,
+      });
+
+      return true;
     } catch (error) {
-      logger.error("Failed to send data access request completed email", { error, email, requestId })
-      return false
+      logger.error('Failed to send data access request completed email', {
+        error,
+        email,
+        requestId,
+      });
+      return false;
     }
   }
-  
+
   /**
    * Send a verification email for data deletion request
    * @param email Recipient email
@@ -187,16 +207,20 @@ export class EmailService {
    * @param requestId Request ID
    * @returns Success status
    */
-  async sendDataDeletionRequestVerification(email: string, token: string, requestId: string): Promise<boolean> {
+  async sendDataDeletionRequestVerification(
+    email: string,
+    token: string,
+    requestId: string
+  ): Promise<boolean> {
     try {
-      logger.debug("Sending data deletion request verification email", { email, requestId })
-      
+      logger.debug('Sending data deletion request verification email', { email, requestId });
+
       // In a real implementation, this would send an actual email
       // For now, we'll just log the information
-      
-      const subject = "Verify Your Data Deletion Request"
-      const verificationLink = `https://yourdomain.com/gdpr/verify-deletion/${requestId}?token=${token}`
-      
+
+      const subject = 'Verify Your Data Deletion Request';
+      const verificationLink = `https://yourdomain.com/gdpr/verify-deletion/${requestId}?token=${token}`;
+
       const body = `
         Hello,
         
@@ -210,17 +234,25 @@ export class EmailService {
         
         Thank you,
         Your Company Name
-      `
-      
-      logger.info("Data deletion request verification email would be sent", { email, subject, verificationLink })
-      
-      return true
+      `;
+
+      logger.info('Data deletion request verification email would be sent', {
+        email,
+        subject,
+        verificationLink,
+      });
+
+      return true;
     } catch (error) {
-      logger.error("Failed to send data deletion request verification email", { error, email, requestId })
-      return false
+      logger.error('Failed to send data deletion request verification email', {
+        error,
+        email,
+        requestId,
+      });
+      return false;
     }
   }
-  
+
   /**
    * Send a notification when data deletion request is completed
    * @param email Recipient email
@@ -229,13 +261,13 @@ export class EmailService {
    */
   async sendDataDeletionRequestCompleted(email: string, requestId: string): Promise<boolean> {
     try {
-      logger.debug("Sending data deletion request completed email", { email, requestId })
-      
+      logger.debug('Sending data deletion request completed email', { email, requestId });
+
       // In a real implementation, this would send an actual email
       // For now, we'll just log the information
-      
-      const subject = "Your Data Deletion Request is Complete"
-      
+
+      const subject = 'Your Data Deletion Request is Complete';
+
       const body = `
         Hello,
         
@@ -243,38 +275,45 @@ export class EmailService {
         
         Thank you,
         Your Company Name
-      `
-      
-      logger.info("Data deletion request completed email would be sent", { email, subject })
-      
-      return true
+      `;
+
+      logger.info('Data deletion request completed email would be sent', { email, subject });
+
+      return true;
     } catch (error) {
-      logger.error("Failed to send data deletion request completed email", { error, email, requestId })
-      return false
+      logger.error('Failed to send data deletion request completed email', {
+        error,
+        email,
+        requestId,
+      });
+      return false;
     }
   }
-  
+
   /**
    * Send a data breach notification
    * @param email Recipient email
    * @param breachDetails Breach details
    * @returns Success status
    */
-  async sendDataBreachNotification(email: string, breachDetails: {
-    date: Date
-    description: string
-    affectedData: string[]
-    steps: string[]
-    contactInfo: string
-  }): Promise<boolean> {
+  async sendDataBreachNotification(
+    email: string,
+    breachDetails: {
+      date: Date;
+      description: string;
+      affectedData: string[];
+      steps: string[];
+      contactInfo: string;
+    }
+  ): Promise<boolean> {
     try {
-      logger.debug("Sending data breach notification email", { email })
-      
+      logger.debug('Sending data breach notification email', { email });
+
       // In a real implementation, this would send an actual email
       // For now, we'll just log the information
-      
-      const subject = "Important: Data Breach Notification"
-      
+
+      const subject = 'Important: Data Breach Notification';
+
       const body = `
         Hello,
         
@@ -295,17 +334,17 @@ export class EmailService {
         
         Thank you,
         Your Company Name
-      `
-      
-      logger.info("Data breach notification email would be sent", { email, subject })
-      
-      return true
+      `;
+
+      logger.info('Data breach notification email would be sent', { email, subject });
+
+      return true;
     } catch (error) {
-      logger.error("Failed to send data breach notification email", { error, email })
-      return false
+      logger.error('Failed to send data breach notification email', { error, email });
+      return false;
     }
   }
-  
+
   /**
    * Send a compliance report
    * @param email Recipient email
@@ -313,15 +352,19 @@ export class EmailService {
    * @param reportUrl URL to download the report
    * @returns Success status
    */
-  async sendComplianceReport(email: string, reportType: string, reportUrl: string): Promise<boolean> {
+  async sendComplianceReport(
+    email: string,
+    reportType: string,
+    reportUrl: string
+  ): Promise<boolean> {
     try {
-      logger.debug("Sending compliance report email", { email, reportType })
-      
+      logger.debug('Sending compliance report email', { email, reportType });
+
       // In a real implementation, this would send an actual email
       // For now, we'll just log the information
-      
-      const subject = `${reportType} Compliance Report`
-      
+
+      const subject = `${reportType} Compliance Report`;
+
       const body = `
         Hello,
         
@@ -333,14 +376,14 @@ export class EmailService {
         
         Thank you,
         Your Company Name
-      `
-      
-      logger.info("Compliance report email would be sent", { email, subject, reportUrl })
-      
-      return true
+      `;
+
+      logger.info('Compliance report email would be sent', { email, subject, reportUrl });
+
+      return true;
     } catch (error) {
-      logger.error("Failed to send compliance report email", { error, email, reportType })
-      return false
+      logger.error('Failed to send compliance report email', { error, email, reportType });
+      return false;
     }
   }
 }

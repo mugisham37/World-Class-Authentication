@@ -18,7 +18,7 @@ describe('MetricsCollector', () => {
         max: 0,
         avg: 0,
         p95: 0,
-        p99: 0
+        p99: 0,
       });
     });
 

@@ -1,6 +1,6 @@
-import { Injectable } from "@tsed/di";
-import { User, UserProfile } from "../models/user.model";
-import { Session } from "../models/session.model";
+import { Injectable } from '@tsed/di';
+import { User, UserProfile } from '../models/user.model';
+import { Session } from '../models/session.model';
 
 /**
  * Repository for user data
@@ -11,38 +11,38 @@ export interface UserRepository {
    * @param id User ID
    */
   findById(id: string): Promise<User | null>;
-  
+
   /**
    * Find user by email
    * @param email User email
    */
   findByEmail(email: string): Promise<User | null>;
-  
+
   /**
    * Reset user password
    * @param userId User ID
    * @param newPassword New password (should be hashed before saving)
    */
   resetPassword(userId: string, newPassword: string): Promise<void>;
-  
+
   /**
    * Find user by phone number
    * @param phone User phone number
    */
   findByPhone(phone: string): Promise<User | null>;
-  
+
   /**
    * Find user by username
    * @param username Username
    */
   findByUsername(username: string): Promise<User | null>;
-  
+
   /**
    * Create a new user
    * @param data User data
    */
   create(data: Partial<User>): Promise<User>;
-  
+
   /**
    * Update user data
    * @param id User ID
@@ -118,27 +118,27 @@ export class UserRepositoryImpl implements UserRepository {
     // Implementation
     return null;
   }
-  
+
   async findByEmail(email: string): Promise<User | null> {
     // Implementation
     return null;
   }
-  
+
   async findByPhone(phone: string): Promise<User | null> {
     // Implementation
     return null;
   }
-  
+
   async findByUsername(username: string): Promise<User | null> {
     // Implementation
     return null;
   }
-  
+
   async create(data: Partial<User>): Promise<User> {
     // Implementation
     return {} as User;
   }
-  
+
   async update(id: string, data: Partial<User>): Promise<User> {
     // Implementation
     return {} as User;
@@ -186,7 +186,7 @@ export class UserRepositoryImpl implements UserRepository {
   async anonymizeSessions(userId: string): Promise<void> {
     // Implementation
   }
-  
+
   /**
    * Reset user password
    * @param userId User ID
@@ -197,7 +197,7 @@ export class UserRepositoryImpl implements UserRepository {
     // Note: Ensure password is properly hashed before calling this method
     await this.update(userId, {
       password: newPassword,
-      lastPasswordChange: new Date()
+      lastPasswordChange: new Date(),
     });
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable } from "@tsed/di"
+import { Injectable } from '@tsed/di';
 // Using @ts-ignore for external libraries that might not have proper type definitions
 // @ts-ignore
 import {
@@ -6,28 +6,31 @@ import {
   verifyRegistrationResponse,
   generateAuthenticationOptions,
   verifyAuthenticationResponse,
-} from "@simplewebauthn/server"
+} from '@simplewebauthn/server';
 // @ts-ignore
-import type { RegistrationResponseJSON, AuthenticationResponseJSON } from "@simplewebauthn/typescript-types"
-import type { MfaFactorRepository } from "../../../data/repositories/mfa-factor.repository"
-import type { MfaChallengeRepository } from "../../../data/repositories/mfa-challenge.repository"
-import type { UserRepository } from "../../../data/repositories/user.repository"
+import type {
+  RegistrationResponseJSON,
+  AuthenticationResponseJSON,
+} from '@simplewebauthn/typescript-types';
+import type { MfaFactorRepository } from '../../../data/repositories/mfa-factor.repository';
+import type { MfaChallengeRepository } from '../../../data/repositories/mfa-challenge.repository';
+import type { UserRepository } from '../../../data/repositories/user.repository';
 import {
   MfaFactorType,
   MfaFactorStatus,
   type MfaEnrollmentResult,
   type MfaVerificationResult,
-} from "../mfa-factor-types"
-import { mfaConfig } from "../../../config/mfa-config"
-import { logger } from "../../../infrastructure/logging/logger"
-import { BadRequestError, NotFoundError } from "../../../utils/error-handling"
+} from '../mfa-factor-types';
+import { mfaConfig } from '../../../config/mfa-config';
+import { logger } from '../../../infrastructure/logging/logger';
+import { BadRequestError, NotFoundError } from '../../../utils/error-handling';
 
 @Injectable()
 export class WebAuthnService {
   constructor(
     private mfaFactorRepository: MfaFactorRepository,
     private mfaChallengeRepository: MfaChallengeRepository,
-    private userRepository: UserRepository,
+    private userRepository: UserRepository
   ) {}
 
   /**
@@ -38,12 +41,12 @@ export class WebAuthnService {
   private stringToBuffer(str: string): Uint8Array {
     try {
       if (!str) {
-        throw new Error("Input string cannot be empty");
+        throw new Error('Input string cannot be empty');
       }
       return new TextEncoder().encode(str);
     } catch (error) {
-      logger.error("Failed to convert string to buffer", { error, str });
-      throw new Error("Failed to process user ID");
+      logger.error('Failed to convert string to buffer', { error, str });
+      throw new Error('Failed to process user ID');
     }
   }
 
@@ -57,18 +60,18 @@ export class WebAuthnService {
   async startEnrollment(
     userId: string,
     factorName: string,
-    _factorData?: Record<string, any>,
+    _factorData?: Record<string, any>
   ): Promise<MfaEnrollmentResult> {
     try {
       // Get user
-      const user = await this.userRepository.findById(userId)
+      const user = await this.userRepository.findById(userId);
       if (!user) {
-        throw new NotFoundError("User not found")
+        throw new NotFoundError('User not found');
       }
 
       // Generate registration options
-      const rpName = mfaConfig.webAuthn.rpName
-      const rpID = mfaConfig.webAuthn.rpID || ""
+      const rpName = mfaConfig.webAuthn.rpName;
+      const rpID = mfaConfig.webAuthn.rpID || '';
 
       // Convert userId to Uint8Array for WebAuthn compatibility
       const userIdBuffer = this.stringToBuffer(userId);
@@ -85,10 +88,13 @@ export class WebAuthnService {
         // @ts-ignore - Ignoring type issues with attestationType
         attestationType: mfaConfig.webAuthn.attestation,
         authenticatorSelection: {
-          userVerification: mfaConfig.webAuthn.userVerification as "required" | "preferred" | "discouraged",
+          userVerification: mfaConfig.webAuthn.userVerification as
+            | 'required'
+            | 'preferred'
+            | 'discouraged',
         },
         timeout: mfaConfig.webAuthn.timeout,
-      })
+      });
 
       // Create factor record
       const factor = await this.mfaFactorRepository.create({
@@ -99,23 +105,23 @@ export class WebAuthnService {
         metadata: {
           challenge: registrationOptions.challenge,
           rpID: registrationOptions.rp.id,
-          origin: mfaConfig.webAuthn.origin || "",
+          origin: mfaConfig.webAuthn.origin || '',
         },
-      })
+      });
 
       return {
         success: true,
         factorId: factor.id,
         factorType: MfaFactorType.WEBAUTHN,
         activationData: registrationOptions,
-        message: "WebAuthn registration options generated",
-      }
+        message: 'WebAuthn registration options generated',
+      };
     } catch (error: any) {
-      logger.error("Failed to start WebAuthn enrollment", { error, userId })
+      logger.error('Failed to start WebAuthn enrollment', { error, userId });
       return {
         success: false,
-        message: "Failed to start WebAuthn enrollment: " + error.message,
-      }
+        message: 'Failed to start WebAuthn enrollment: ' + error.message,
+      };
     }
   }
 
@@ -127,22 +133,22 @@ export class WebAuthnService {
    */
   async verifyEnrollment(
     factorId: string,
-    attestationResponse: RegistrationResponseJSON,
+    attestationResponse: RegistrationResponseJSON
   ): Promise<MfaVerificationResult> {
     try {
       // Get factor
-      const factor = await this.mfaFactorRepository.findById(factorId)
+      const factor = await this.mfaFactorRepository.findById(factorId);
       if (!factor || factor.type !== MfaFactorType.WEBAUTHN || !factor.metadata) {
         return {
           success: false,
-          message: "Invalid WebAuthn factor",
-        }
+          message: 'Invalid WebAuthn factor',
+        };
       }
 
       // Extract expected values from factor metadata
-      const expectedChallenge = factor.metadata["challenge"]
-      const expectedOrigin = factor.metadata["origin"] || mfaConfig.webAuthn.origin
-      const expectedRPID = factor.metadata["rpID"] || mfaConfig.webAuthn.rpID
+      const expectedChallenge = factor.metadata['challenge'];
+      const expectedOrigin = factor.metadata['origin'] || mfaConfig.webAuthn.origin;
+      const expectedRPID = factor.metadata['rpID'] || mfaConfig.webAuthn.rpID;
 
       // Verify attestation
       // @ts-ignore - Ignoring type issues with the external library
@@ -151,19 +157,19 @@ export class WebAuthnService {
         expectedChallenge,
         expectedOrigin,
         expectedRPID,
-      })
+      });
 
       if (verification.verified) {
         // Extract credential data
         // @ts-ignore - Ignoring type issues with the external library
-        const { credentialID, credentialPublicKey } = verification.registrationInfo!
+        const { credentialID, credentialPublicKey } = verification.registrationInfo!;
 
         // Update factor with credential data
         await this.mfaFactorRepository.update(factorId, {
-          credentialId: Buffer.from(credentialID).toString("base64url"),
+          credentialId: Buffer.from(credentialID).toString('base64url'),
           metadata: {
             ...factor.metadata,
-            credentialPublicKey: Buffer.from(credentialPublicKey).toString("base64url"),
+            credentialPublicKey: Buffer.from(credentialPublicKey).toString('base64url'),
             // @ts-ignore
             counter: verification.registrationInfo!.counter,
             // @ts-ignore
@@ -171,28 +177,28 @@ export class WebAuthnService {
             // @ts-ignore
             credentialBackedUp: verification.registrationInfo!.credentialBackedUp,
           },
-        })
+        });
 
         return {
           success: true,
           factorId,
           factorType: MfaFactorType.WEBAUTHN,
-          message: "WebAuthn registration successful",
-        }
+          message: 'WebAuthn registration successful',
+        };
       } else {
         return {
           success: false,
           factorId,
           factorType: MfaFactorType.WEBAUTHN,
-          message: "WebAuthn registration verification failed",
-        }
+          message: 'WebAuthn registration verification failed',
+        };
       }
     } catch (error: any) {
-      logger.error("Failed to verify WebAuthn enrollment", { error, factorId })
+      logger.error('Failed to verify WebAuthn enrollment', { error, factorId });
       return {
         success: false,
-        message: "Failed to verify WebAuthn enrollment: " + error.message,
-      }
+        message: 'Failed to verify WebAuthn enrollment: ' + error.message,
+      };
     }
   }
 
@@ -204,43 +210,46 @@ export class WebAuthnService {
   async generateChallenge(factorId: string) {
     try {
       // Get factor
-      const factor = await this.mfaFactorRepository.findById(factorId)
+      const factor = await this.mfaFactorRepository.findById(factorId);
       if (!factor || factor.type !== MfaFactorType.WEBAUTHN || !factor.metadata) {
-        throw new NotFoundError("Invalid WebAuthn factor")
+        throw new NotFoundError('Invalid WebAuthn factor');
       }
 
       // Extract credential data
-      const credentialID = factor.credentialId
+      const credentialID = factor.credentialId;
       if (!credentialID) {
-        throw new BadRequestError("WebAuthn factor is not properly configured")
+        throw new BadRequestError('WebAuthn factor is not properly configured');
       }
 
       // Generate authentication options
       // @ts-ignore - Ignoring type issues with the external library
       const authenticationOptions = await generateAuthenticationOptions({
-        rpID: factor.metadata["rpID"] || mfaConfig.webAuthn.rpID,
-        userVerification: mfaConfig.webAuthn.userVerification as "required" | "preferred" | "discouraged",
+        rpID: factor.metadata['rpID'] || mfaConfig.webAuthn.rpID,
+        userVerification: mfaConfig.webAuthn.userVerification as
+          | 'required'
+          | 'preferred'
+          | 'discouraged',
         timeout: mfaConfig.webAuthn.timeout,
         allowCredentials: [
           {
             // @ts-ignore
-            id: Buffer.from(credentialID, "base64url"),
-            type: "public-key",
+            id: Buffer.from(credentialID, 'base64url'),
+            type: 'public-key',
           },
         ],
-      })
+      });
 
       return {
         challenge: authenticationOptions.challenge,
         metadata: {
           options: authenticationOptions,
-          rpID: factor.metadata["rpID"] || mfaConfig.webAuthn.rpID,
-          origin: factor.metadata["origin"] || mfaConfig.webAuthn.origin,
+          rpID: factor.metadata['rpID'] || mfaConfig.webAuthn.rpID,
+          origin: factor.metadata['origin'] || mfaConfig.webAuthn.origin,
         },
-      }
+      };
     } catch (error: any) {
-      logger.error("Failed to generate WebAuthn challenge", { error, factorId })
-      throw error
+      logger.error('Failed to generate WebAuthn challenge', { error, factorId });
+      throw error;
     }
   }
 
@@ -254,33 +263,33 @@ export class WebAuthnService {
   async verifyChallenge(
     challengeId: string,
     assertionResponse: AuthenticationResponseJSON,
-    _metadata?: Record<string, any>,
+    _metadata?: Record<string, any>
   ): Promise<MfaVerificationResult> {
     try {
       // Get challenge
-      const challenge = await this.mfaChallengeRepository.findById(challengeId)
+      const challenge = await this.mfaChallengeRepository.findById(challengeId);
       if (!challenge || !challenge.metadata) {
         return {
           success: false,
-          message: "Invalid challenge",
-        }
+          message: 'Invalid challenge',
+        };
       }
 
       // Get factor
-      const factor = await this.mfaFactorRepository.findById(challenge.factorId)
+      const factor = await this.mfaFactorRepository.findById(challenge.factorId);
       if (!factor || factor.type !== MfaFactorType.WEBAUTHN || !factor.metadata) {
         return {
           success: false,
-          message: "Invalid WebAuthn factor",
-        }
+          message: 'Invalid WebAuthn factor',
+        };
       }
 
       // Extract expected values
-      const expectedChallenge = challenge.challenge
-      const expectedOrigin = factor.metadata["origin"] || mfaConfig.webAuthn.origin
-      const expectedRPID = factor.metadata["rpID"] || mfaConfig.webAuthn.rpID
-      const credentialPublicKey = Buffer.from(factor.metadata["credentialPublicKey"], "base64url")
-      const expectedCounter = factor.metadata["counter"] || 0
+      const expectedChallenge = challenge.challenge;
+      const expectedOrigin = factor.metadata['origin'] || mfaConfig.webAuthn.origin;
+      const expectedRPID = factor.metadata['rpID'] || mfaConfig.webAuthn.rpID;
+      const credentialPublicKey = Buffer.from(factor.metadata['credentialPublicKey'], 'base64url');
+      const expectedCounter = factor.metadata['counter'] || 0;
 
       // Verify assertion
       // @ts-ignore - Ignoring type issues with the external library
@@ -291,11 +300,11 @@ export class WebAuthnService {
         expectedRPID,
         // @ts-ignore
         authenticator: {
-          credentialID: Buffer.from(factor.credentialId!, "base64url"),
+          credentialID: Buffer.from(factor.credentialId!, 'base64url'),
           credentialPublicKey,
           counter: expectedCounter,
         },
-      })
+      });
 
       if (verification.verified) {
         // Update counter
@@ -305,28 +314,28 @@ export class WebAuthnService {
             // @ts-ignore
             counter: verification.authenticationInfo.newCounter,
           },
-        })
+        });
 
         return {
           success: true,
           factorId: factor.id,
           factorType: MfaFactorType.WEBAUTHN,
-          message: "WebAuthn authentication successful",
-        }
+          message: 'WebAuthn authentication successful',
+        };
       } else {
         return {
           success: false,
           factorId: factor.id,
           factorType: MfaFactorType.WEBAUTHN,
-          message: "WebAuthn authentication failed",
-        }
+          message: 'WebAuthn authentication failed',
+        };
       }
     } catch (error: any) {
-      logger.error("Failed to verify WebAuthn challenge", { error, challengeId })
+      logger.error('Failed to verify WebAuthn challenge', { error, challengeId });
       return {
         success: false,
-        message: "Failed to verify WebAuthn challenge: " + error.message,
-      }
+        message: 'Failed to verify WebAuthn challenge: ' + error.message,
+      };
     }
   }
 }

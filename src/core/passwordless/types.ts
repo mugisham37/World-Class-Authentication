@@ -100,7 +100,7 @@ export interface CertificateCredential {
 /**
  * User model interface
  */
-import { BaseUser } from "../../shared/types/user.types";
+import { BaseUser } from '../../shared/types/user.types';
 
 export interface User extends BaseUser {
   // Add any passwordless-specific user properties here if needed

@@ -1,4 +1,4 @@
-import { DataSubjectRequestStatus, DataSubjectRequestType } from "@prisma/client";
+import { DataSubjectRequestStatus, DataSubjectRequestType } from '@prisma/client';
 
 /**
  * Data Subject Request input interface
@@ -65,7 +65,7 @@ export interface DataSubjectRequestSearchOptions {
 export interface DataSubjectRequestStatisticsOptions {
   startDate?: Date;
   endDate?: Date;
-  groupBy?: "type" | "status" | "day" | "week" | "month";
+  groupBy?: 'type' | 'status' | 'day' | 'week' | 'month';
 }
 
 /**
@@ -74,5 +74,5 @@ export interface DataSubjectRequestStatisticsOptions {
 export interface DataSubjectRequestTimelineOptions {
   startDate?: Date;
   endDate?: Date;
-  interval?: "day" | "week" | "month";
+  interval?: 'day' | 'week' | 'month';
 }

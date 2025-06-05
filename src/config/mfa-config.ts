@@ -110,7 +110,7 @@ export const mfaConfig = {
      * Issuer name for TOTP
      * This will be displayed in authenticator apps
      */
-    issuer: "World-Class-Authentication",
+    issuer: 'World-Class-Authentication',
 
     /**
      * Secret length in bytes
@@ -136,7 +136,7 @@ export const mfaConfig = {
     /**
      * Hash algorithm for TOTP
      */
-    algorithm: "sha1", // sha1, sha256, sha512
+    algorithm: 'sha1', // sha1, sha256, sha512
   },
 
   /**
@@ -146,29 +146,29 @@ export const mfaConfig = {
     /**
      * Relying Party name
      */
-    rpName: "World-Class-Authentication",
+    rpName: 'World-Class-Authentication',
 
     /**
      * Relying Party ID
      * Should be the domain name without protocol or port
      */
-    rpID: "localhost",
+    rpID: 'localhost',
 
     /**
      * Origin for WebAuthn
      * Should be the full URL of the site
      */
-    origin: "http://localhost:3000",
+    origin: 'http://localhost:3000',
 
     /**
      * Attestation type
      */
-    attestation: "none", // none, indirect, direct
+    attestation: 'none', // none, indirect, direct
 
     /**
      * User verification requirement
      */
-    userVerification: "preferred", // required, preferred, discouraged
+    userVerification: 'preferred', // required, preferred, discouraged
 
     /**
      * Timeout in milliseconds
@@ -183,7 +183,7 @@ export const mfaConfig = {
     /**
      * SMS provider
      */
-    provider: "twilio", // twilio, aws, etc.
+    provider: 'twilio', // twilio, aws, etc.
 
     /**
      * Code length
@@ -250,7 +250,7 @@ export const mfaConfig = {
     /**
      * Push notification provider
      */
-    provider: "firebase", // firebase, apns, etc.
+    provider: 'firebase', // firebase, apns, etc.
 
     /**
      * Challenge expiration in seconds

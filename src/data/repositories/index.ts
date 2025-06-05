@@ -37,7 +37,7 @@ export {
 };
 
 // Export implementation classes
-export * from "./implementations";
+export * from './implementations';
 
 // Create repository instances
 export const userRepository = new UserRepositoryImpl();

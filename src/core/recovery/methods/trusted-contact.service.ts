@@ -1,19 +1,19 @@
-import { Injectable } from "@tsed/di";
-import { recoveryConfig } from "../../../config/recovery.config";
-import { RecoveryMethodStatus } from "../../../data/models/recovery-method.model";
-import { auditLogRepository } from "../../../data/repositories/audit-log.repository";
-import { recoveryMethodRepository } from "../../../data/repositories/recovery-method.repository";
-import { recoveryRequestRepository } from "../../../data/repositories/recovery-request.repository";
-import { userProfileRepository } from "../../../data/repositories/user-profile.repository";
-import { userRepository } from "../../../data/repositories/user.repository";
-import { logger } from "../../../infrastructure/logging/logger";
-import { BadRequestError, NotFoundError } from "../../../utils/error-handling";
+import { Injectable } from '@tsed/di';
+import { recoveryConfig } from '../../../config/recovery.config';
+import { RecoveryMethodStatus } from '../../../data/models/recovery-method.model';
+import { auditLogRepository } from '../../../data/repositories/audit-log.repository';
+import { recoveryMethodRepository } from '../../../data/repositories/recovery-method.repository';
+import { recoveryRequestRepository } from '../../../data/repositories/recovery-request.repository';
+import { userProfileRepository } from '../../../data/repositories/user-profile.repository';
+import { userRepository } from '../../../data/repositories/user.repository';
+import { logger } from '../../../infrastructure/logging/logger';
+import { BadRequestError, NotFoundError } from '../../../utils/error-handling';
 import {
   BaseRecoveryMethod,
   RecoveryInitiationResult,
   RecoveryMethodType,
   RecoveryVerificationResult,
-} from "../recovery-method";
+} from '../recovery-method';
 
 /**
  * Trusted contact interface
@@ -68,9 +68,11 @@ export class TrustedContactService extends BaseRecoveryMethod {
       }
 
       // Check if there are enough trusted contacts
-      return metadata['trustedContacts'].length >= recoveryConfig.trustedContacts.minContactsForRecovery;
+      return (
+        metadata['trustedContacts'].length >= recoveryConfig.trustedContacts.minContactsForRecovery
+      );
     } catch (error) {
-      logger.error("Failed to check if trusted contact recovery is available", { error, userId });
+      logger.error('Failed to check if trusted contact recovery is available', { error, userId });
       return false;
     }
   }
@@ -87,23 +89,27 @@ export class TrustedContactService extends BaseRecoveryMethod {
       // Check if user exists
       const user = await userRepository.findById(userId);
       if (!user) {
-        throw new NotFoundError("User not found");
+        throw new NotFoundError('User not found');
       }
 
       // Check if trusted contacts are provided
       const contacts = data['contacts'];
       if (!contacts || !Array.isArray(contacts) || contacts.length < 1) {
-        throw new BadRequestError("At least one trusted contact is required");
+        throw new BadRequestError('At least one trusted contact is required');
       }
 
       // Validate contacts
       for (const contact of contacts) {
-        if (!contact.email || typeof contact.email !== "string" || !this.isValidEmail(contact.email)) {
-          throw new BadRequestError("All contacts must have valid email addresses");
+        if (
+          !contact.email ||
+          typeof contact.email !== 'string' ||
+          !this.isValidEmail(contact.email)
+        ) {
+          throw new BadRequestError('All contacts must have valid email addresses');
         }
 
-        if (!contact.name || typeof contact.name !== "string" || contact.name.trim().length === 0) {
-          throw new BadRequestError("All contacts must have names");
+        if (!contact.name || typeof contact.name !== 'string' || contact.name.trim().length === 0) {
+          throw new BadRequestError('All contacts must have names');
         }
       }
 
@@ -139,7 +145,7 @@ export class TrustedContactService extends BaseRecoveryMethod {
       const method = await recoveryMethodRepository.create({
         userId,
         type: RecoveryMethodType.TRUSTED_CONTACTS,
-        name: name || "Trusted Contacts",
+        name: name || 'Trusted Contacts',
         status: RecoveryMethodStatus.ACTIVE,
         metadata: {
           contactCount: trustedContacts.length,
@@ -149,8 +155,8 @@ export class TrustedContactService extends BaseRecoveryMethod {
       // Log the registration
       await auditLogRepository.create({
         userId,
-        action: "RECOVERY_METHOD_REGISTERED",
-        entityType: "RECOVERY_METHOD",
+        action: 'RECOVERY_METHOD_REGISTERED',
+        entityType: 'RECOVERY_METHOD',
         entityId: method.id,
         metadata: {
           type: RecoveryMethodType.TRUSTED_CONTACTS,
@@ -161,7 +167,7 @@ export class TrustedContactService extends BaseRecoveryMethod {
 
       return method.id;
     } catch (error) {
-      logger.error("Failed to register trusted contact recovery", { error, userId });
+      logger.error('Failed to register trusted contact recovery', { error, userId });
       throw error;
     }
   }
@@ -172,27 +178,24 @@ export class TrustedContactService extends BaseRecoveryMethod {
    * @param requestId Recovery request ID
    * @returns Recovery data
    */
-  async initiateRecovery(
-    userId: string,
-    requestId: string
-  ): Promise<RecoveryInitiationResult> {
+  async initiateRecovery(userId: string, requestId: string): Promise<RecoveryInitiationResult> {
     try {
       // Get user
       const user = await userRepository.findById(userId);
       if (!user) {
-        throw new NotFoundError("User not found");
+        throw new NotFoundError('User not found');
       }
 
       // Get user profile
       const profile = await userProfileRepository.findByUserId(userId);
       if (!profile || !profile.metadata) {
-        throw new NotFoundError("User profile not found");
+        throw new NotFoundError('User profile not found');
       }
 
       // Get trusted contacts
       const metadata = profile.metadata as Record<string, any>;
       if (!metadata['trustedContacts'] || !Array.isArray(metadata['trustedContacts'])) {
-        throw new BadRequestError("Trusted contacts not set up");
+        throw new BadRequestError('Trusted contacts not set up');
       }
 
       const contacts = metadata['trustedContacts'] as TrustedContact[];
@@ -205,7 +208,7 @@ export class TrustedContactService extends BaseRecoveryMethod {
       // Get recovery request
       const request = await recoveryRequestRepository.findById(requestId);
       if (!request) {
-        throw new NotFoundError("Recovery request not found");
+        throw new NotFoundError('Recovery request not found');
       }
 
       // Generate a recovery code
@@ -223,7 +226,7 @@ export class TrustedContactService extends BaseRecoveryMethod {
 
       // In a real implementation, send the code to the trusted contacts
       // For now, we'll just log it
-      logger.info("Trusted contact recovery code", {
+      logger.info('Trusted contact recovery code', {
         userId,
         contacts: contacts.map(c => ({ email: c.email, name: c.name })),
         code,
@@ -243,8 +246,8 @@ export class TrustedContactService extends BaseRecoveryMethod {
       // Log the recovery initiation
       await auditLogRepository.create({
         userId,
-        action: "TRUSTED_CONTACT_RECOVERY_INITIATED",
-        entityType: "RECOVERY_REQUEST",
+        action: 'TRUSTED_CONTACT_RECOVERY_INITIATED',
+        entityType: 'RECOVERY_REQUEST',
         entityId: requestId,
         metadata: {
           contactCount: contacts.length,
@@ -263,12 +266,12 @@ export class TrustedContactService extends BaseRecoveryMethod {
             name: c.name,
             email: this.maskEmail(c.email),
           })),
-          message: "A recovery code has been sent to your trusted contacts",
+          message: 'A recovery code has been sent to your trusted contacts',
           expiresAt,
         },
       };
     } catch (error) {
-      logger.error("Failed to initiate trusted contact recovery", { error, userId, requestId });
+      logger.error('Failed to initiate trusted contact recovery', { error, userId, requestId });
       throw error;
     }
   }
@@ -289,7 +292,7 @@ export class TrustedContactService extends BaseRecoveryMethod {
       if (!storedData) {
         return {
           success: false,
-          message: "Invalid or expired recovery code",
+          message: 'Invalid or expired recovery code',
         };
       }
 
@@ -298,7 +301,7 @@ export class TrustedContactService extends BaseRecoveryMethod {
       if (!code) {
         return {
           success: false,
-          message: "Recovery code is required",
+          message: 'Recovery code is required',
         };
       }
 
@@ -307,7 +310,7 @@ export class TrustedContactService extends BaseRecoveryMethod {
         this.verificationCodes.delete(requestId);
         return {
           success: false,
-          message: "Recovery code has expired",
+          message: 'Recovery code has expired',
         };
       }
 
@@ -320,7 +323,7 @@ export class TrustedContactService extends BaseRecoveryMethod {
         this.verificationCodes.delete(requestId);
         return {
           success: false,
-          message: "Maximum verification attempts reached",
+          message: 'Maximum verification attempts reached',
         };
       }
 
@@ -338,20 +341,20 @@ export class TrustedContactService extends BaseRecoveryMethod {
       // Log successful verification
       await auditLogRepository.create({
         userId: storedData.userId,
-        action: "TRUSTED_CONTACT_RECOVERY_VERIFIED",
-        entityType: "RECOVERY_REQUEST",
+        action: 'TRUSTED_CONTACT_RECOVERY_VERIFIED',
+        entityType: 'RECOVERY_REQUEST',
         entityId: requestId,
       });
 
       return {
         success: true,
-        message: "Trusted contact verification successful",
+        message: 'Trusted contact verification successful',
       };
     } catch (error) {
-      logger.error("Failed to verify trusted contact recovery", { error, requestId });
+      logger.error('Failed to verify trusted contact recovery', { error, requestId });
       return {
         success: false,
-        message: "An error occurred during verification",
+        message: 'An error occurred during verification',
       };
     }
   }
@@ -374,17 +377,17 @@ export class TrustedContactService extends BaseRecoveryMethod {
       // Check if user exists
       const user = await userRepository.findById(userId);
       if (!user) {
-        throw new NotFoundError("User not found");
+        throw new NotFoundError('User not found');
       }
 
       // Validate email
       if (!this.isValidEmail(contactEmail)) {
-        throw new BadRequestError("Invalid email address");
+        throw new BadRequestError('Invalid email address');
       }
 
       // Validate name
       if (!contactName || contactName.trim().length === 0) {
-        throw new BadRequestError("Contact name is required");
+        throw new BadRequestError('Contact name is required');
       }
 
       // Get or create user profile
@@ -401,9 +404,11 @@ export class TrustedContactService extends BaseRecoveryMethod {
       const trustedContacts: TrustedContact[] = metadata['trustedContacts'] || [];
 
       // Check if contact already exists
-      const existingContact = trustedContacts.find(c => c.email.toLowerCase() === contactEmail.toLowerCase());
+      const existingContact = trustedContacts.find(
+        c => c.email.toLowerCase() === contactEmail.toLowerCase()
+      );
       if (existingContact) {
-        throw new BadRequestError("Contact is already a trusted contact");
+        throw new BadRequestError('Contact is already a trusted contact');
       }
 
       // Check if maximum contacts reached
@@ -436,7 +441,7 @@ export class TrustedContactService extends BaseRecoveryMethod {
       // Log the addition
       await auditLogRepository.create({
         userId,
-        action: "TRUSTED_CONTACT_ADDED",
+        action: 'TRUSTED_CONTACT_ADDED',
         metadata: {
           contactId,
           contactEmail: newContact.email,
@@ -449,7 +454,7 @@ export class TrustedContactService extends BaseRecoveryMethod {
         contactId,
       };
     } catch (error) {
-      logger.error("Failed to add trusted contact", { error, userId, contactEmail });
+      logger.error('Failed to add trusted contact', { error, userId, contactEmail });
       throw error;
     }
   }
@@ -465,13 +470,13 @@ export class TrustedContactService extends BaseRecoveryMethod {
       // Check if user exists
       const user = await userRepository.findById(userId);
       if (!user) {
-        throw new NotFoundError("User not found");
+        throw new NotFoundError('User not found');
       }
 
       // Get user profile
       const profile = await userProfileRepository.findByUserId(userId);
       if (!profile || !profile.metadata) {
-        throw new NotFoundError("User profile not found");
+        throw new NotFoundError('User profile not found');
       }
 
       // Get trusted contacts
@@ -481,7 +486,7 @@ export class TrustedContactService extends BaseRecoveryMethod {
       // Find contact
       const contactIndex = trustedContacts.findIndex(c => c.id === contactId);
       if (contactIndex === -1) {
-        throw new NotFoundError("Trusted contact not found");
+        throw new NotFoundError('Trusted contact not found');
       }
 
       // Remove contact
@@ -496,7 +501,7 @@ export class TrustedContactService extends BaseRecoveryMethod {
       // Log the removal
       await auditLogRepository.create({
         userId,
-        action: "TRUSTED_CONTACT_REMOVED",
+        action: 'TRUSTED_CONTACT_REMOVED',
         metadata: {
           contactId,
         },
@@ -506,7 +511,7 @@ export class TrustedContactService extends BaseRecoveryMethod {
         success: true,
       };
     } catch (error) {
-      logger.error("Failed to remove trusted contact", { error, userId, contactId });
+      logger.error('Failed to remove trusted contact', { error, userId, contactId });
       throw error;
     }
   }
@@ -516,8 +521,8 @@ export class TrustedContactService extends BaseRecoveryMethod {
    * @returns Recovery code
    */
   private generateRecoveryCode(): string {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Omitting similar-looking characters
-    let code = "";
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Omitting similar-looking characters
+    let code = '';
     for (let i = 0; i < recoveryConfig.trustedContacts.codeLength; i++) {
       code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
@@ -530,23 +535,23 @@ export class TrustedContactService extends BaseRecoveryMethod {
    * @returns Masked email address
    */
   private maskEmail(email: string): string {
-    const parts = email.split("@");
+    const parts = email.split('@');
     if (parts.length !== 2) {
       return email; // Return original if not a valid email format
     }
-    
-    const username = parts[0] || "";
-    const domain = parts[1] || "";
-    
+
+    const username = parts[0] || '';
+    const domain = parts[1] || '';
+
     if (!username || !domain) {
       return email; // Return original if username or domain is empty
     }
-    
+
     const maskedUsername =
       username.length > 2
-        ? `${username.substring(0, 2)}${"*".repeat(username.length - 2)}`
+        ? `${username.substring(0, 2)}${'*'.repeat(username.length - 2)}`
         : username;
-    
+
     return `${maskedUsername}@${domain}`;
   }
 

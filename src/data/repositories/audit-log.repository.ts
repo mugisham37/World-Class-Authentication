@@ -1,11 +1,7 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
-import {
-  AuditLog,
-  AuditStatus,
-  AuditLogFilterOptions,
-} from '../models/audit-log.model';
+import { AuditLog, AuditStatus, AuditLogFilterOptions } from '../models/audit-log.model';
 import { AuditStatus as CoreAuditStatus } from '../../core/audit/types';
 // import { CreateData } from './base.repository';
 import { BaseRepository } from './base.repository';
@@ -47,7 +43,7 @@ export interface AuditStatisticsOptions {
   startDate?: Date;
   endDate?: Date;
   userId?: string;
-  groupBy?: "action" | "entityType" | "severity" | "status" | "hour" | "day" | "week" | "month";
+  groupBy?: 'action' | 'entityType' | 'severity' | 'status' | 'hour' | 'day' | 'week' | 'month';
 }
 
 /**
@@ -201,10 +197,10 @@ function mapToDomainModel(prismaAuditLog: {
     ipAddress: prismaAuditLog.ipAddress,
     userAgent: prismaAuditLog.userAgent,
     // Convert JsonValue to Record<string, any> | null
-    metadata: prismaAuditLog.metadata 
-      ? (typeof prismaAuditLog.metadata === 'object' 
-          ? prismaAuditLog.metadata as Record<string, any> 
-          : null)
+    metadata: prismaAuditLog.metadata
+      ? typeof prismaAuditLog.metadata === 'object'
+        ? (prismaAuditLog.metadata as Record<string, any>)
+        : null
       : null,
     status: prismaAuditLog.status as AuditStatus,
   };
@@ -326,7 +322,10 @@ export class PrismaAuditLogRepository
    * @param options Filter options
    * @returns List of audit logs
    */
-  public async findByIpAddress(ipAddress: string, options?: AuditLogFilterOptions): Promise<AuditLog[]> {
+  public async findByIpAddress(
+    ipAddress: string,
+    options?: AuditLogFilterOptions
+  ): Promise<AuditLog[]> {
     try {
       const where = this.buildWhereClause({ ...options, ipAddress });
       const logs = await this.prisma.auditLog.findMany({
@@ -350,7 +349,10 @@ export class PrismaAuditLogRepository
    * @param options Filter options
    * @returns List of audit logs
    */
-  public async findByStatus(status: AuditStatus, options?: AuditLogFilterOptions): Promise<AuditLog[]> {
+  public async findByStatus(
+    status: AuditStatus,
+    options?: AuditLogFilterOptions
+  ): Promise<AuditLog[]> {
     try {
       const where = this.buildWhereClause({ ...options, status });
       const logs = await this.prisma.auditLog.findMany({
@@ -458,7 +460,10 @@ export class PrismaAuditLogRepository
    * @param options Filter options
    * @returns Number of audit logs
    */
-  public async countByStatus(status: AuditStatus, options?: AuditLogFilterOptions): Promise<number> {
+  public async countByStatus(
+    status: AuditStatus,
+    options?: AuditLogFilterOptions
+  ): Promise<number> {
     try {
       const where = this.buildWhereClause({ ...options, status });
       const count = await this.prisma.auditLog.count({
@@ -646,10 +651,13 @@ export class PrismaAuditLogRepository
             where,
             _count: true,
           });
-          result = actionStats.reduce((acc, curr) => {
-            acc[curr.action] = curr._count;
-            return acc;
-          }, {} as Record<string, number>);
+          result = actionStats.reduce(
+            (acc, curr) => {
+              acc[curr.action] = curr._count;
+              return acc;
+            },
+            {} as Record<string, number>
+          );
           break;
 
         case 'entityType':
@@ -658,10 +666,13 @@ export class PrismaAuditLogRepository
             where,
             _count: true,
           });
-          result = entityTypeStats.reduce((acc, curr) => {
-            acc[curr.entityType || 'unknown'] = curr._count;
-            return acc;
-          }, {} as Record<string, number>);
+          result = entityTypeStats.reduce(
+            (acc, curr) => {
+              acc[curr.entityType || 'unknown'] = curr._count;
+              return acc;
+            },
+            {} as Record<string, number>
+          );
           break;
 
         // Severity might not be in the Prisma schema, so we'll handle it differently
@@ -673,21 +684,25 @@ export class PrismaAuditLogRepository
               id: true,
               // Add any field that might contain severity information
               // For example, it might be stored in metadata
-              metadata: true
-            }
+              metadata: true,
+            },
           });
-          
+
           // Process logs to extract severity information
           // This is a placeholder implementation - adjust based on your actual data structure
-          result = severityLogs.reduce((acc, log) => {
-            // Assuming severity might be stored in metadata
-            const severity = log.metadata && typeof log.metadata === 'object' 
-              ? (log.metadata as any).severity || 'unknown'
-              : 'unknown';
-            
-            acc[severity] = (acc[severity] || 0) + 1;
-            return acc;
-          }, {} as Record<string, number>);
+          result = severityLogs.reduce(
+            (acc, log) => {
+              // Assuming severity might be stored in metadata
+              const severity =
+                log.metadata && typeof log.metadata === 'object'
+                  ? (log.metadata as any).severity || 'unknown'
+                  : 'unknown';
+
+              acc[severity] = (acc[severity] || 0) + 1;
+              return acc;
+            },
+            {} as Record<string, number>
+          );
           break;
 
         case 'status':
@@ -696,10 +711,13 @@ export class PrismaAuditLogRepository
             where,
             _count: true,
           });
-          result = statusStats.reduce((acc, curr) => {
-            acc[curr.status] = curr._count;
-            return acc;
-          }, {} as Record<string, number>);
+          result = statusStats.reduce(
+            (acc, curr) => {
+              acc[curr.status] = curr._count;
+              return acc;
+            },
+            {} as Record<string, number>
+          );
           break;
 
         case 'hour':
@@ -714,29 +732,32 @@ export class PrismaAuditLogRepository
             orderBy: { createdAt: 'asc' },
           });
 
-          result = timeLogs.reduce((acc, log) => {
-            let key: string;
-            const date = log.createdAt;
+          result = timeLogs.reduce(
+            (acc, log) => {
+              let key: string;
+              const date = log.createdAt;
 
-            if (groupBy === 'hour') {
-              key = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()} ${date.getHours()}:00`;
-            } else if (groupBy === 'day') {
-              key = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
-            } else if (groupBy === 'week') {
-              // Get the first day of the week
-              const firstDay = new Date(date);
-              const day = date.getDay();
-              const diff = date.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Sunday
-              firstDay.setDate(diff);
-              key = `Week of ${firstDay.getFullYear()}-${firstDay.getMonth() + 1}-${firstDay.getDate()}`;
-            } else {
-              // month
-              key = `${date.getFullYear()}-${date.getMonth() + 1}`;
-            }
+              if (groupBy === 'hour') {
+                key = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()} ${date.getHours()}:00`;
+              } else if (groupBy === 'day') {
+                key = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+              } else if (groupBy === 'week') {
+                // Get the first day of the week
+                const firstDay = new Date(date);
+                const day = date.getDay();
+                const diff = date.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Sunday
+                firstDay.setDate(diff);
+                key = `Week of ${firstDay.getFullYear()}-${firstDay.getMonth() + 1}-${firstDay.getDate()}`;
+              } else {
+                // month
+                key = `${date.getFullYear()}-${date.getMonth() + 1}`;
+              }
 
-            acc[key] = (acc[key] || 0) + 1;
-            return acc;
-          }, {} as Record<string, number>);
+              acc[key] = (acc[key] || 0) + 1;
+              return acc;
+            },
+            {} as Record<string, number>
+          );
           break;
       }
 

@@ -39,39 +39,46 @@ A comprehensive, enterprise-grade authentication system built with Node.js, Type
 ### Development Setup
 
 1. Clone the repository
+
    ```bash
    git clone https://github.com/yourusername/world-class-authentication.git
    cd world-class-authentication
    ```
 
 2. Install dependencies
+
    ```bash
    npm install
    ```
 
 3. Set up environment variables
+
    ```bash
    cp .env.example .env
    # Edit .env with your configuration
    ```
 
 4. Start development database (using Docker)
+
    ```bash
    npm run docker:dev
    # Or: docker-compose -f docker-compose.dev.yml up -d
    ```
 
 5. Run database migrations
+
    ```bash
    npm run db:migrate
    ```
 
 6. Seed the database with initial data
+
    ```bash
    npm run db:seed
    ```
 
 7. Start development server
+
    ```bash
    npm run dev
    ```

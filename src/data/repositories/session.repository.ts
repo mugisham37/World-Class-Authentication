@@ -1,11 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
-import {
-  Session,
-  UpdateSessionData,
-  SessionFilterOptions,
-} from '../models/session.model';
+import { Session, UpdateSessionData, SessionFilterOptions } from '../models/session.model';
 import { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
 
@@ -179,7 +175,7 @@ export class PrismaSessionRepository
     if (!session) return null;
     return {
       ...session,
-      isRevoked: session.revokedAt !== null
+      isRevoked: session.revokedAt !== null,
     };
   }
 
@@ -191,7 +187,7 @@ export class PrismaSessionRepository
   private transformSessions(sessions: any[]): Session[] {
     return sessions.map(session => ({
       ...session,
-      isRevoked: session.revokedAt !== null
+      isRevoked: session.revokedAt !== null,
     }));
   }
 

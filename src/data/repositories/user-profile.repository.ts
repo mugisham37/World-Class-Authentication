@@ -24,7 +24,7 @@ export interface UserProfileRepository extends BaseRepository<UserProfile, strin
    * @returns The updated user profile
    */
   updateByUserId(userId: string, data: Partial<UserProfile>): Promise<UserProfile>;
-  
+
   /**
    * Update a user profile by user ID with transaction support
    * @param userId The user ID
@@ -57,7 +57,7 @@ export class PrismaUserProfileRepository
 
     // Create an object with only defined values
     const updateData: Prisma.UserProfileUpdateInput = {};
-    
+
     if (data.firstName !== undefined) updateData.firstName = data.firstName;
     if (data.lastName !== undefined) updateData.lastName = data.lastName;
     if (data.phone !== undefined) updateData.phone = data.phone;
@@ -69,7 +69,7 @@ export class PrismaUserProfileRepository
     if (data.birthDate !== undefined) updateData.birthDate = data.birthDate;
     if (data.bio !== undefined) updateData.bio = data.bio;
     if (data.avatarUrl !== undefined) updateData.avatarUrl = data.avatarUrl;
-    
+
     return updateData;
   }
 
@@ -91,7 +91,7 @@ export class PrismaUserProfileRepository
         },
       },
     };
-    
+
     if (data.firstName !== undefined) createData.firstName = data.firstName;
     if (data.lastName !== undefined) createData.lastName = data.lastName;
     if (data.phone !== undefined) createData.phone = data.phone;
@@ -103,7 +103,7 @@ export class PrismaUserProfileRepository
     if (data.birthDate !== undefined) createData.birthDate = data.birthDate;
     if (data.bio !== undefined) createData.bio = data.bio;
     if (data.avatarUrl !== undefined) createData.avatarUrl = data.avatarUrl;
-    
+
     return createData;
   }
 
@@ -124,16 +124,17 @@ export class PrismaUserProfileRepository
       'zipCode',
       'birthDate',
       'bio',
-      'avatarUrl'
+      'avatarUrl',
     ];
 
     const invalidFields = Object.keys(data).filter(
-      key => !allowedFields.includes(key) && 
-             key !== 'id' && 
-             key !== 'userId' && 
-             key !== 'createdAt' && 
-             key !== 'updatedAt' &&
-             key !== 'user'
+      key =>
+        !allowedFields.includes(key) &&
+        key !== 'id' &&
+        key !== 'userId' &&
+        key !== 'createdAt' &&
+        key !== 'updatedAt' &&
+        key !== 'user'
     );
 
     if (invalidFields.length > 0) {
@@ -207,10 +208,10 @@ export class PrismaUserProfileRepository
     userId: string,
     data: Partial<UserProfile>
   ): Promise<UserProfile> {
-    return await this.prisma.$transaction(async (tx) => {
+    return await this.prisma.$transaction(async tx => {
       // Create a new instance with the transaction client
       const repo = new PrismaUserProfileRepository(tx as PrismaClient);
-      
+
       // Use the repository to update the profile
       return await repo.updateByUserId(userId, data);
     });

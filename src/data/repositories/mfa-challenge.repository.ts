@@ -1,4 +1,4 @@
-import { PrismaClient} from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
 import {
@@ -279,16 +279,16 @@ export class PrismaMfaChallengeRepository
         status: 'COMPLETED',
         completedAt: new Date(),
       };
-      
+
       if (response !== undefined) {
         data.response = response;
       }
-      
+
       const challenge = await this.prisma.mfaChallenge.update({
         where: { id },
-        data
+        data,
       });
-      
+
       return this.mapToDomainModel(challenge);
     } catch (error) {
       logger.error('Error marking MFA challenge as completed', { id, error });

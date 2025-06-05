@@ -1,10 +1,7 @@
 import type { PrismaClient, Credential as PrismaCredential } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
-import type {
-  Credential,
-  CredentialType,
-} from '../models/credential.model';
+import type { Credential, CredentialType } from '../models/credential.model';
 import type { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
 
@@ -84,7 +81,7 @@ export class PrismaCredentialRepository
   protected mapToDomainModel(prismaCredential: PrismaCredential): Credential {
     return {
       ...prismaCredential,
-      type: prismaCredential.type as CredentialType
+      type: prismaCredential.type as CredentialType,
     };
   }
 
@@ -255,7 +252,6 @@ export class PrismaCredentialRepository
       );
     }
   }
-
 
   /**
    * Create a new repository instance with a transaction client

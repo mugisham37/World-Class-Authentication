@@ -1,11 +1,11 @@
-import { Injectable } from "@tsed/di"
-import { v4 as uuidv4 } from "uuid"
-import { Consent, CreateConsentInput, UpdateConsentInput } from "../models/consent.model"
-import { logger } from "../../../infrastructure/logging/logger"
-import { EventEmitter } from "../../../infrastructure/events/event-emitter"
-import { OAuthEvent } from "../oauth-events"
-import { NotFoundError } from "../../../utils/error-handling"
-import { oauthConfig } from "../oauth.config"
+import { Injectable } from '@tsed/di';
+import { v4 as uuidv4 } from 'uuid';
+import { Consent, CreateConsentInput, UpdateConsentInput } from '../models/consent.model';
+import { logger } from '../../../infrastructure/logging/logger';
+import { EventEmitter } from '../../../infrastructure/events/event-emitter';
+import { OAuthEvent } from '../oauth-events';
+import { NotFoundError } from '../../../utils/error-handling';
+import { oauthConfig } from '../oauth.config';
 
 /**
  * Service for managing OAuth user consents
@@ -13,13 +13,13 @@ import { oauthConfig } from "../oauth.config"
 @Injectable()
 export class ConsentService {
   constructor(
-    private eventEmitter: EventEmitter,
+    private eventEmitter: EventEmitter
     // In a real implementation, this would be injected from a repository
     // private consentRepository: ConsentRepository
   ) {}
 
   // In-memory consent storage for demonstration
-  private consents: Map<string, Consent> = new Map()
+  private consents: Map<string, Consent> = new Map();
 
   /**
    * Find consent by ID
@@ -29,11 +29,11 @@ export class ConsentService {
   async findById(id: string): Promise<Consent | null> {
     try {
       // In a real implementation, this would query the database
-      const consent = this.consents.get(id)
-      return consent || null
+      const consent = this.consents.get(id);
+      return consent || null;
     } catch (error) {
-      logger.error("Error finding consent by ID", { error, id })
-      return null
+      logger.error('Error finding consent by ID', { error, id });
+      return null;
     }
   }
 
@@ -48,13 +48,13 @@ export class ConsentService {
       // In a real implementation, this would query the database
       for (const consent of this.consents.values()) {
         if (consent.userId === userId && consent.clientId === clientId) {
-          return consent
+          return consent;
         }
       }
-      return null
+      return null;
     } catch (error) {
-      logger.error("Error finding consent by user and client", { error, userId, clientId })
-      return null
+      logger.error('Error finding consent by user and client', { error, userId, clientId });
+      return null;
     }
   }
 
@@ -66,16 +66,16 @@ export class ConsentService {
   async findByUserId(userId: string): Promise<Consent[]> {
     try {
       // In a real implementation, this would query the database
-      const userConsents: Consent[] = []
+      const userConsents: Consent[] = [];
       for (const consent of this.consents.values()) {
         if (consent.userId === userId) {
-          userConsents.push(consent)
+          userConsents.push(consent);
         }
       }
-      return userConsents
+      return userConsents;
     } catch (error) {
-      logger.error("Error finding consents by user ID", { error, userId })
-      return []
+      logger.error('Error finding consents by user ID', { error, userId });
+      return [];
     }
   }
 
@@ -87,16 +87,16 @@ export class ConsentService {
   async findByClientId(clientId: string): Promise<Consent[]> {
     try {
       // In a real implementation, this would query the database
-      const clientConsents: Consent[] = []
+      const clientConsents: Consent[] = [];
       for (const consent of this.consents.values()) {
         if (consent.clientId === clientId) {
-          clientConsents.push(consent)
+          clientConsents.push(consent);
         }
       }
-      return clientConsents
+      return clientConsents;
     } catch (error) {
-      logger.error("Error finding consents by client ID", { error, clientId })
-      return []
+      logger.error('Error finding consents by client ID', { error, clientId });
+      return [];
     }
   }
 
@@ -108,20 +108,21 @@ export class ConsentService {
   async create(data: CreateConsentInput): Promise<Consent> {
     try {
       // Check if consent already exists
-      const existingConsent = await this.findByUserAndClient(data.userId, data.clientId)
+      const existingConsent = await this.findByUserAndClient(data.userId, data.clientId);
       if (existingConsent) {
         // Update existing consent instead of creating a new one
         return this.update(existingConsent.id, {
           scopes: data.scopes,
           expiresAt: data.expiresAt,
-        })
+        });
       }
 
       // Generate consent ID
-      const id = uuidv4()
+      const id = uuidv4();
 
       // Set expiration date based on config if not provided
-      const expiresAt = data.expiresAt || new Date(Date.now() + oauthConfig.consent.expiration * 1000)
+      const expiresAt =
+        data.expiresAt || new Date(Date.now() + oauthConfig.consent.expiration * 1000);
 
       // Create consent
       const consent: Consent = {
@@ -130,23 +131,23 @@ export class ConsentService {
         expiresAt,
         createdAt: new Date(),
         updatedAt: new Date(),
-      }
+      };
 
       // In a real implementation, this would save to the database
-      this.consents.set(id, consent)
+      this.consents.set(id, consent);
 
       // Emit consent granted event
       this.eventEmitter.emit(OAuthEvent.CONSENT_GRANTED, {
         clientId: data.clientId,
         userId: data.userId,
-        scope: data.scopes.join(" "),
+        scope: data.scopes.join(' '),
         timestamp: new Date(),
-      })
+      });
 
-      return consent
+      return consent;
     } catch (error) {
-      logger.error("Error creating consent", { error })
-      throw error
+      logger.error('Error creating consent', { error });
+      throw error;
     }
   }
 
@@ -159,9 +160,9 @@ export class ConsentService {
   async update(id: string, data: UpdateConsentInput): Promise<Consent> {
     try {
       // Find consent
-      const consent = await this.findById(id)
+      const consent = await this.findById(id);
       if (!consent) {
-        throw new NotFoundError("Consent not found")
+        throw new NotFoundError('Consent not found');
       }
 
       // Update consent with type safety
@@ -170,23 +171,23 @@ export class ConsentService {
         scopes: data.scopes ?? consent.scopes,
         expiresAt: data.expiresAt ?? consent.expiresAt,
         updatedAt: new Date(),
-      }
+      };
 
       // In a real implementation, this would update the database
-      this.consents.set(id, updatedConsent)
+      this.consents.set(id, updatedConsent);
 
       // Emit consent updated event
       this.eventEmitter.emit(OAuthEvent.CONSENT_UPDATED, {
         clientId: updatedConsent.clientId,
         userId: updatedConsent.userId,
-        scope: updatedConsent.scopes.join(" "),
+        scope: updatedConsent.scopes.join(' '),
         timestamp: new Date(),
-      })
+      });
 
-      return updatedConsent
+      return updatedConsent;
     } catch (error) {
-      logger.error("Error updating consent", { error, id })
-      throw error
+      logger.error('Error updating consent', { error, id });
+      throw error;
     }
   }
 
@@ -198,25 +199,25 @@ export class ConsentService {
   async delete(id: string): Promise<boolean> {
     try {
       // Find consent
-      const consent = await this.findById(id)
+      const consent = await this.findById(id);
       if (!consent) {
-        throw new NotFoundError("Consent not found")
+        throw new NotFoundError('Consent not found');
       }
 
       // In a real implementation, this would delete from the database
-      this.consents.delete(id)
+      this.consents.delete(id);
 
       // Emit consent revoked event
       this.eventEmitter.emit(OAuthEvent.CONSENT_REVOKED, {
         clientId: consent.clientId,
         userId: consent.userId,
         timestamp: new Date(),
-      })
+      });
 
-      return true
+      return true;
     } catch (error) {
-      logger.error("Error deleting consent", { error, id })
-      throw error
+      logger.error('Error deleting consent', { error, id });
+      throw error;
     }
   }
 
@@ -228,19 +229,19 @@ export class ConsentService {
   async deleteAllForUser(userId: string): Promise<number> {
     try {
       // Find consents for user
-      const userConsents = await this.findByUserId(userId)
-      let count = 0
+      const userConsents = await this.findByUserId(userId);
+      let count = 0;
 
       // Delete each consent
       for (const consent of userConsents) {
-        await this.delete(consent.id)
-        count++
+        await this.delete(consent.id);
+        count++;
       }
 
-      return count
+      return count;
     } catch (error) {
-      logger.error("Error deleting all consents for user", { error, userId })
-      throw error
+      logger.error('Error deleting all consents for user', { error, userId });
+      throw error;
     }
   }
 
@@ -252,19 +253,19 @@ export class ConsentService {
   async deleteAllForClient(clientId: string): Promise<number> {
     try {
       // Find consents for client
-      const clientConsents = await this.findByClientId(clientId)
-      let count = 0
+      const clientConsents = await this.findByClientId(clientId);
+      let count = 0;
 
       // Delete each consent
       for (const consent of clientConsents) {
-        await this.delete(consent.id)
-        count++
+        await this.delete(consent.id);
+        count++;
       }
 
-      return count
+      return count;
     } catch (error) {
-      logger.error("Error deleting all consents for client", { error, clientId })
-      throw error
+      logger.error('Error deleting all consents for client', { error, clientId });
+      throw error;
     }
   }
 
@@ -278,21 +279,21 @@ export class ConsentService {
   async hasUserConsented(userId: string, clientId: string, scopes: string[]): Promise<boolean> {
     try {
       // Find consent
-      const consent = await this.findByUserAndClient(userId, clientId)
+      const consent = await this.findByUserAndClient(userId, clientId);
       if (!consent) {
-        return false
+        return false;
       }
 
       // Check if consent has expired
       if (consent.expiresAt < new Date()) {
-        return false
+        return false;
       }
 
       // Check if user has consented to all scopes
-      return scopes.every((scope) => consent.scopes.includes(scope))
+      return scopes.every(scope => consent.scopes.includes(scope));
     } catch (error) {
-      logger.error("Error checking if user has consented", { error, userId, clientId, scopes })
-      return false
+      logger.error('Error checking if user has consented', { error, userId, clientId, scopes });
+      return false;
     }
   }
 
@@ -302,21 +303,21 @@ export class ConsentService {
    */
   async cleanupExpiredConsents(): Promise<number> {
     try {
-      const now = new Date()
-      let count = 0
+      const now = new Date();
+      let count = 0;
 
       // In a real implementation, this would be a database query
       for (const [id, consent] of this.consents.entries()) {
         if (consent.expiresAt < now) {
-          this.consents.delete(id)
-          count++
+          this.consents.delete(id);
+          count++;
         }
       }
 
-      return count
+      return count;
     } catch (error) {
-      logger.error("Error cleaning up expired consents", { error })
-      throw error
+      logger.error('Error cleaning up expired consents', { error });
+      throw error;
     }
   }
 }

@@ -1,9 +1,9 @@
-import { Injectable } from "@tsed/di"
-import * as jwt from "jsonwebtoken"
-import { logger } from "../../logging/logger"
+import { Injectable } from '@tsed/di';
+import * as jwt from 'jsonwebtoken';
+import { logger } from '../../logging/logger';
 
 // Define StringValue type to match jsonwebtoken's internal type
-type StringValue = string | Buffer
+type StringValue = string | Buffer;
 
 /**
  * JWT service
@@ -21,28 +21,29 @@ export class JwtService {
    */
   async sign(
     payload: Record<string, any>,
-    algorithm: string = "HS256",
+    algorithm: string = 'HS256',
     expiresIn?: string | number,
     secret?: string
   ): Promise<string> {
     try {
       // In a real implementation, this would use a proper secret from config
-      const jwtSecret = secret || process.env["JWT_SECRET"] || "default-secret-for-development-only"
-      
+      const jwtSecret =
+        secret || process.env['JWT_SECRET'] || 'default-secret-for-development-only';
+
       const options: jwt.SignOptions = {
         algorithm: algorithm as jwt.Algorithm,
-      }
-      
+      };
+
       // Only set expiresIn if it's provided
       if (expiresIn !== undefined) {
         // Force the type to be compatible with jsonwebtoken
-        options.expiresIn = expiresIn as any
+        options.expiresIn = expiresIn as any;
       }
-      
-      return jwt.sign(payload, jwtSecret, options)
+
+      return jwt.sign(payload, jwtSecret, options);
     } catch (error) {
-      logger.error("Error signing JWT", { error })
-      throw error
+      logger.error('Error signing JWT', { error });
+      throw error;
     }
   }
 
@@ -55,12 +56,13 @@ export class JwtService {
   async verify(token: string, secret?: string): Promise<Record<string, any>> {
     try {
       // In a real implementation, this would use a proper secret from config
-      const jwtSecret = secret || process.env["JWT_SECRET"] || "default-secret-for-development-only"
-      
-      return jwt.verify(token, jwtSecret) as Record<string, any>
+      const jwtSecret =
+        secret || process.env['JWT_SECRET'] || 'default-secret-for-development-only';
+
+      return jwt.verify(token, jwtSecret) as Record<string, any>;
     } catch (error) {
-      logger.error("Error verifying JWT", { error })
-      throw error
+      logger.error('Error verifying JWT', { error });
+      throw error;
     }
   }
 
@@ -71,11 +73,11 @@ export class JwtService {
    */
   decode(token: string): Record<string, any> | null {
     try {
-      const decoded = jwt.decode(token)
-      return decoded as Record<string, any>
+      const decoded = jwt.decode(token);
+      return decoded as Record<string, any>;
     } catch (error) {
-      logger.error("Error decoding JWT", { error })
-      return null
+      logger.error('Error decoding JWT', { error });
+      return null;
     }
   }
 }

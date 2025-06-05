@@ -1,5 +1,5 @@
-import { Injectable } from "@tsed/di"
-import { logger } from "../../infrastructure/logging/logger"
+import { Injectable } from '@tsed/di';
+import { logger } from '../../infrastructure/logging/logger';
 
 /**
  * User service
@@ -23,10 +23,10 @@ export class UserService {
         emailVerified: true,
         createdAt: new Date(),
         updatedAt: new Date(),
-      }
+      };
     } catch (error) {
-      logger.error("Error finding user by ID", { error, userId: id })
-      throw error
+      logger.error('Error finding user by ID', { error, userId: id });
+      throw error;
     }
   }
 
@@ -39,7 +39,7 @@ export class UserService {
     try {
       // In a real implementation, this would query the database
       // For now, we'll return a mock user
-      const id = email.split("@")[0]
+      const id = email.split('@')[0];
       return {
         id,
         username: id,
@@ -47,10 +47,10 @@ export class UserService {
         emailVerified: true,
         createdAt: new Date(),
         updatedAt: new Date(),
-      }
+      };
     } catch (error) {
-      logger.error("Error finding user by email", { error, email })
-      throw error
+      logger.error('Error finding user by email', { error, email });
+      throw error;
     }
   }
 
@@ -71,10 +71,10 @@ export class UserService {
         emailVerified: true,
         createdAt: new Date(),
         updatedAt: new Date(),
-      }
+      };
     } catch (error) {
-      logger.error("Error authenticating user", { error, username })
-      throw error
+      logger.error('Error authenticating user', { error, username });
+      throw error;
     }
   }
 }

@@ -67,11 +67,11 @@ export class UserService {
 
     // Create user profile
     const profileData: Record<string, any> = {};
-    
+
     if (userData.firstName !== undefined) profileData['firstName'] = userData.firstName;
     if (userData.lastName !== undefined) profileData['lastName'] = userData.lastName;
     if (userData.displayName !== undefined) profileData['displayName'] = userData.displayName;
-    
+
     if (Object.keys(profileData).length > 0) {
       await userProfileRepository.create({
         userId: user.id,
@@ -400,7 +400,7 @@ export class IdentityService {
 
     // Get the first credential since we expect only one password credential per user
     const passwordCredential = credentials[0];
-    
+
     if (!passwordCredential) {
       throw new NotFoundError('Password credential not found', 'CREDENTIAL_NOT_FOUND');
     }
@@ -476,7 +476,7 @@ export class IdentityService {
 
     // Get the first credential
     const passwordCredential = credentials[0];
-    
+
     if (!passwordCredential) {
       throw new NotFoundError('Password credential not found', 'CREDENTIAL_NOT_FOUND');
     }

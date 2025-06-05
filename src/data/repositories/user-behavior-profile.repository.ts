@@ -1,22 +1,22 @@
-import { Injectable } from "@tsed/di"
-import { PrismaBaseRepository } from "./prisma-base.repository"
-import { PrismaClient } from "@prisma/client"
-import { logger } from "../../infrastructure/logging/logger"
-import { BaseRepository } from "./base.repository"
-import type { UserBehaviorProfile } from "../../core/risk/risk-types"
+import { Injectable } from '@tsed/di';
+import { PrismaBaseRepository } from './prisma-base.repository';
+import { PrismaClient } from '@prisma/client';
+import { logger } from '../../infrastructure/logging/logger';
+import { BaseRepository } from './base.repository';
+import type { UserBehaviorProfile } from '../../core/risk/risk-types';
 
 /**
  * Repository for user behavior profiles
  */
 @Injectable()
 export class UserBehaviorProfileRepository extends PrismaBaseRepository<any, string> {
-  protected override readonly prisma: PrismaClient
-  protected readonly modelName: string = "userBehaviorProfile"
-  protected logger = logger
+  protected override readonly prisma: PrismaClient;
+  protected readonly modelName: string = 'userBehaviorProfile';
+  protected logger = logger;
 
   constructor(prisma: PrismaClient) {
-    super(prisma)
-    this.prisma = prisma
+    super(prisma);
+    this.prisma = prisma;
   }
 
   /**
@@ -25,8 +25,8 @@ export class UserBehaviorProfileRepository extends PrismaBaseRepository<any, str
    * @returns A new repository instance with the transaction client
    */
   protected withTransaction(tx: PrismaClient): BaseRepository<any, string> {
-    const repo = new UserBehaviorProfileRepository(tx)
-    return repo
+    const repo = new UserBehaviorProfileRepository(tx);
+    return repo;
   }
 
   /**
@@ -40,10 +40,10 @@ export class UserBehaviorProfileRepository extends PrismaBaseRepository<any, str
         where: {
           userId,
         },
-      })
+      });
 
       if (!profile) {
-        return null
+        return null;
       }
 
       // Parse JSON fields
@@ -55,10 +55,10 @@ export class UserBehaviorProfileRepository extends PrismaBaseRepository<any, str
         activityPatterns: JSON.parse(profile.activityPatterns as string),
         lastUpdated: new Date(profile.lastUpdated),
         dataPoints: profile.dataPoints,
-      } as UserBehaviorProfile
+      } as UserBehaviorProfile;
     } catch (error) {
-      this.logger.error("Error finding behavior profile by user ID", { error, userId })
-      return null
+      this.logger.error('Error finding behavior profile by user ID', { error, userId });
+      return null;
     }
   }
 
@@ -78,14 +78,14 @@ export class UserBehaviorProfileRepository extends PrismaBaseRepository<any, str
         activityPatterns: JSON.stringify(profile.activityPatterns),
         lastUpdated: profile.lastUpdated,
         dataPoints: profile.dataPoints,
-      }
+      };
 
       // Check if profile exists
       const existingProfile = await this.model.findFirst({
         where: {
           userId: profile.userId,
         },
-      })
+      });
 
       if (existingProfile) {
         // Update existing profile
@@ -94,7 +94,7 @@ export class UserBehaviorProfileRepository extends PrismaBaseRepository<any, str
             id: existingProfile.id,
           },
           data,
-        })
+        });
 
         return {
           ...updated,
@@ -102,12 +102,12 @@ export class UserBehaviorProfileRepository extends PrismaBaseRepository<any, str
           loginLocations: profile.loginLocations,
           devices: profile.devices,
           activityPatterns: profile.activityPatterns,
-        } as UserBehaviorProfile
+        } as UserBehaviorProfile;
       } else {
         // Create new profile
         const created = await this.model.create({
           data,
-        })
+        });
 
         return {
           ...created,
@@ -115,11 +115,14 @@ export class UserBehaviorProfileRepository extends PrismaBaseRepository<any, str
           loginLocations: profile.loginLocations,
           devices: profile.devices,
           activityPatterns: profile.activityPatterns,
-        } as UserBehaviorProfile
+        } as UserBehaviorProfile;
       }
     } catch (error) {
-      this.logger.error("Error creating or updating behavior profile", { error, userId: profile.userId })
-      throw error
+      this.logger.error('Error creating or updating behavior profile', {
+        error,
+        userId: profile.userId,
+      });
+      throw error;
     }
   }
 }

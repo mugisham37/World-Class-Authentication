@@ -19,10 +19,7 @@
     "coverage": true,
     "*.log": true
   },
-  "eslint.validate": [
-    "typescript",
-    "javascript"
-  ],
+  "eslint.validate": ["typescript", "javascript"],
   "eslint.workingDirectories": [
     {
       "mode": "auto"

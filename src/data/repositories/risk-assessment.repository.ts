@@ -4,7 +4,7 @@ import { DatabaseError } from '../../utils/error-handling';
 import {
   RiskAssessment,
   RiskAssessmentFilterOptions,
-  RiskLevel
+  RiskLevel,
 } from '../models/risk-assessment.model';
 import { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';

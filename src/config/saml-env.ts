@@ -7,7 +7,7 @@ import { env } from './environment';
 export const samlEnv = {
   // Core SAML settings
   enabled: () => env.getBoolean('SAML_ENABLED', true),
-  
+
   // Service Provider settings
   serviceProvider: {
     entityId: () => env.get('SAML_SP_ENTITY_ID', 'https://auth.example.com'),
@@ -19,10 +19,13 @@ export const samlEnv = {
     },
     authnRequestsSigned: () => env.getBoolean('SAML_SP_AUTHN_REQUESTS_SIGNED', true),
     wantAssertionsSigned: () => env.getBoolean('SAML_SP_WANT_ASSERTIONS_SIGNED', true),
-    signatureAlgorithm: () => env.get('SAML_SP_SIGNATURE_ALGORITHM', 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256'),
-    digestAlgorithm: () => env.get('SAML_SP_DIGEST_ALGORITHM', 'http://www.w3.org/2001/04/xmlenc#sha256'),
+    signatureAlgorithm: () =>
+      env.get('SAML_SP_SIGNATURE_ALGORITHM', 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256'),
+    digestAlgorithm: () =>
+      env.get('SAML_SP_DIGEST_ALGORITHM', 'http://www.w3.org/2001/04/xmlenc#sha256'),
     metadataUrl: () => env.get('SAML_SP_METADATA_URL', 'https://auth.example.com/saml/metadata'),
-    nameIdFormat: () => env.get('SAML_SP_NAME_ID_FORMAT', 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress'),
+    nameIdFormat: () =>
+      env.get('SAML_SP_NAME_ID_FORMAT', 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress'),
     privateKey: () => env.get('SAML_SP_PRIVATE_KEY'),
     privateKeyPath: () => env.get('SAML_SP_PRIVATE_KEY_PATH'),
     certificate: () => env.get('SAML_SP_CERTIFICATE'),
@@ -30,13 +33,13 @@ export const samlEnv = {
     decryptionPvk: () => env.get('SAML_SP_DECRYPTION_PVK'),
     decryptionCert: () => env.get('SAML_SP_DECRYPTION_CERT'),
   },
-  
+
   // Identity Provider settings
   identityProviders: () => {
     const idpConfig = env.get('SAML_IDP_CONFIG');
     return idpConfig ? JSON.parse(idpConfig) : [];
   },
-  
+
   // Session settings
   session: {
     expirationInSeconds: () => {
@@ -46,11 +49,12 @@ export const samlEnv = {
     cookieName: () => env.get('SAML_SESSION_COOKIE_NAME', 'saml_session'),
     cookieSecure: () => env.getBoolean('SAML_SESSION_COOKIE_SECURE', true),
     cookieHttpOnly: () => env.getBoolean('SAML_SESSION_COOKIE_HTTP_ONLY', true),
-    cookieSameSite: () => env.get('SAML_SESSION_COOKIE_SAME_SITE', 'lax') as 'strict' | 'lax' | 'none',
+    cookieSameSite: () =>
+      env.get('SAML_SESSION_COOKIE_SAME_SITE', 'lax') as 'strict' | 'lax' | 'none',
     cookieDomain: () => env.get('SAML_SESSION_COOKIE_DOMAIN'),
     cookiePath: () => env.get('SAML_SESSION_COOKIE_PATH', '/'),
   },
-  
+
   // User Provisioning settings
   userProvisioning: {
     enabled: () => env.getBoolean('SAML_USER_PROVISIONING_ENABLED', true),
@@ -73,7 +77,7 @@ export const samlEnv = {
       return mapping ? JSON.parse(mapping) : {};
     },
   },
-  
+
   // Security settings
   security: {
     requestMaxAgeInSeconds: () => {
@@ -95,7 +99,7 @@ export const samlEnv = {
     validateSignature: () => env.getBoolean('SAML_SECURITY_VALIDATE_SIGNATURE', true),
     validateLifetime: () => env.getBoolean('SAML_SECURITY_VALIDATE_LIFETIME', true),
   },
-  
+
   // Logging settings
   logging: {
     enabled: () => env.getBoolean('SAML_LOGGING_ENABLED', true),

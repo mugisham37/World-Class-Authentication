@@ -8,6 +8,6 @@ export class PasswordlessSessionError extends Error {
     public originalError?: Error
   ) {
     super(message);
-    this.name = "PasswordlessSessionError";
+    this.name = 'PasswordlessSessionError';
   }
 }

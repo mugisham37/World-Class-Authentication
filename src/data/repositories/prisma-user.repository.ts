@@ -98,9 +98,9 @@ export class PrismaUserRepository
   async findByPhone(phone: string): Promise<User | null> {
     try {
       const user = await this.prisma.user.findFirst({
-        where: { 
+        where: {
           // Use type assertion to handle potential schema differences
-          phoneNumber: phone 
+          phoneNumber: phone,
         } as any,
       });
       return user ? mapPrismaUserToModel(user) : null;

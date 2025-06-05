@@ -1,21 +1,21 @@
-import { Injectable } from "@tsed/di"
-import { PrismaBaseRepository } from "./prisma-base.repository"
-import { PrismaClient } from "@prisma/client"
-import { logger } from "../../infrastructure/logging/logger"
-import { BaseRepository } from "./base.repository"
+import { Injectable } from '@tsed/di';
+import { PrismaBaseRepository } from './prisma-base.repository';
+import { PrismaClient } from '@prisma/client';
+import { logger } from '../../infrastructure/logging/logger';
+import { BaseRepository } from './base.repository';
 
 /**
  * Repository for user activities
  */
 @Injectable()
 export class UserActivityRepository extends PrismaBaseRepository<any, string> {
-  protected override readonly prisma: PrismaClient
-  protected readonly modelName: string = "userActivity"
-  protected logger = logger
+  protected override readonly prisma: PrismaClient;
+  protected readonly modelName: string = 'userActivity';
+  protected logger = logger;
 
   constructor(prisma: PrismaClient) {
-    super(prisma)
-    this.prisma = prisma
+    super(prisma);
+    this.prisma = prisma;
   }
 
   /**
@@ -24,8 +24,8 @@ export class UserActivityRepository extends PrismaBaseRepository<any, string> {
    * @returns A new repository instance with the transaction client
    */
   protected withTransaction(tx: PrismaClient): BaseRepository<any, string> {
-    const repo = new UserActivityRepository(tx)
-    return repo
+    const repo = new UserActivityRepository(tx);
+    return repo;
   }
 
   /**
@@ -39,27 +39,27 @@ export class UserActivityRepository extends PrismaBaseRepository<any, string> {
     try {
       const where: any = {
         userId,
-      }
+      };
 
       if (startDate || endDate) {
-        where.timestamp = {}
+        where.timestamp = {};
         if (startDate) {
-          where.timestamp.gte = startDate
+          where.timestamp.gte = startDate;
         }
         if (endDate) {
-          where.timestamp.lte = endDate
+          where.timestamp.lte = endDate;
         }
       }
 
       return await this.model.findMany({
         where,
         orderBy: {
-          timestamp: "desc",
+          timestamp: 'desc',
         },
-      })
+      });
     } catch (error) {
-      this.logger.error("Error finding activities by user ID", { error, userId })
-      return []
+      this.logger.error('Error finding activities by user ID', { error, userId });
+      return [];
     }
   }
 
@@ -76,13 +76,13 @@ export class UserActivityRepository extends PrismaBaseRepository<any, string> {
           userId,
         },
         orderBy: {
-          timestamp: "desc",
+          timestamp: 'desc',
         },
         take: limit,
-      })
+      });
     } catch (error) {
-      this.logger.error("Error finding recent activities by user ID", { error, userId })
-      return []
+      this.logger.error('Error finding recent activities by user ID', { error, userId });
+      return [];
     }
   }
 
@@ -98,12 +98,12 @@ export class UserActivityRepository extends PrismaBaseRepository<any, string> {
           sessionId,
         },
         orderBy: {
-          timestamp: "desc",
+          timestamp: 'desc',
         },
-      })
+      });
     } catch (error) {
-      this.logger.error("Error finding activities by session ID", { error, sessionId })
-      return []
+      this.logger.error('Error finding activities by session ID', { error, sessionId });
+      return [];
     }
   }
 
@@ -122,13 +122,13 @@ export class UserActivityRepository extends PrismaBaseRepository<any, string> {
           actionType,
         },
         orderBy: {
-          timestamp: "desc",
+          timestamp: 'desc',
         },
         take: limit,
-      })
+      });
     } catch (error) {
-      this.logger.error("Error finding activities by action type", { error, userId, actionType })
-      return []
+      this.logger.error('Error finding activities by action type', { error, userId, actionType });
+      return [];
     }
   }
 
@@ -140,29 +140,34 @@ export class UserActivityRepository extends PrismaBaseRepository<any, string> {
    * @param endDate End date (optional)
    * @returns Count of activities
    */
-  async countByActionType(userId: string, actionType: string, startDate?: Date, endDate?: Date): Promise<number> {
+  async countByActionType(
+    userId: string,
+    actionType: string,
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<number> {
     try {
       const where: any = {
         userId,
         actionType,
-      }
+      };
 
       if (startDate || endDate) {
-        where.timestamp = {}
+        where.timestamp = {};
         if (startDate) {
-          where.timestamp.gte = startDate
+          where.timestamp.gte = startDate;
         }
         if (endDate) {
-          where.timestamp.lte = endDate
+          where.timestamp.lte = endDate;
         }
       }
 
       return await this.model.count({
         where,
-      })
+      });
     } catch (error) {
-      this.logger.error("Error counting activities by action type", { error, userId, actionType })
-      return 0
+      this.logger.error('Error counting activities by action type', { error, userId, actionType });
+      return 0;
     }
   }
 }

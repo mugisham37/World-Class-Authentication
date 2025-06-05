@@ -408,7 +408,7 @@ export class PrismaTrustedContactRepository
     try {
       // Convert domain data to Prisma data
       const createData = mapToPrismaCreateData(data);
-      
+
       const result = await this.prisma[this.modelName].create({
         data: createData,
       });
@@ -433,7 +433,7 @@ export class PrismaTrustedContactRepository
     try {
       // Convert domain data to Prisma data
       const updateData = mapToPrismaUpdateData(data);
-      
+
       const result = await this.prisma[this.modelName].update({
         where: { id },
         data: updateData,

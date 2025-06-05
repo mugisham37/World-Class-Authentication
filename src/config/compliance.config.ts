@@ -1,11 +1,11 @@
-import dotenv from "dotenv"
-import path from "path"
-import { validateConfig } from "../utils/validation"
-import { validateEnvVars } from "../utils/env-validator"
-import { z } from "zod"
+import dotenv from 'dotenv';
+import path from 'path';
+import { validateConfig } from '../utils/validation';
+import { validateEnvVars } from '../utils/env-validator';
+import { z } from 'zod';
 
 // Load environment variables from .env file
-dotenv.config({ path: path.resolve(process.cwd(), ".env") })
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 // Helper functions for environment variable access
 // function getEnvVar(key: string, defaultValue?: string): string {
@@ -29,9 +29,17 @@ const complianceConfigSchema = z.object({
   gdpr: z.object({
     enabled: z.boolean().default(true),
     dataRetention: z.object({
-      userAccounts: z.number().int().positive().default(365 * 2), // 2 years
+      userAccounts: z
+        .number()
+        .int()
+        .positive()
+        .default(365 * 2), // 2 years
       userActivity: z.number().int().positive().default(365), // 1 year
-      auditLogs: z.number().int().positive().default(365 * 3), // 3 years
+      auditLogs: z
+        .number()
+        .int()
+        .positive()
+        .default(365 * 3), // 3 years
       backups: z.number().int().positive().default(90), // 90 days
     }),
     dataSubjectRights: z.object({
@@ -45,7 +53,11 @@ const complianceConfigSchema = z.object({
       processingTimeLimit: z.number().int().positive().default(30), // 30 days
     }),
     verification: z.object({
-      tokenTtl: z.number().int().positive().default(24 * 60 * 60), // 24 hours
+      tokenTtl: z
+        .number()
+        .int()
+        .positive()
+        .default(24 * 60 * 60), // 24 hours
       emailVerificationRequired: z.boolean().default(true),
       phoneVerificationEnabled: z.boolean().default(false),
     }),
@@ -58,12 +70,20 @@ const complianceConfigSchema = z.object({
     consent: z.object({
       required: z.boolean().default(true),
       expiration: z.number().int().nonnegative().default(365), // 1 year
-      recordsRetention: z.number().int().positive().default(365 * 5), // 5 years
+      recordsRetention: z
+        .number()
+        .int()
+        .positive()
+        .default(365 * 5), // 5 years
     }),
     breach: z.object({
       notificationEnabled: z.boolean().default(true),
       notificationDeadline: z.number().int().positive().default(72), // 72 hours
-      recordsRetention: z.number().int().positive().default(365 * 5), // 5 years
+      recordsRetention: z
+        .number()
+        .int()
+        .positive()
+        .default(365 * 5), // 5 years
     }),
   }),
   ccpa: z.object({
@@ -74,8 +94,16 @@ const complianceConfigSchema = z.object({
   }),
   hipaa: z.object({
     enabled: z.boolean().default(false),
-    dataRetention: z.number().int().positive().default(365 * 6), // 6 years
-    auditRetention: z.number().int().positive().default(365 * 6), // 6 years
+    dataRetention: z
+      .number()
+      .int()
+      .positive()
+      .default(365 * 6), // 6 years
+    auditRetention: z
+      .number()
+      .int()
+      .positive()
+      .default(365 * 6), // 6 years
   }),
   pci: z.object({
     enabled: z.boolean().default(false),
@@ -85,9 +113,13 @@ const complianceConfigSchema = z.object({
   reporting: z.object({
     enabled: z.boolean().default(true),
     scheduledReports: z.boolean().default(true),
-    reportRetention: z.number().int().positive().default(365 * 2), // 2 years
+    reportRetention: z
+      .number()
+      .int()
+      .positive()
+      .default(365 * 2), // 2 years
   }),
-})
+});
 
 // Parse and validate environment variables
 const rawConfig = {
@@ -102,7 +134,10 @@ const rawConfig = {
     dataSubjectRights: {
       accessRequestEnabled: getEnvBoolean('COMPLIANCE_GDPR_ACCESS_REQUEST_ENABLED', true),
       deletionRequestEnabled: getEnvBoolean('COMPLIANCE_GDPR_DELETION_REQUEST_ENABLED', true),
-      rectificationRequestEnabled: getEnvBoolean('COMPLIANCE_GDPR_RECTIFICATION_REQUEST_ENABLED', true),
+      rectificationRequestEnabled: getEnvBoolean(
+        'COMPLIANCE_GDPR_RECTIFICATION_REQUEST_ENABLED',
+        true
+      ),
       restrictionRequestEnabled: getEnvBoolean('COMPLIANCE_GDPR_RESTRICTION_REQUEST_ENABLED', true),
       portabilityRequestEnabled: getEnvBoolean('COMPLIANCE_GDPR_PORTABILITY_REQUEST_ENABLED', true),
       objectionRequestEnabled: getEnvBoolean('COMPLIANCE_GDPR_OBJECTION_REQUEST_ENABLED', true),
@@ -152,12 +187,10 @@ const rawConfig = {
     scheduledReports: getEnvBoolean('COMPLIANCE_SCHEDULED_REPORTS_ENABLED', true),
     reportRetention: getEnvNumber('COMPLIANCE_REPORT_RETENTION', 365 * 2),
   },
-}
+};
 
 // Define critical environment variables that must be present
-const requiredEnvVars: string[] = [
-  'COMPLIANCE_GDPR_ENABLED'
-];
+const requiredEnvVars: string[] = ['COMPLIANCE_GDPR_ENABLED'];
 
 // Define optional environment variables
 const optionalEnvVars: string[] = [
@@ -198,14 +231,14 @@ const optionalEnvVars: string[] = [
   'COMPLIANCE_PCI_MASKING_ENABLED',
   'COMPLIANCE_REPORTING_ENABLED',
   'COMPLIANCE_SCHEDULED_REPORTS_ENABLED',
-  'COMPLIANCE_REPORT_RETENTION'
+  'COMPLIANCE_REPORT_RETENTION',
 ];
 
 // Validate environment variables
 validateEnvVars(requiredEnvVars, optionalEnvVars);
 
 // Validate and export config
-export const complianceConfig = validateConfig(complianceConfigSchema, rawConfig)
+export const complianceConfig = validateConfig(complianceConfigSchema, rawConfig);
 
 // Export config type
-export type ComplianceConfig = typeof complianceConfig
+export type ComplianceConfig = typeof complianceConfig;

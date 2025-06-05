@@ -9,7 +9,7 @@ import {
   QueryOptions,
   TransactionManager,
   TransactionOptions,
-  UpdateData
+  UpdateData,
 } from './base.repository';
 
 /**
@@ -212,7 +212,7 @@ export abstract class PrismaBaseRepository<T, ID>
     try {
       // Prisma's createMany doesn't return the created records
       // So we use transaction to create each record and return them
-      const results = await this.prisma.$transaction(async (tx) => {
+      const results = await this.prisma.$transaction(async tx => {
         const createdItems: T[] = [];
         for (const item of data) {
           const result = await (tx as any)[this.modelName].create({
@@ -406,35 +406,37 @@ export abstract class PrismaBaseRepository<T, ID>
    * @returns The result of the callback function
    */
   async transaction<R>(
-    callback: (tx: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>) => Promise<R>,
+    callback: (
+      tx: Omit<
+        PrismaClient,
+        '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
+      >
+    ) => Promise<R>,
     options?: TransactionOptions
   ): Promise<R> {
     try {
       // Prepare transaction options
-      const txOptions: { 
-        isolationLevel?: any; 
+      const txOptions: {
+        isolationLevel?: any;
         timeout?: number;
       } = {};
-      
+
       if (options?.isolationLevel) {
         txOptions.isolationLevel = options.isolationLevel;
       }
-      
+
       if (options?.timeout) {
         txOptions.timeout = options.timeout;
       }
 
       // Execute the transaction
-      return await this.prisma.$transaction(
-        async (prismaClient) => {
-          // Create a new instance of the repository with the transaction client
-          // const repo = this.withTransaction(prismaClient as PrismaClient);
-          
-          // Execute the callback with the transaction client
-          return await callback(prismaClient as any);
-        },
-        txOptions
-      );
+      return await this.prisma.$transaction(async prismaClient => {
+        // Create a new instance of the repository with the transaction client
+        // const repo = this.withTransaction(prismaClient as PrismaClient);
+
+        // Execute the callback with the transaction client
+        return await callback(prismaClient as any);
+      }, txOptions);
     } catch (error) {
       logger.error(`Transaction failed for ${this.modelName}`, { error });
       throw new DatabaseError(

@@ -1,4 +1,11 @@
-import { createClient, type RedisClientOptions, type RedisClientType, type RedisFunctions, type RedisModules, type RedisScripts } from 'redis';
+import {
+  createClient,
+  type RedisClientOptions,
+  type RedisClientType,
+  type RedisFunctions,
+  type RedisModules,
+  type RedisScripts,
+} from 'redis';
 import { databaseConfig } from '../../config/database-config';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
@@ -469,10 +476,10 @@ export class RedisCache {
       for (let i = 0; i < prefixedKeys.length; i++) {
         const prefixedKey = prefixedKeys[i];
         const originalKey = keys[i];
-        
+
         // Skip if either key is undefined
         if (!prefixedKey || !originalKey) continue;
-        
+
         const memoryCache = RedisCache.MEMORY_CACHE.get(prefixedKey);
         if (memoryCache && memoryCache.expiry > now) {
           result[originalKey] = memoryCache.value as T;
@@ -498,13 +505,13 @@ export class RedisCache {
         // Find the original key by matching the prefixed key
         const prefixedKey = keysToFetch[i];
         if (!prefixedKey) continue; // Skip if prefixedKey is undefined
-        
+
         const originalKeyIndex = prefixedKeys.indexOf(prefixedKey);
         if (originalKeyIndex === -1) continue;
 
         const originalKey = keys[originalKeyIndex];
         if (!originalKey) continue; // Skip if originalKey is undefined
-        
+
         try {
           const parsed = JSON.parse(value) as T;
           result[originalKey] = parsed;

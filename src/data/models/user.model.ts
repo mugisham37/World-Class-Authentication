@@ -24,7 +24,7 @@ export enum UserRole {
  * User model interface
  * Represents a user in the system
  */
-import { BaseUser } from "../../shared/types/user.types";
+import { BaseUser } from '../../shared/types/user.types';
 
 export interface User extends BaseUser {
   username: string | null;

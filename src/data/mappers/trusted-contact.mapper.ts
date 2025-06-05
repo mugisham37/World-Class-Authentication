@@ -1,4 +1,7 @@
-import { TrustedContact as PrismaTrustedContact, TrustedContactStatus as PrismaTrustedContactStatus } from '@prisma/client';
+import {
+  TrustedContact as PrismaTrustedContact,
+  TrustedContactStatus as PrismaTrustedContactStatus,
+} from '@prisma/client';
 import { TrustedContact, TrustedContactStatus } from '../models/trusted-contact.model';
 
 /**
@@ -6,7 +9,9 @@ import { TrustedContact, TrustedContactStatus } from '../models/trusted-contact.
  * @param prismaContact The Prisma trusted contact
  * @returns The domain trusted contact or null if not provided
  */
-export function mapToDomainTrustedContact(prismaContact: PrismaTrustedContact | null): TrustedContact | null {
+export function mapToDomainTrustedContact(
+  prismaContact: PrismaTrustedContact | null
+): TrustedContact | null {
   if (!prismaContact) return null;
 
   // Map Prisma enum to domain enum
@@ -64,11 +69,11 @@ export function mapToPrismaStatus(status: TrustedContactStatus): PrismaTrustedCo
  */
 export function mapToPrismaCreateData(data: Partial<TrustedContact>): any {
   const createData: any = { ...data };
-  
+
   if (data.status) {
     createData.status = mapToPrismaStatus(data.status);
   }
-  
+
   return createData;
 }
 
@@ -79,10 +84,10 @@ export function mapToPrismaCreateData(data: Partial<TrustedContact>): any {
  */
 export function mapToPrismaUpdateData(data: Partial<TrustedContact>): any {
   const updateData: any = { ...data };
-  
+
   if (data.status) {
     updateData.status = mapToPrismaStatus(data.status);
   }
-  
+
   return updateData;
 }

@@ -1,14 +1,14 @@
-import { Injectable } from "@tsed/di"
-import { v4 as uuidv4 } from "uuid"
-import { passwordlessConfig } from "../passwordless.config"
-import { logger } from "../../../infrastructure/logging/logger"
-import type { PasswordlessCredentialRepository } from "../../../data/repositories/passwordless/credential.repository"
-import type { UserRepository } from "../../../data/repositories/user.repository"
-import type { EventEmitter } from "../../../infrastructure/events/event-emitter"
-import { PasswordlessEvent } from "../passwordless-events"
-import { BadRequestError, NotFoundError } from "../../../utils/error-handling"
-import crypto from "crypto"
-import { SmsOtpOptions } from "../interfaces/sms-otp-options"
+import { Injectable } from '@tsed/di';
+import { v4 as uuidv4 } from 'uuid';
+import { passwordlessConfig } from '../passwordless.config';
+import { logger } from '../../../infrastructure/logging/logger';
+import type { PasswordlessCredentialRepository } from '../../../data/repositories/passwordless/credential.repository';
+import type { UserRepository } from '../../../data/repositories/user.repository';
+import type { EventEmitter } from '../../../infrastructure/events/event-emitter';
+import { PasswordlessEvent } from '../passwordless-events';
+import { BadRequestError, NotFoundError } from '../../../utils/error-handling';
+import crypto from 'crypto';
+import { SmsOtpOptions } from '../interfaces/sms-otp-options';
 
 /**
  * SMS OTP service for passwordless authentication
@@ -19,7 +19,7 @@ export class SmsOtpService {
   constructor(
     private credentialRepository: PasswordlessCredentialRepository,
     private userRepository: UserRepository,
-    private eventEmitter: EventEmitter,
+    private eventEmitter: EventEmitter
   ) {}
 
   /**
@@ -29,46 +29,50 @@ export class SmsOtpService {
    * @param options Additional options
    * @returns OTP challenge
    */
-  async sendOtp(userId: string, phoneNumber: string, options: SmsOtpOptions = {}): Promise<Record<string, any>> {
+  async sendOtp(
+    userId: string,
+    phoneNumber: string,
+    options: SmsOtpOptions = {}
+  ): Promise<Record<string, any>> {
     try {
-      logger.debug("Sending SMS OTP", { userId, phoneNumber })
+      logger.debug('Sending SMS OTP', { userId, phoneNumber });
 
       // Check if SMS OTP is enabled
       if (!passwordlessConfig.smsOtp.enabled) {
-        throw new BadRequestError("SMS OTP authentication is not enabled")
+        throw new BadRequestError('SMS OTP authentication is not enabled');
       }
 
       // Get user
-      const user = await this.userRepository.findById(userId)
+      const user = await this.userRepository.findById(userId);
       if (!user) {
-        throw new NotFoundError("User not found")
+        throw new NotFoundError('User not found');
       }
 
       // Verify phone number matches user's phone number
       if (user.phoneNumber !== phoneNumber) {
-        throw new BadRequestError("Phone number does not match user's phone number")
+        throw new BadRequestError("Phone number does not match user's phone number");
       }
 
       // Check if phone is verified
       if (!user.phoneVerified && passwordlessConfig.smsOtp.requireVerifiedPhone) {
-        throw new BadRequestError("Phone number is not verified")
+        throw new BadRequestError('Phone number is not verified');
       }
 
       // Check rate limiting
-      await this.checkRateLimiting(userId, phoneNumber)
+      await this.checkRateLimiting(userId, phoneNumber);
 
       // Generate OTP code
-      const code = this.generateOtpCode()
-      const expiresAt = new Date(Date.now() + passwordlessConfig.smsOtp.codeExpiration * 1000)
+      const code = this.generateOtpCode();
+      const expiresAt = new Date(Date.now() + passwordlessConfig.smsOtp.codeExpiration * 1000);
 
       // Store OTP
-      const otpId = uuidv4()
+      const otpId = uuidv4();
       await this.credentialRepository.storeOtp({
         id: otpId,
         userId,
         destination: phoneNumber,
         code: await this.hashOtpCode(code),
-        type: "sms",
+        type: 'sms',
         expiresAt,
         attempts: 0,
         maxAttempts: passwordlessConfig.smsOtp.maxAttempts,
@@ -78,13 +82,13 @@ export class SmsOtpService {
           origin: options['origin'],
           requestedAt: new Date(),
         },
-      })
+      });
 
       // Send SMS with OTP code
       await this.sendSmsWithCode(phoneNumber, code, {
         userId,
         expiresIn: passwordlessConfig.smsOtp.codeExpiration,
-      })
+      });
 
       // Emit event
       this.eventEmitter.emit(PasswordlessEvent.OTP_SENT, {
@@ -92,9 +96,9 @@ export class SmsOtpService {
         phoneNumber,
         otpId,
         expiresAt,
-        type: "sms",
+        type: 'sms',
         timestamp: new Date(),
-      })
+      });
 
       return {
         id: otpId,
@@ -103,10 +107,10 @@ export class SmsOtpService {
         metadata: {
           origin: options['origin'],
         },
-      }
+      };
     } catch (error) {
-      logger.error("Error sending SMS OTP", { error, userId, phoneNumber })
-      throw error
+      logger.error('Error sending SMS OTP', { error, userId, phoneNumber });
+      throw error;
     }
   }
 
@@ -117,14 +121,18 @@ export class SmsOtpService {
    * @param options Additional options
    * @returns Verification result
    */
-  async verifyOtp(otpId: string, code: string, options: SmsOtpOptions = {}): Promise<Record<string, any>> {
+  async verifyOtp(
+    otpId: string,
+    code: string,
+    options: SmsOtpOptions = {}
+  ): Promise<Record<string, any>> {
     try {
-      logger.debug("Verifying SMS OTP", { otpId })
+      logger.debug('Verifying SMS OTP', { otpId });
 
       // Find OTP
-      const otp = await this.credentialRepository.findOtpById(otpId)
+      const otp = await this.credentialRepository.findOtpById(otpId);
       if (!otp) {
-        throw new NotFoundError("OTP not found")
+        throw new NotFoundError('OTP not found');
       }
 
       // Check if OTP has expired
@@ -134,28 +142,28 @@ export class SmsOtpService {
           userId: otp.userId,
           otpId,
           timestamp: new Date(),
-        })
+        });
 
-        throw new BadRequestError("OTP has expired")
+        throw new BadRequestError('OTP has expired');
       }
 
       // Check if OTP type is SMS
-      if (otp.type !== "sms") {
-        throw new BadRequestError("Invalid OTP type")
+      if (otp.type !== 'sms') {
+        throw new BadRequestError('Invalid OTP type');
       }
 
       // Check if max attempts reached
       if (otp.attempts >= otp.maxAttempts) {
-        throw new BadRequestError("Maximum verification attempts reached")
+        throw new BadRequestError('Maximum verification attempts reached');
       }
 
       // Increment attempts
       await this.credentialRepository.updateOtp(otpId, {
         attempts: otp.attempts + 1,
-      })
+      });
 
       // Verify OTP code
-      const isValid = await this.verifyOtpCode(code, otp.code)
+      const isValid = await this.verifyOtpCode(code, otp.code);
       if (!isValid) {
         // Emit event
         this.eventEmitter.emit(PasswordlessEvent.OTP_FAILED, {
@@ -163,15 +171,15 @@ export class SmsOtpService {
           otpId,
           attempts: otp.attempts + 1,
           timestamp: new Date(),
-        })
+        });
 
-        throw new BadRequestError("Invalid OTP code")
+        throw new BadRequestError('Invalid OTP code');
       }
 
       // Get user
-      const user = await this.userRepository.findById(otp.userId)
+      const user = await this.userRepository.findById(otp.userId);
       if (!user) {
-        throw new NotFoundError("User not found")
+        throw new NotFoundError('User not found');
       }
 
       // Mark OTP as used
@@ -183,7 +191,7 @@ export class SmsOtpService {
           verificationUserAgent: options['userAgent'],
           verifiedAt: new Date(),
         },
-      })
+      });
 
       // Emit event
       this.eventEmitter.emit(PasswordlessEvent.OTP_VERIFIED, {
@@ -191,16 +199,16 @@ export class SmsOtpService {
         phoneNumber: otp.destination,
         otpId,
         timestamp: new Date(),
-      })
+      });
 
       return {
         success: true,
         userId: user.id,
         phoneNumber: otp.destination,
-      }
+      };
     } catch (error) {
-      logger.error("Error verifying SMS OTP", { error, otpId })
-      throw error
+      logger.error('Error verifying SMS OTP', { error, otpId });
+      throw error;
     }
   }
 
@@ -209,25 +217,25 @@ export class SmsOtpService {
    * @returns OTP code
    */
   private generateOtpCode(): string {
-    const codeLength = passwordlessConfig.smsOtp.codeLength
-    const codeType = passwordlessConfig.smsOtp.codeType
+    const codeLength = passwordlessConfig.smsOtp.codeLength;
+    const codeType = passwordlessConfig.smsOtp.codeType;
 
-    if (codeType === "numeric") {
+    if (codeType === 'numeric') {
       // Generate numeric code
-      const min = Math.pow(10, codeLength - 1)
-      const max = Math.pow(10, codeLength) - 1
-      return Math.floor(min + Math.random() * (max - min + 1)).toString()
+      const min = Math.pow(10, codeLength - 1);
+      const max = Math.pow(10, codeLength) - 1;
+      return Math.floor(min + Math.random() * (max - min + 1)).toString();
     } else {
       // Generate alphanumeric code
-      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-      let code = ""
-      const randomBytes = crypto.randomBytes(codeLength)
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let code = '';
+      const randomBytes = crypto.randomBytes(codeLength);
       for (let i = 0; i < codeLength; i++) {
         // Ensure we have a valid number even if randomBytes[i] is undefined
-        const byteValue = randomBytes[i] ?? 0
-        code += chars[byteValue % chars.length]
+        const byteValue = randomBytes[i] ?? 0;
+        code += chars[byteValue % chars.length];
       }
-      return code
+      return code;
     }
   }
 
@@ -239,16 +247,16 @@ export class SmsOtpService {
   private async hashOtpCode(code: string): Promise<string> {
     return new Promise((resolve, reject) => {
       // Use a secure hashing algorithm with a salt
-      const salt = crypto.randomBytes(16).toString("hex")
-      
+      const salt = crypto.randomBytes(16).toString('hex');
+
       // Ensure code is a string
-      const safeCode = code || "";
-      
+      const safeCode = code || '';
+
       crypto.scrypt(safeCode, salt, 64, (err, derivedKey) => {
-        if (err) reject(err)
-        resolve(salt + ":" + derivedKey.toString("hex"))
-      })
-    })
+        if (err) reject(err);
+        resolve(salt + ':' + derivedKey.toString('hex'));
+      });
+    });
   }
 
   /**
@@ -259,20 +267,20 @@ export class SmsOtpService {
    */
   private async verifyOtpCode(code: string, hash: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
-      const [salt, key] = hash.split(":")
+      const [salt, key] = hash.split(':');
       if (!salt || !key) {
-        reject(new Error("Invalid hash format"))
-        return
+        reject(new Error('Invalid hash format'));
+        return;
       }
-      
+
       // Ensure code is a string
-      const safeCode = code || "";
-      
+      const safeCode = code || '';
+
       crypto.scrypt(safeCode, salt, 64, (err, derivedKey) => {
-        if (err) reject(err)
-        resolve(key === derivedKey.toString("hex"))
-      })
-    })
+        if (err) reject(err);
+        resolve(key === derivedKey.toString('hex'));
+      });
+    });
   }
 
   /**
@@ -281,39 +289,43 @@ export class SmsOtpService {
    * @param code OTP code
    * @param options Additional options
    */
-  private async sendSmsWithCode(phoneNumber: string, code: string, options: SmsOtpOptions = {}): Promise<void> {
+  private async sendSmsWithCode(
+    phoneNumber: string,
+    code: string,
+    options: SmsOtpOptions = {}
+  ): Promise<void> {
     try {
       // In a real implementation, this would send an SMS using a provider like Twilio or AWS SNS
       // For now, we'll just log the code
-      logger.info(`[MOCK SMS] Sending OTP code ${code} to ${phoneNumber}`, { options })
-      
+      logger.info(`[MOCK SMS] Sending OTP code ${code} to ${phoneNumber}`, { options });
+
       // Determine which SMS provider to use
-      const providers = passwordlessConfig.smsOtp.providers || ["twilio"]
-      const provider = providers[0] || "twilio" // Use the first provider in the list or default to twilio
-      
+      const providers = passwordlessConfig.smsOtp.providers || ['twilio'];
+      const provider = providers[0] || 'twilio'; // Use the first provider in the list or default to twilio
+
       // Send SMS based on provider
       switch (provider) {
-        case "twilio":
+        case 'twilio':
           // In a real implementation, this would use Twilio's API
-          logger.info(`[MOCK TWILIO] Sending OTP code ${code} to ${phoneNumber}`)
-          break
-        case "aws-sns":
+          logger.info(`[MOCK TWILIO] Sending OTP code ${code} to ${phoneNumber}`);
+          break;
+        case 'aws-sns':
           // In a real implementation, this would use AWS SNS
-          logger.info(`[MOCK AWS SNS] Sending OTP code ${code} to ${phoneNumber}`)
-          break
-        case "custom":
+          logger.info(`[MOCK AWS SNS] Sending OTP code ${code} to ${phoneNumber}`);
+          break;
+        case 'custom':
           // In a real implementation, this would use a custom SMS provider
-          logger.info(`[MOCK CUSTOM] Sending OTP code ${code} to ${phoneNumber}`)
-          break
+          logger.info(`[MOCK CUSTOM] Sending OTP code ${code} to ${phoneNumber}`);
+          break;
         default:
-          logger.warn(`Unknown SMS provider: ${provider}`)
-          break
+          logger.warn(`Unknown SMS provider: ${provider}`);
+          break;
       }
-      
-      return
+
+      return;
     } catch (error) {
-      logger.error("Error sending SMS with code", { error, phoneNumber })
-      throw error
+      logger.error('Error sending SMS with code', { error, phoneNumber });
+      throw error;
     }
   }
 
@@ -327,10 +339,10 @@ export class SmsOtpService {
     try {
       // In a real implementation, this would check a rate limiting service
       // For now, we'll just return
-      return
+      return;
     } catch (error) {
-      logger.error("Error checking rate limiting", { error, userId, phoneNumber })
-      throw error
+      logger.error('Error checking rate limiting', { error, userId, phoneNumber });
+      throw error;
     }
   }
 }

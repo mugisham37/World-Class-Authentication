@@ -204,8 +204,5 @@ export interface TransactionManager {
    * @param options Transaction options
    * @returns The result of the callback function
    */
-  transaction<R>(
-    callback: (tx: any) => Promise<R>,
-    options?: TransactionOptions
-  ): Promise<R>;
+  transaction<R>(callback: (tx: any) => Promise<R>, options?: TransactionOptions): Promise<R>;
 }

@@ -1,22 +1,25 @@
-import { Injectable } from "@tsed/di";
-import { logger } from "../../infrastructure/logging/logger";
-import { recoveryConfig } from "../../config/recovery.config";
-import { userRepository } from "../../data/repositories/user.repository";
-import { recoveryMethodRepository } from "../../data/repositories/recovery-method.repository";
-import { recoveryRequestRepository } from "../../data/repositories/recovery-request.repository";
-import { recoveryTokenRepository } from "../../data/repositories/recovery-token.repository";
-import { auditLogRepository } from "../../data/repositories/audit-log.repository";
-import { emailRecoveryService } from "./methods/email-recovery.service";
-import { securityQuestionsService } from "./methods/security-questions.service";
-import { trustedContactService } from "./methods/trusted-contact.service";
-import { adminRecoveryService } from "./methods/admin-recovery.service";
-import { RecoveryMethodType } from "./recovery-method";
-import { RecoveryContext } from "./types";
-import { RecoveryMethodStatus } from "../../data/models/recovery-method.model";
-import { RecoveryRequestStatus, RecoveryRequestType } from "../../data/models/recovery-request.model";
-import { RecoveryTokenType } from "../../data/models/recovery-token.model";
-import { BadRequestError, NotFoundError, UnauthorizedError } from "../../utils/error-handling";
-import { generateSecureToken } from "../../infrastructure/security/crypto/encryption";
+import { Injectable } from '@tsed/di';
+import { logger } from '../../infrastructure/logging/logger';
+import { recoveryConfig } from '../../config/recovery.config';
+import { userRepository } from '../../data/repositories/user.repository';
+import { recoveryMethodRepository } from '../../data/repositories/recovery-method.repository';
+import { recoveryRequestRepository } from '../../data/repositories/recovery-request.repository';
+import { recoveryTokenRepository } from '../../data/repositories/recovery-token.repository';
+import { auditLogRepository } from '../../data/repositories/audit-log.repository';
+import { emailRecoveryService } from './methods/email-recovery.service';
+import { securityQuestionsService } from './methods/security-questions.service';
+import { trustedContactService } from './methods/trusted-contact.service';
+import { adminRecoveryService } from './methods/admin-recovery.service';
+import { RecoveryMethodType } from './recovery-method';
+import { RecoveryContext } from './types';
+import { RecoveryMethodStatus } from '../../data/models/recovery-method.model';
+import {
+  RecoveryRequestStatus,
+  RecoveryRequestType,
+} from '../../data/models/recovery-request.model';
+import { RecoveryTokenType } from '../../data/models/recovery-token.model';
+import { BadRequestError, NotFoundError, UnauthorizedError } from '../../utils/error-handling';
+import { generateSecureToken } from '../../infrastructure/security/crypto/encryption';
 
 /**
  * Account recovery service
@@ -32,7 +35,10 @@ export class AccountRecoveryService {
   constructor() {
     // Register recovery method services
     this.recoveryMethodServices.set(RecoveryMethodType.EMAIL, emailRecoveryService);
-    this.recoveryMethodServices.set(RecoveryMethodType.SECURITY_QUESTIONS, securityQuestionsService);
+    this.recoveryMethodServices.set(
+      RecoveryMethodType.SECURITY_QUESTIONS,
+      securityQuestionsService
+    );
     this.recoveryMethodServices.set(RecoveryMethodType.TRUSTED_CONTACTS, trustedContactService);
     this.recoveryMethodServices.set(RecoveryMethodType.ADMIN_RECOVERY, adminRecoveryService);
   }
@@ -46,7 +52,7 @@ export class AccountRecoveryService {
     try {
       return await recoveryMethodRepository.findByUserId(userId);
     } catch (error) {
-      logger.error("Failed to get user recovery methods", { error, userId });
+      logger.error('Failed to get user recovery methods', { error, userId });
       throw error;
     }
   }
@@ -60,7 +66,7 @@ export class AccountRecoveryService {
     try {
       return await recoveryMethodRepository.findActiveByUserId(userId);
     } catch (error) {
-      logger.error("Failed to get active recovery methods", { error, userId });
+      logger.error('Failed to get active recovery methods', { error, userId });
       throw error;
     }
   }
@@ -83,7 +89,7 @@ export class AccountRecoveryService {
 
       return availableMethods;
     } catch (error) {
-      logger.error("Failed to get available recovery methods", { error, userId });
+      logger.error('Failed to get available recovery methods', { error, userId });
       throw error;
     }
   }
@@ -106,7 +112,7 @@ export class AccountRecoveryService {
       // Check if user exists
       const user = await userRepository.findById(userId);
       if (!user) {
-        throw new NotFoundError("User not found");
+        throw new NotFoundError('User not found');
       }
 
       // Get the recovery method service
@@ -121,8 +127,8 @@ export class AccountRecoveryService {
       // Log the registration
       await auditLogRepository.create({
         userId,
-        action: "RECOVERY_METHOD_REGISTERED",
-        entityType: "RECOVERY_METHOD",
+        action: 'RECOVERY_METHOD_REGISTERED',
+        entityType: 'RECOVERY_METHOD',
         entityId: methodId,
         metadata: {
           type,
@@ -132,7 +138,7 @@ export class AccountRecoveryService {
 
       return await recoveryMethodRepository.findById(methodId);
     } catch (error) {
-      logger.error("Failed to register recovery method", { error, userId, type });
+      logger.error('Failed to register recovery method', { error, userId, type });
       throw error;
     }
   }
@@ -158,7 +164,7 @@ export class AccountRecoveryService {
         logger.info(`Recovery attempt for non-existent email: ${email}`);
         return {
           success: true,
-          message: "If an account with this email exists, recovery instructions have been sent.",
+          message: 'If an account with this email exists, recovery instructions have been sent.',
         };
       }
 
@@ -176,7 +182,9 @@ export class AccountRecoveryService {
         recoveryConfig.general.cooldownBetweenRecoveries
       );
       if (recentRequests.length > 0) {
-        throw new BadRequestError("Account recovery was recently initiated. Please wait before trying again.");
+        throw new BadRequestError(
+          'Account recovery was recently initiated. Please wait before trying again.'
+        );
       }
 
       // Get the recovery method service
@@ -207,8 +215,8 @@ export class AccountRecoveryService {
       // Log the recovery initiation
       await auditLogRepository.create({
         userId: user.id,
-        action: "ACCOUNT_RECOVERY_INITIATED",
-        entityType: "RECOVERY_REQUEST",
+        action: 'ACCOUNT_RECOVERY_INITIATED',
+        entityType: 'RECOVERY_REQUEST',
         entityId: recoveryRequest.id,
         ipAddress: context['ipAddress'],
         userAgent: context['userAgent'],
@@ -227,7 +235,7 @@ export class AccountRecoveryService {
         ...recoveryData.clientData,
       };
     } catch (error) {
-      logger.error("Failed to initiate account recovery", { error, email, methodType });
+      logger.error('Failed to initiate account recovery', { error, email, methodType });
       throw error;
     }
   }
@@ -243,7 +251,7 @@ export class AccountRecoveryService {
       // Find recovery request
       const request = await recoveryRequestRepository.findById(requestId);
       if (!request) {
-        throw new NotFoundError("Recovery request not found");
+        throw new NotFoundError('Recovery request not found');
       }
 
       // Check if request is still pending
@@ -254,7 +262,7 @@ export class AccountRecoveryService {
       // Get method type from request metadata
       const methodType = request.metadata?.['methodType'] as RecoveryMethodType;
       if (!methodType) {
-        throw new BadRequestError("Invalid recovery request: missing method type");
+        throw new BadRequestError('Invalid recovery request: missing method type');
       }
 
       // Get the recovery method service
@@ -269,7 +277,9 @@ export class AccountRecoveryService {
       if (verificationResult.success) {
         // Generate recovery token
         const token = generateSecureToken(recoveryConfig.general.recoveryTokenLength);
-        const expiresAt = new Date(Date.now() + recoveryConfig.general.recoveryTokenExpiration * 1000);
+        const expiresAt = new Date(
+          Date.now() + recoveryConfig.general.recoveryTokenExpiration * 1000
+        );
 
         // Store recovery token
         const recoveryToken = await recoveryTokenRepository.create({
@@ -291,8 +301,8 @@ export class AccountRecoveryService {
         // Log successful verification
         await auditLogRepository.create({
           userId: request.userId,
-          action: "ACCOUNT_RECOVERY_VERIFIED",
-          entityType: "RECOVERY_REQUEST",
+          action: 'ACCOUNT_RECOVERY_VERIFIED',
+          entityType: 'RECOVERY_REQUEST',
           entityId: requestId,
           metadata: {
             methodType,
@@ -304,14 +314,14 @@ export class AccountRecoveryService {
           success: true,
           token,
           expiresAt,
-          message: "Recovery verification successful. Use the token to reset your account.",
+          message: 'Recovery verification successful. Use the token to reset your account.',
         };
       } else {
         // Log failed verification
         await auditLogRepository.create({
           userId: request.userId,
-          action: "ACCOUNT_RECOVERY_VERIFICATION_FAILED",
-          entityType: "RECOVERY_REQUEST",
+          action: 'ACCOUNT_RECOVERY_VERIFICATION_FAILED',
+          entityType: 'RECOVERY_REQUEST',
           entityId: requestId,
           metadata: {
             methodType,
@@ -322,7 +332,7 @@ export class AccountRecoveryService {
         return verificationResult;
       }
     } catch (error) {
-      logger.error("Failed to verify recovery challenge", { error, requestId });
+      logger.error('Failed to verify recovery challenge', { error, requestId });
       throw error;
     }
   }
@@ -339,29 +349,29 @@ export class AccountRecoveryService {
       // Find recovery token
       const recoveryToken = await recoveryTokenRepository.findByToken(token);
       if (!recoveryToken) {
-        throw new NotFoundError("Recovery token not found");
+        throw new NotFoundError('Recovery token not found');
       }
 
       // Check if token has expired
       if (recoveryToken.expiresAt < new Date()) {
-        throw new BadRequestError("Recovery token has expired");
+        throw new BadRequestError('Recovery token has expired');
       }
 
       // Check if token has already been used
       if (recoveryToken.usedAt) {
-        throw new BadRequestError("Recovery token has already been used");
+        throw new BadRequestError('Recovery token has already been used');
       }
 
       // Get user ID from token
       const userId = recoveryToken.userId;
       if (!userId) {
-        throw new BadRequestError("Invalid recovery token: missing user ID");
+        throw new BadRequestError('Invalid recovery token: missing user ID');
       }
 
       // Find user
       const user = await userRepository.findById(userId);
       if (!user) {
-        throw new NotFoundError("User not found");
+        throw new NotFoundError('User not found');
       }
 
       // Reset user password
@@ -382,7 +392,7 @@ export class AccountRecoveryService {
       // Log successful recovery
       await auditLogRepository.create({
         userId,
-        action: "ACCOUNT_RECOVERY_COMPLETED",
+        action: 'ACCOUNT_RECOVERY_COMPLETED',
         ipAddress: context['ipAddress'],
         userAgent: context['userAgent'],
         metadata: {
@@ -393,10 +403,11 @@ export class AccountRecoveryService {
 
       return {
         success: true,
-        message: "Account recovery completed successfully. You can now log in with your new password.",
+        message:
+          'Account recovery completed successfully. You can now log in with your new password.',
       };
     } catch (error) {
-      logger.error("Failed to complete account recovery", { error, token });
+      logger.error('Failed to complete account recovery', { error, token });
       throw error;
     }
   }
@@ -412,12 +423,12 @@ export class AccountRecoveryService {
       // Find recovery request
       const request = await recoveryRequestRepository.findById(requestId);
       if (!request) {
-        throw new NotFoundError("Recovery request not found");
+        throw new NotFoundError('Recovery request not found');
       }
 
       // Check if user is authorized to cancel this request
       if (request.userId !== userId) {
-        throw new UnauthorizedError("Unauthorized to cancel this recovery request");
+        throw new UnauthorizedError('Unauthorized to cancel this recovery request');
       }
 
       // Check if request can be cancelled
@@ -433,17 +444,17 @@ export class AccountRecoveryService {
       // Log cancellation
       await auditLogRepository.create({
         userId,
-        action: "RECOVERY_REQUEST_CANCELLED",
-        entityType: "RECOVERY_REQUEST",
+        action: 'RECOVERY_REQUEST_CANCELLED',
+        entityType: 'RECOVERY_REQUEST',
         entityId: requestId,
       });
 
       return {
         success: true,
-        message: "Recovery request cancelled successfully",
+        message: 'Recovery request cancelled successfully',
       };
     } catch (error) {
-      logger.error("Failed to cancel recovery request", { error, requestId, userId });
+      logger.error('Failed to cancel recovery request', { error, requestId, userId });
       throw error;
     }
   }
@@ -459,12 +470,12 @@ export class AccountRecoveryService {
       // Find recovery method
       const method = await recoveryMethodRepository.findById(methodId);
       if (!method) {
-        throw new NotFoundError("Recovery method not found");
+        throw new NotFoundError('Recovery method not found');
       }
 
       // Check if user is authorized
       if (method.userId !== userId) {
-        throw new UnauthorizedError("Unauthorized to modify this recovery method");
+        throw new UnauthorizedError('Unauthorized to modify this recovery method');
       }
 
       // Update method status
@@ -475,8 +486,8 @@ export class AccountRecoveryService {
       // Log disabling
       await auditLogRepository.create({
         userId,
-        action: "RECOVERY_METHOD_DISABLED",
-        entityType: "RECOVERY_METHOD",
+        action: 'RECOVERY_METHOD_DISABLED',
+        entityType: 'RECOVERY_METHOD',
         entityId: methodId,
         metadata: {
           type: method.type,
@@ -486,10 +497,10 @@ export class AccountRecoveryService {
 
       return {
         success: true,
-        message: "Recovery method disabled successfully",
+        message: 'Recovery method disabled successfully',
       };
     } catch (error) {
-      logger.error("Failed to disable recovery method", { error, userId, methodId });
+      logger.error('Failed to disable recovery method', { error, userId, methodId });
       throw error;
     }
   }
@@ -505,17 +516,17 @@ export class AccountRecoveryService {
       // Find recovery method
       const method = await recoveryMethodRepository.findById(methodId);
       if (!method) {
-        throw new NotFoundError("Recovery method not found");
+        throw new NotFoundError('Recovery method not found');
       }
 
       // Check if user is authorized
       if (method.userId !== userId) {
-        throw new UnauthorizedError("Unauthorized to modify this recovery method");
+        throw new UnauthorizedError('Unauthorized to modify this recovery method');
       }
 
       // Check if method is disabled
       if (method.status !== RecoveryMethodStatus.DISABLED) {
-        throw new BadRequestError("Recovery method is not disabled");
+        throw new BadRequestError('Recovery method is not disabled');
       }
 
       // Update method status
@@ -526,8 +537,8 @@ export class AccountRecoveryService {
       // Log enabling
       await auditLogRepository.create({
         userId,
-        action: "RECOVERY_METHOD_ENABLED",
-        entityType: "RECOVERY_METHOD",
+        action: 'RECOVERY_METHOD_ENABLED',
+        entityType: 'RECOVERY_METHOD',
         entityId: methodId,
         metadata: {
           type: method.type,
@@ -537,10 +548,10 @@ export class AccountRecoveryService {
 
       return {
         success: true,
-        message: "Recovery method enabled successfully",
+        message: 'Recovery method enabled successfully',
       };
     } catch (error) {
-      logger.error("Failed to enable recovery method", { error, userId, methodId });
+      logger.error('Failed to enable recovery method', { error, userId, methodId });
       throw error;
     }
   }

@@ -1,14 +1,14 @@
-import { z } from "zod"
+import { z } from 'zod';
 
 /**
  * Token type enum
  */
 export enum TokenType {
-  ACCESS_TOKEN = "access_token",
-  REFRESH_TOKEN = "refresh_token",
-  ID_TOKEN = "id_token",
-  AUTHORIZATION_CODE = "authorization_code",
-  DEVICE_CODE = "device_code",
+  ACCESS_TOKEN = 'access_token',
+  REFRESH_TOKEN = 'refresh_token',
+  ID_TOKEN = 'id_token',
+  AUTHORIZATION_CODE = 'authorization_code',
+  DEVICE_CODE = 'device_code',
 }
 
 /**
@@ -29,17 +29,17 @@ export const tokenSchema = z.object({
   nonce: z.string().optional(),
   audience: z.array(z.string()).default([]),
   codeChallenge: z.string().optional(),
-  codeChallengeMethod: z.enum(["plain", "S256"]).optional(),
+  codeChallengeMethod: z.enum(['plain', 'S256']).optional(),
   redirectUri: z.string().optional(),
   deviceCode: z.string().optional(),
   userCode: z.string().optional(),
   metadata: z.record(z.any()).optional(),
-})
+});
 
 /**
  * Token type
  */
-export type Token = z.infer<typeof tokenSchema>
+export type Token = z.infer<typeof tokenSchema>;
 
 /**
  * Create token input schema
@@ -47,12 +47,12 @@ export type Token = z.infer<typeof tokenSchema>
 export const createTokenSchema = tokenSchema.omit({
   id: true,
   issuedAt: true,
-})
+});
 
 /**
  * Create token input type
  */
-export type CreateTokenInput = z.infer<typeof createTokenSchema>
+export type CreateTokenInput = z.infer<typeof createTokenSchema>;
 
 /**
  * Update token input schema
@@ -60,9 +60,9 @@ export type CreateTokenInput = z.infer<typeof createTokenSchema>
 export const updateTokenSchema = z.object({
   revokedAt: z.date().optional(),
   metadata: z.record(z.any()).optional(),
-})
+});
 
 /**
  * Update token input type
  */
-export type UpdateTokenInput = z.infer<typeof updateTokenSchema>
+export type UpdateTokenInput = z.infer<typeof updateTokenSchema>;

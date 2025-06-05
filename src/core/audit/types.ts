@@ -3,10 +3,10 @@
  * Represents the status of an audit log entry
  */
 export enum AuditStatus {
-  INFO = "INFO",
-  SUCCESS = "SUCCESS",
-  FAILURE = "FAILURE",
-  WARNING = "WARNING"
+  INFO = 'INFO',
+  SUCCESS = 'SUCCESS',
+  FAILURE = 'FAILURE',
+  WARNING = 'WARNING',
 }
 
 /**
@@ -14,10 +14,10 @@ export enum AuditStatus {
  * Represents the severity level of an audit log entry
  */
 export enum AuditSeverity {
-  INFO = "info",
-  WARNING = "warning",
-  ERROR = "error",
-  CRITICAL = "critical"
+  INFO = 'info',
+  WARNING = 'warning',
+  ERROR = 'error',
+  CRITICAL = 'critical',
 }
 
 /**
@@ -43,7 +43,10 @@ export interface AuditLog {
  * Custom error class for audit-related errors
  */
 export class AuditLogError extends Error {
-  constructor(message: string, public override readonly cause?: unknown) {
+  constructor(
+    message: string,
+    public override readonly cause?: unknown
+  ) {
     super(message);
     this.name = 'AuditLogError';
   }

@@ -1,14 +1,14 @@
-import { Injectable } from "@tsed/di"
-import { v4 as uuidv4 } from "uuid"
-import { PrismaClient } from "@prisma/client"
-import { logger } from "../../../infrastructure/logging/logger"
-import { 
-  PasswordlessSession, 
+import { Injectable } from '@tsed/di';
+import { v4 as uuidv4 } from 'uuid';
+import { PrismaClient } from '@prisma/client';
+import { logger } from '../../../infrastructure/logging/logger';
+import {
+  PasswordlessSession,
   CreatePasswordlessSessionData,
   UpdatePasswordlessSessionData,
-  PasswordlessSessionQueryOptions
-} from "../../models/passwordless-session.model"
-import { PasswordlessSessionError } from "../../../utils/errors/passwordless-session.error"
+  PasswordlessSessionQueryOptions,
+} from '../../models/passwordless-session.model';
+import { PasswordlessSessionError } from '../../../utils/errors/passwordless-session.error';
 
 /**
  * Repository for passwordless authentication sessions
@@ -37,14 +37,14 @@ export class PasswordlessSessionRepository {
           createdAt: new Date(),
           metadata: data.metadata || {},
         },
-      })
+      });
     } catch (error) {
-      logger.error("Failed to create passwordless session", { error, data })
+      logger.error('Failed to create passwordless session', { error, data });
       throw new PasswordlessSessionError(
-        "Failed to create passwordless session",
-        "SESSION_CREATE_ERROR",
+        'Failed to create passwordless session',
+        'SESSION_CREATE_ERROR',
         error instanceof Error ? error : undefined
-      )
+      );
     }
   }
 
@@ -57,14 +57,14 @@ export class PasswordlessSessionRepository {
     try {
       return await this.prisma.passwordlessSession.findUnique({
         where: { id },
-      })
+      });
     } catch (error) {
-      logger.error("Failed to find passwordless session by ID", { error, id })
+      logger.error('Failed to find passwordless session by ID', { error, id });
       throw new PasswordlessSessionError(
-        "Failed to find passwordless session by ID",
-        "SESSION_FIND_BY_ID_ERROR",
+        'Failed to find passwordless session by ID',
+        'SESSION_FIND_BY_ID_ERROR',
         error instanceof Error ? error : undefined
-      )
+      );
     }
   }
 
@@ -76,35 +76,35 @@ export class PasswordlessSessionRepository {
    */
   async findByUserId(
     userId: string,
-    options: PasswordlessSessionQueryOptions = {},
+    options: PasswordlessSessionQueryOptions = {}
   ): Promise<PasswordlessSession[]> {
     try {
-      const where: any = { userId }
+      const where: any = { userId };
 
       if (options.method) {
-        where.method = options.method
+        where.method = options.method;
       }
 
       if (options.isRegistration !== undefined) {
-        where.isRegistration = options.isRegistration
+        where.isRegistration = options.isRegistration;
       }
 
       if (options.isCompleted !== undefined) {
-        where.completedAt = options.isCompleted ? { not: null } : null
+        where.completedAt = options.isCompleted ? { not: null } : null;
       }
 
       return await this.prisma.passwordlessSession.findMany({
         where,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         ...(options.limit ? { take: options.limit } : {}),
-      })
+      });
     } catch (error) {
-      logger.error("Failed to find passwordless sessions by user ID", { error, userId, options })
+      logger.error('Failed to find passwordless sessions by user ID', { error, userId, options });
       throw new PasswordlessSessionError(
-        "Failed to find passwordless sessions by user ID",
-        "SESSION_FIND_BY_USER_ID_ERROR",
+        'Failed to find passwordless sessions by user ID',
+        'SESSION_FIND_BY_USER_ID_ERROR',
         error instanceof Error ? error : undefined
-      )
+      );
     }
   }
 
@@ -116,36 +116,40 @@ export class PasswordlessSessionRepository {
    */
   async findActiveByUserId(
     userId: string,
-    options: Omit<PasswordlessSessionQueryOptions, 'isCompleted'> = {},
+    options: Omit<PasswordlessSessionQueryOptions, 'isCompleted'> = {}
   ): Promise<PasswordlessSession[]> {
     try {
-      const now = new Date()
+      const now = new Date();
       const where: any = {
         userId,
         expiresAt: { gt: now },
         completedAt: null,
-      }
+      };
 
       if (options.method) {
-        where.method = options.method
+        where.method = options.method;
       }
 
       if (options.isRegistration !== undefined) {
-        where.isRegistration = options.isRegistration
+        where.isRegistration = options.isRegistration;
       }
 
       return await this.prisma.passwordlessSession.findMany({
         where,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         ...(options.limit ? { take: options.limit } : {}),
-      })
+      });
     } catch (error) {
-      logger.error("Failed to find active passwordless sessions by user ID", { error, userId, options })
+      logger.error('Failed to find active passwordless sessions by user ID', {
+        error,
+        userId,
+        options,
+      });
       throw new PasswordlessSessionError(
-        "Failed to find active passwordless sessions by user ID",
-        "SESSION_FIND_ACTIVE_BY_USER_ID_ERROR",
+        'Failed to find active passwordless sessions by user ID',
+        'SESSION_FIND_ACTIVE_BY_USER_ID_ERROR',
         error instanceof Error ? error : undefined
-      )
+      );
     }
   }
 
@@ -158,14 +162,14 @@ export class PasswordlessSessionRepository {
     try {
       return await this.prisma.passwordlessSession.findFirst({
         where: { challengeId },
-      })
+      });
     } catch (error) {
-      logger.error("Failed to find passwordless session by challenge ID", { error, challengeId })
+      logger.error('Failed to find passwordless session by challenge ID', { error, challengeId });
       throw new PasswordlessSessionError(
-        "Failed to find passwordless session by challenge ID",
-        "SESSION_FIND_BY_CHALLENGE_ID_ERROR",
+        'Failed to find passwordless session by challenge ID',
+        'SESSION_FIND_BY_CHALLENGE_ID_ERROR',
         error instanceof Error ? error : undefined
-      )
+      );
     }
   }
 
@@ -183,14 +187,14 @@ export class PasswordlessSessionRepository {
           ...data,
           updatedAt: new Date(),
         },
-      })
+      });
     } catch (error) {
-      logger.error("Failed to update passwordless session", { error, id, data })
+      logger.error('Failed to update passwordless session', { error, id, data });
       throw new PasswordlessSessionError(
-        "Failed to update passwordless session",
-        "SESSION_UPDATE_ERROR",
+        'Failed to update passwordless session',
+        'SESSION_UPDATE_ERROR',
         error instanceof Error ? error : undefined
-      )
+      );
     }
   }
 
@@ -203,18 +207,18 @@ export class PasswordlessSessionRepository {
     try {
       await this.prisma.passwordlessSession.delete({
         where: { id },
-      })
-      return true
+      });
+      return true;
     } catch (error) {
-      logger.error("Failed to delete passwordless session", { error, id })
-      if (error instanceof Error && error.message.includes("Record to delete does not exist")) {
-        return false
+      logger.error('Failed to delete passwordless session', { error, id });
+      if (error instanceof Error && error.message.includes('Record to delete does not exist')) {
+        return false;
       }
       throw new PasswordlessSessionError(
-        "Failed to delete passwordless session",
-        "SESSION_DELETE_ERROR",
+        'Failed to delete passwordless session',
+        'SESSION_DELETE_ERROR',
         error instanceof Error ? error : undefined
-      )
+      );
     }
   }
 
@@ -224,21 +228,21 @@ export class PasswordlessSessionRepository {
    */
   async deleteExpired(): Promise<number> {
     try {
-      const now = new Date()
+      const now = new Date();
       const result = await this.prisma.passwordlessSession.deleteMany({
         where: {
           expiresAt: { lt: now },
           completedAt: null,
         },
-      })
-      return result.count
+      });
+      return result.count;
     } catch (error) {
-      logger.error("Failed to delete expired passwordless sessions", { error })
+      logger.error('Failed to delete expired passwordless sessions', { error });
       throw new PasswordlessSessionError(
-        "Failed to delete expired passwordless sessions",
-        "SESSION_DELETE_EXPIRED_ERROR",
+        'Failed to delete expired passwordless sessions',
+        'SESSION_DELETE_EXPIRED_ERROR',
         error instanceof Error ? error : undefined
-      )
+      );
     }
   }
 
@@ -249,36 +253,36 @@ export class PasswordlessSessionRepository {
    */
   async countByMethod(
     options: {
-      userId?: string
-      startDate?: Date
-      endDate?: Date
-      isRegistration?: boolean
-      isCompleted?: boolean
-    } = {},
+      userId?: string;
+      startDate?: Date;
+      endDate?: Date;
+      isRegistration?: boolean;
+      isCompleted?: boolean;
+    } = {}
   ): Promise<Record<string, number>> {
     try {
-      const where: any = {}
+      const where: any = {};
 
       if (options.userId) {
-        where.userId = options.userId
+        where.userId = options.userId;
       }
 
       if (options.startDate || options.endDate) {
-        where.createdAt = {}
+        where.createdAt = {};
         if (options.startDate) {
-          where.createdAt.gte = options.startDate
+          where.createdAt.gte = options.startDate;
         }
         if (options.endDate) {
-          where.createdAt.lte = options.endDate
+          where.createdAt.lte = options.endDate;
         }
       }
 
       if (options.isRegistration !== undefined) {
-        where.isRegistration = options.isRegistration
+        where.isRegistration = options.isRegistration;
       }
 
       if (options.isCompleted !== undefined) {
-        where.completedAt = options.isCompleted ? { not: null } : null
+        where.completedAt = options.isCompleted ? { not: null } : null;
       }
 
       const sessions = await this.prisma.passwordlessSession.findMany({
@@ -286,21 +290,21 @@ export class PasswordlessSessionRepository {
         select: {
           method: true,
         },
-      })
+      });
 
-      const counts: Record<string, number> = {}
+      const counts: Record<string, number> = {};
       for (const session of sessions) {
-        counts[session.method] = (counts[session.method] || 0) + 1
+        counts[session.method] = (counts[session.method] || 0) + 1;
       }
 
-      return counts
+      return counts;
     } catch (error) {
-      logger.error("Failed to count passwordless sessions by method", { error, options })
+      logger.error('Failed to count passwordless sessions by method', { error, options });
       throw new PasswordlessSessionError(
-        "Failed to count passwordless sessions by method",
-        "SESSION_COUNT_BY_METHOD_ERROR",
+        'Failed to count passwordless sessions by method',
+        'SESSION_COUNT_BY_METHOD_ERROR',
         error instanceof Error ? error : undefined
-      )
+      );
     }
   }
 }

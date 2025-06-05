@@ -1,10 +1,7 @@
 import { PrismaClient, AdminApproval as PrismaAdminApproval } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
-import {
-  AdminApproval,
-  AdminApprovalStatus,
-} from '../models/recovery-request.model';
+import { AdminApproval, AdminApprovalStatus } from '../models/recovery-request.model';
 import { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
 
@@ -16,7 +13,7 @@ import { PrismaBaseRepository } from './prisma-base.repository';
 function mapToDomainModel(prismaModel: PrismaAdminApproval): AdminApproval {
   return {
     ...prismaModel,
-    status: prismaModel.status as unknown as AdminApprovalStatus
+    status: prismaModel.status as unknown as AdminApprovalStatus,
   };
 }
 
@@ -376,8 +373,8 @@ export class PrismaAdminApprovalRepository
           adminId,
           status: {
             in: [
-              AdminApprovalStatus.APPROVED as unknown as any, 
-              AdminApprovalStatus.DENIED as unknown as any
+              AdminApprovalStatus.APPROVED as unknown as any,
+              AdminApprovalStatus.DENIED as unknown as any,
             ],
           },
         },

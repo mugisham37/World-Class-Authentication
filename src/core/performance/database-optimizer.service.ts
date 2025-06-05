@@ -3,12 +3,7 @@ import { logger } from '../../infrastructure/logging/logger';
 import { performanceConfig } from '../../config/performance-config';
 import { prisma } from '../../data/prisma/client';
 import type { PrismaClient, Prisma } from '@prisma/client';
-import type {
-  QueryStats,
-  SlowQuery,
-  CacheEntry,
-  OptimizeQueryOptions,
-} from './types/types';
+import type { QueryStats, SlowQuery, CacheEntry, OptimizeQueryOptions } from './types/types';
 
 /**
  * Database Optimizer Service
@@ -34,50 +29,52 @@ export class DatabaseOptimizerService {
    */
   private setupQueryLogging(): void {
     if (performanceConfig.database.query.logging) {
-      this.prismaClient.$use(async (
-        params: Prisma.MiddlewareParams,
-        next: (params: Prisma.MiddlewareParams) => Promise<any>
-      ) => {
-        const startTime = Date.now();
-        const result = await next(params);
-        const duration = Date.now() - startTime;
+      this.prismaClient.$use(
+        async (
+          params: Prisma.MiddlewareParams,
+          next: (params: Prisma.MiddlewareParams) => Promise<any>
+        ) => {
+          const startTime = Date.now();
+          const result = await next(params);
+          const duration = Date.now() - startTime;
 
-        // Track query stats
-        const queryKey = `${params.model || 'unknown'}.${params.action}`;
-        this.trackQueryStats(queryKey, duration);
+          // Track query stats
+          const queryKey = `${params.model || 'unknown'}.${params.action}`;
+          this.trackQueryStats(queryKey, duration);
 
-        // Log slow queries
-        if (duration > this.queryTimeThreshold) {
-          logger.warn('Slow database query detected', {
+          // Log slow queries
+          if (duration > this.queryTimeThreshold) {
+            logger.warn('Slow database query detected', {
+              model: params.model,
+              action: params.action,
+              duration,
+              args: this.sanitizeQueryArgs(params.args),
+            });
+
+            // Store slow query for analysis
+            this.slowQueries.push({
+              query: `${params.model || 'unknown'}.${params.action}`,
+              duration,
+              timestamp: new Date(),
+            });
+
+            // Keep only the last 100 slow queries
+            if (this.slowQueries.length > 100) {
+              this.slowQueries.shift();
+            }
+          }
+
+          // Log all queries in debug mode
+          logger.debug('Database query', {
             model: params.model,
             action: params.action,
             duration,
             args: this.sanitizeQueryArgs(params.args),
           });
 
-          // Store slow query for analysis
-          this.slowQueries.push({
-            query: `${params.model || 'unknown'}.${params.action}`,
-            duration,
-            timestamp: new Date(),
-          });
-
-          // Keep only the last 100 slow queries
-          if (this.slowQueries.length > 100) {
-            this.slowQueries.shift();
-          }
+          return result;
         }
-
-        // Log all queries in debug mode
-        logger.debug('Database query', {
-          model: params.model,
-          action: params.action,
-          duration,
-          args: this.sanitizeQueryArgs(params.args),
-        });
-
-        return result;
-      });
+      );
     }
   }
 
@@ -265,15 +262,18 @@ export class DatabaseOptimizerService {
    */
   async executeInTransaction<T>(queries: (() => Promise<T>)[]): Promise<T[]> {
     try {
-      return await this.prismaClient.$transaction(async (tx) => {
-        const results: T[] = [];
-        for (const query of queries) {
-          results.push(await query());
+      return await this.prismaClient.$transaction(
+        async tx => {
+          const results: T[] = [];
+          for (const query of queries) {
+            results.push(await query());
+          }
+          return results;
+        },
+        {
+          timeout: performanceConfig.database.query.timeout * 2, // Double timeout for transactions
         }
-        return results;
-      }, {
-        timeout: performanceConfig.database.query.timeout * 2, // Double timeout for transactions
-      });
+      );
     } catch (error) {
       logger.error('Transaction failed', { error });
       throw error;

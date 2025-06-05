@@ -146,7 +146,7 @@ export class MetricsCollector {
     }
 
     const sortedValues = [...values].sort((a, b) => a - b);
-    
+
     // We've already checked that values.length > 0, so these are safe
     // Using non-null assertion to tell TypeScript these won't be undefined
     const min = sortedValues[0]!;
@@ -208,22 +208,22 @@ export class MetricsCollector {
   public trackRedisOperation(duration: number, isError: boolean, isCacheHit: boolean): void {
     // Increment operation counter
     this.incrementCounter('redis.operations.total');
-    
+
     // Track operation duration
     this.observeHistogram('redis.operation.duration', duration);
-    
+
     // Track errors
     if (isError) {
       this.incrementCounter('redis.operations.errors');
     }
-    
+
     // Track cache hits
     if (isCacheHit) {
       this.incrementCounter('redis.cache.hits');
     } else {
       this.incrementCounter('redis.cache.misses');
     }
-    
+
     // Set current operation duration gauge
     this.setGauge('redis.operation.last_duration', duration);
   }
@@ -237,20 +237,20 @@ export class MetricsCollector {
   public trackPostgresQuery(duration: number, isError: boolean, isTransaction: boolean): void {
     // Increment query counter
     this.incrementCounter('postgres.queries.total');
-    
+
     // Track query duration
     this.observeHistogram('postgres.query.duration', duration);
-    
+
     // Track errors
     if (isError) {
       this.incrementCounter('postgres.queries.errors');
     }
-    
+
     // Track transactions
     if (isTransaction) {
       this.incrementCounter('postgres.queries.transactions');
     }
-    
+
     // Set current query duration gauge
     this.setGauge('postgres.query.last_duration', duration);
   }
@@ -294,13 +294,13 @@ export class MetricsCollector {
     try {
       // Collect connection pool metrics
       this.collectPoolMetrics();
-      
+
       // Collect query performance metrics
       this.collectQueryMetrics();
-      
+
       // Collect cache metrics
       this.collectCacheMetrics();
-      
+
       logger.debug('Metrics collection cycle completed');
     } catch (error) {
       // Log error but don't throw to prevent interval disruption
@@ -318,20 +318,20 @@ export class MetricsCollector {
       const totalConnections = this.getGauge('postgres.pool.total_connections');
       const activeConnections = this.getGauge('postgres.pool.active_connections');
       const idleConnections = this.getGauge('postgres.pool.idle_connections');
-      
+
       // Calculate utilization percentage
       if (totalConnections > 0) {
         const utilizationPercentage = (activeConnections / totalConnections) * 100;
         this.setGauge('postgres.pool.utilization_percentage', utilizationPercentage);
       }
-      
+
       // Track historical values
       this.observeHistogram('postgres.pool.active_connections_history', activeConnections);
-      
+
       logger.debug('Pool metrics collected', {
         total: totalConnections,
         active: activeConnections,
-        idle: idleConnections
+        idle: idleConnections,
       });
     } catch (error) {
       logger.error('Error collecting pool metrics:', { error });
@@ -348,26 +348,26 @@ export class MetricsCollector {
       const totalQueries = this.getCounter('postgres.queries.total');
       const errorQueries = this.getCounter('postgres.queries.errors');
       const transactionQueries = this.getCounter('postgres.queries.transactions');
-      
+
       // Calculate error rate
       if (totalQueries > 0) {
         const errorRate = (errorQueries / totalQueries) * 100;
         this.setGauge('postgres.queries.error_rate', errorRate);
       }
-      
+
       // Get query duration statistics
       const durationStats = this.getHistogramStats('postgres.query.duration');
-      
+
       // Set gauges for query performance
       this.setGauge('postgres.query.avg_duration', durationStats.avg);
       this.setGauge('postgres.query.p95_duration', durationStats.p95);
       this.setGauge('postgres.query.p99_duration', durationStats.p99);
-      
+
       logger.debug('Query metrics collected', {
         total: totalQueries,
         errors: errorQueries,
         transactions: transactionQueries,
-        avgDuration: durationStats.avg
+        avgDuration: durationStats.avg,
       });
     } catch (error) {
       logger.error('Error collecting query metrics:', { error });
@@ -385,19 +385,19 @@ export class MetricsCollector {
       const cacheMisses = this.getCounter('redis.cache.misses');
       const cacheSize = this.getGauge('redis.cache.size');
       const memoryUsage = this.getGauge('redis.cache.memory_usage');
-      
+
       // Calculate hit rate
       const totalRequests = cacheHits + cacheMisses;
       if (totalRequests > 0) {
         const hitRate = (cacheHits / totalRequests) * 100;
         this.setGauge('redis.cache.hit_rate', hitRate);
       }
-      
+
       logger.debug('Cache metrics collected', {
         hits: cacheHits,
         misses: cacheMisses,
         size: cacheSize,
-        memory: memoryUsage
+        memory: memoryUsage,
       });
     } catch (error) {
       logger.error('Error collecting cache metrics:', { error });

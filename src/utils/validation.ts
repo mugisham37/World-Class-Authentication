@@ -120,15 +120,13 @@ class ValidationService {
     try {
       // Use safeParse for better error handling
       const result = schema.safeParse(data);
-      
+
       if (result.success) {
         // If stripUnknown is true and we're dealing with an object, remove unknown properties
         if (stripUnknown && typeof result.data === 'object' && result.data !== null) {
           // Get the schema shape to determine known properties
-          const knownProps = schema instanceof z.ZodObject 
-            ? Object.keys(schema.shape)
-            : [];
-          
+          const knownProps = schema instanceof z.ZodObject ? Object.keys(schema.shape) : [];
+
           // Create a new object with only known properties
           const cleanedData = {} as any;
           for (const key of knownProps) {
@@ -138,7 +136,7 @@ class ValidationService {
           }
           return cleanedData as z.infer<T>;
         }
-        
+
         return result.data;
       }
       // If parsing failed, handle the error

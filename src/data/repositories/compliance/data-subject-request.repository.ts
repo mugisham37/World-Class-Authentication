@@ -1,22 +1,22 @@
-import { Injectable } from "@tsed/di"
-import { v4 as uuidv4 } from "uuid"
-import { DataSubjectRequestStatus, DataSubjectRequestType, PrismaClient } from "@prisma/client"
-import { logger } from "../../../infrastructure/logging/logger"
-import { 
-  DataSubjectRequestCreateInput, 
+import { Injectable } from '@tsed/di';
+import { v4 as uuidv4 } from 'uuid';
+import { DataSubjectRequestStatus, DataSubjectRequestType, PrismaClient } from '@prisma/client';
+import { logger } from '../../../infrastructure/logging/logger';
+import {
+  DataSubjectRequestCreateInput,
   DataSubjectRequestUpdateInput,
   DataSubjectRequestSearchOptions,
   DataSubjectRequestStatisticsOptions,
-  DataSubjectRequestTimelineOptions
-} from "../../../data/models/data-subject-request.model"
-import { DatabaseError } from "../../../utils/error-handling"
+  DataSubjectRequestTimelineOptions,
+} from '../../../data/models/data-subject-request.model';
+import { DatabaseError } from '../../../utils/error-handling';
 
 /**
  * Helper functions for data formatting
  */
 function ensureString(value: any): string {
   if (value === undefined || value === null) {
-    return "unknown";
+    return 'unknown';
   }
   return String(value);
 }
@@ -26,63 +26,63 @@ function ensureString(value: any): string {
  */
 function formatDateForGrouping(dateInput: Date | null | undefined, groupByInput: string): string {
   // Early return for null/undefined dates
-  if (!dateInput) return "unknown";
-  
+  if (!dateInput) return 'unknown';
+
   // Ensure groupBy is a valid string
-  const groupBy: string = groupByInput || "day";
-  
+  const groupBy: string = groupByInput || 'day';
+
   try {
     // Ensure we're working with a valid Date object
     const dateObj = new Date(dateInput);
-    
+
     // Validate the date is not Invalid Date
     if (isNaN(dateObj.getTime())) {
-      return "unknown";
+      return 'unknown';
     }
-    
+
     // Format the date based on the groupBy parameter
     switch (groupBy) {
-      case "day": {
+      case 'day': {
         const isoString = dateObj.toISOString();
-        const datePart = isoString.split("T")[0];
-        return datePart || "unknown"; // Ensure we return a string
+        const datePart = isoString.split('T')[0];
+        return datePart || 'unknown'; // Ensure we return a string
       }
-      case "week": {
+      case 'week': {
         // Get the first day of the week (Monday)
         const day = dateObj.getUTCDay();
         const diff = dateObj.getUTCDate() - day + (day === 0 ? -6 : 1);
         // Create a new date object for Monday
         const monday = new Date(Date.UTC(dateObj.getUTCFullYear(), dateObj.getUTCMonth(), diff));
-        
+
         // Handle potential invalid date
         if (isNaN(monday.getTime())) {
-          return "unknown";
+          return 'unknown';
         }
-        
+
         const isoString = monday.toISOString();
-        const datePart = isoString.split("T")[0];
-        return datePart || "unknown"; // Ensure we return a string
+        const datePart = isoString.split('T')[0];
+        return datePart || 'unknown'; // Ensure we return a string
       }
-      case "month": {
+      case 'month': {
         // Safely get year and month
         const year = dateObj.getUTCFullYear();
-        const month = String(dateObj.getUTCMonth() + 1).padStart(2, "0");
-        
+        const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+
         // Ensure both parts are valid
         if (!year || !month) {
-          return "unknown";
+          return 'unknown';
         }
-        
+
         return `${year}-${month}`;
       }
       default:
         // Default case for any other value
-        return "unknown";
+        return 'unknown';
     }
   } catch (error) {
     // If any date operations fail, return a safe default
-    logger.warn("Error formatting date for grouping", { error, dateInput, groupBy });
-    return "unknown";
+    logger.warn('Error formatting date for grouping', { error, dateInput, groupBy });
+    return 'unknown';
   }
 }
 
@@ -119,10 +119,14 @@ export class DataSubjectRequestRepository {
           createdAt: data.createdAt ?? new Date(),
           updatedAt: data.updatedAt ?? new Date(),
         },
-      })
+      });
     } catch (error) {
-      logger.error("Failed to create data subject request", { error, data })
-      throw new DatabaseError("Failed to create data subject request", "DB_CREATE_ERROR", error instanceof Error ? error : undefined)
+      logger.error('Failed to create data subject request', { error, data });
+      throw new DatabaseError(
+        'Failed to create data subject request',
+        'DB_CREATE_ERROR',
+        error instanceof Error ? error : undefined
+      );
     }
   }
 
@@ -135,10 +139,14 @@ export class DataSubjectRequestRepository {
     try {
       return await this.prisma.dataSubjectRequest.findUnique({
         where: { id },
-      })
+      });
     } catch (error) {
-      logger.error("Failed to find data subject request by ID", { error, id })
-      throw new DatabaseError("Failed to find data subject request", "DB_FIND_ERROR", error instanceof Error ? error : undefined)
+      logger.error('Failed to find data subject request by ID', { error, id });
+      throw new DatabaseError(
+        'Failed to find data subject request',
+        'DB_FIND_ERROR',
+        error instanceof Error ? error : undefined
+      );
     }
   }
 
@@ -151,37 +159,41 @@ export class DataSubjectRequestRepository {
   async findByEmail(
     email: string,
     options: {
-      skip?: number
-      limit?: number
-      type?: DataSubjectRequestType
-      status?: DataSubjectRequestStatus
-    } = {},
+      skip?: number;
+      limit?: number;
+      type?: DataSubjectRequestType;
+      status?: DataSubjectRequestStatus;
+    } = {}
   ) {
     try {
-      const where: any = { email }
+      const where: any = { email };
 
       if (options.type) {
-        where.type = options.type
+        where.type = options.type;
       }
 
       if (options.status) {
-        where.status = options.status
+        where.status = options.status;
       }
 
       const [requests, total] = await Promise.all([
         this.prisma.dataSubjectRequest.findMany({
           where,
-          orderBy: { createdAt: "desc" },
+          orderBy: { createdAt: 'desc' },
           skip: options.skip ?? 0,
           take: options.limit ?? 20,
         }),
         this.prisma.dataSubjectRequest.count({ where }),
-      ])
+      ]);
 
-      return { requests, total }
+      return { requests, total };
     } catch (error) {
-      logger.error("Failed to find data subject requests by email", { error, email, options })
-      throw new DatabaseError("Failed to find data subject requests by email", "DB_FIND_ERROR", error instanceof Error ? error : undefined)
+      logger.error('Failed to find data subject requests by email', { error, email, options });
+      throw new DatabaseError(
+        'Failed to find data subject requests by email',
+        'DB_FIND_ERROR',
+        error instanceof Error ? error : undefined
+      );
     }
   }
 
@@ -194,10 +206,14 @@ export class DataSubjectRequestRepository {
     try {
       return await this.prisma.dataSubjectRequest.findFirst({
         where: { verificationToken: token },
-      })
+      });
     } catch (error) {
-      logger.error("Failed to find data subject request by verification token", { error, token })
-      throw new DatabaseError("Failed to find data subject request by verification token", "DB_FIND_ERROR", error instanceof Error ? error : undefined)
+      logger.error('Failed to find data subject request by verification token', { error, token });
+      throw new DatabaseError(
+        'Failed to find data subject request by verification token',
+        'DB_FIND_ERROR',
+        error instanceof Error ? error : undefined
+      );
     }
   }
 
@@ -213,7 +229,7 @@ export class DataSubjectRequestRepository {
       const updateData: any = {
         updatedAt: new Date(),
       };
-      
+
       // Only include defined fields in the update
       if (data.type !== undefined) updateData.type = data.type;
       if (data.status !== undefined) updateData.status = data.status;
@@ -226,20 +242,26 @@ export class DataSubjectRequestRepository {
       if (data.requestedBy !== undefined) updateData.requestedBy = data.requestedBy;
       if (data.ipAddress !== undefined) updateData.ipAddress = data.ipAddress;
       if (data.userAgent !== undefined) updateData.userAgent = data.userAgent;
-      if (data.verificationToken !== undefined) updateData.verificationToken = data.verificationToken;
+      if (data.verificationToken !== undefined)
+        updateData.verificationToken = data.verificationToken;
       if (data.expiresAt !== undefined) updateData.expiresAt = data.expiresAt;
       if (data.verifiedAt !== undefined) updateData.verifiedAt = data.verifiedAt;
-      if (data.processingStartedAt !== undefined) updateData.processingStartedAt = data.processingStartedAt;
+      if (data.processingStartedAt !== undefined)
+        updateData.processingStartedAt = data.processingStartedAt;
       if (data.completedAt !== undefined) updateData.completedAt = data.completedAt;
       if (data.result !== undefined) updateData.result = data.result;
-      
+
       return await this.prisma.dataSubjectRequest.update({
         where: { id },
         data: updateData,
       });
     } catch (error) {
-      logger.error("Failed to update data subject request", { error, id, data })
-      throw new DatabaseError("Failed to update data subject request", "DB_UPDATE_ERROR", error instanceof Error ? error : undefined)
+      logger.error('Failed to update data subject request', { error, id, data });
+      throw new DatabaseError(
+        'Failed to update data subject request',
+        'DB_UPDATE_ERROR',
+        error instanceof Error ? error : undefined
+      );
     }
   }
 
@@ -250,49 +272,53 @@ export class DataSubjectRequestRepository {
    */
   async search(options: DataSubjectRequestSearchOptions = {}) {
     try {
-      const where: any = {}
+      const where: any = {};
 
       if (options.type) {
-        where.type = options.type
+        where.type = options.type;
       }
 
       if (options.status) {
-        where.status = options.status
+        where.status = options.status;
       }
 
       if (options.startDate || options.endDate) {
-        where.createdAt = {}
+        where.createdAt = {};
         if (options.startDate) {
-          where.createdAt.gte = options.startDate
+          where.createdAt.gte = options.startDate;
         }
         if (options.endDate) {
-          where.createdAt.lte = options.endDate
+          where.createdAt.lte = options.endDate;
         }
       }
 
       if (options.query) {
         where.OR = [
-          { email: { contains: options.query, mode: "insensitive" } },
-          { firstName: { contains: options.query, mode: "insensitive" } },
-          { lastName: { contains: options.query, mode: "insensitive" } },
-          { requestReason: { contains: options.query, mode: "insensitive" } },
-        ]
+          { email: { contains: options.query, mode: 'insensitive' } },
+          { firstName: { contains: options.query, mode: 'insensitive' } },
+          { lastName: { contains: options.query, mode: 'insensitive' } },
+          { requestReason: { contains: options.query, mode: 'insensitive' } },
+        ];
       }
 
       const [requests, total] = await Promise.all([
         this.prisma.dataSubjectRequest.findMany({
           where,
-          orderBy: { createdAt: "desc" },
+          orderBy: { createdAt: 'desc' },
           skip: options.skip ?? 0,
           take: options.limit ?? 20,
         }),
         this.prisma.dataSubjectRequest.count({ where }),
-      ])
+      ]);
 
-      return { requests, total }
+      return { requests, total };
     } catch (error) {
-      logger.error("Failed to search data subject requests", { error, options })
-      throw new DatabaseError("Failed to search data subject requests", "DB_SEARCH_ERROR", error instanceof Error ? error : undefined)
+      logger.error('Failed to search data subject requests', { error, options });
+      throw new DatabaseError(
+        'Failed to search data subject requests',
+        'DB_SEARCH_ERROR',
+        error instanceof Error ? error : undefined
+      );
     }
   }
 
@@ -301,17 +327,19 @@ export class DataSubjectRequestRepository {
    * @param options Statistics options
    * @returns Statistics
    */
-  async getStatistics(options: DataSubjectRequestStatisticsOptions = {}): Promise<Record<string, number>> {
+  async getStatistics(
+    options: DataSubjectRequestStatisticsOptions = {}
+  ): Promise<Record<string, number>> {
     try {
-      const where: any = {}
+      const where: any = {};
 
       if (options.startDate || options.endDate) {
-        where.createdAt = {}
+        where.createdAt = {};
         if (options.startDate) {
-          where.createdAt.gte = options.startDate
+          where.createdAt.gte = options.startDate;
         }
         if (options.endDate) {
-          where.createdAt.lte = options.endDate
+          where.createdAt.lte = options.endDate;
         }
       }
 
@@ -322,28 +350,28 @@ export class DataSubjectRequestRepository {
           status: true,
           createdAt: true,
         },
-      })
+      });
 
-      const stats: Record<string, number> = {}
+      const stats: Record<string, number> = {};
 
       // Ensure groupBy is a valid value
       const groupByValue = ensureString(
-        options.groupBy && ["type", "status", "day", "week", "month"].includes(options.groupBy) 
-          ? options.groupBy 
-          : "type"
+        options.groupBy && ['type', 'status', 'day', 'week', 'month'].includes(options.groupBy)
+          ? options.groupBy
+          : 'type'
       );
-      
+
       for (const request of requests) {
         // Initialize key with a default value
-        let key = "unknown";
-        
-        if (groupByValue === "type" && request.type) {
+        let key = 'unknown';
+
+        if (groupByValue === 'type' && request.type) {
           // Group by request type
           key = ensureString(request.type);
-        } else if (groupByValue === "status" && request.status) {
+        } else if (groupByValue === 'status' && request.status) {
           // Group by request status
           key = ensureString(request.status);
-        } else if (["day", "week", "month"].includes(groupByValue) && request.createdAt) {
+        } else if (['day', 'week', 'month'].includes(groupByValue) && request.createdAt) {
           // Group by time period
           const date = new Date(request.createdAt);
           key = formatDateForGrouping(date, groupByValue);
@@ -351,15 +379,19 @@ export class DataSubjectRequestRepository {
           // Default fallback to type
           key = ensureString(request.type);
         }
-        
+
         // Increment the counter for this key
         stats[key] = (stats[key] || 0) + 1;
       }
 
-      return stats
+      return stats;
     } catch (error) {
-      logger.error("Failed to get data subject request statistics", { error, options })
-      throw new DatabaseError("Failed to get data subject request statistics", "DB_STATS_ERROR", error instanceof Error ? error : undefined)
+      logger.error('Failed to get data subject request statistics', { error, options });
+      throw new DatabaseError(
+        'Failed to get data subject request statistics',
+        'DB_STATS_ERROR',
+        error instanceof Error ? error : undefined
+      );
     }
   }
 
@@ -368,17 +400,19 @@ export class DataSubjectRequestRepository {
    * @param options Timeline options
    * @returns Timeline data
    */
-  async getTimeline(options: DataSubjectRequestTimelineOptions = {}): Promise<Record<string, number>> {
+  async getTimeline(
+    options: DataSubjectRequestTimelineOptions = {}
+  ): Promise<Record<string, number>> {
     try {
-      const where: any = {}
+      const where: any = {};
 
       if (options.startDate || options.endDate) {
-        where.createdAt = {}
+        where.createdAt = {};
         if (options.startDate) {
-          where.createdAt.gte = options.startDate
+          where.createdAt.gte = options.startDate;
         }
         if (options.endDate) {
-          where.createdAt.lte = options.endDate
+          where.createdAt.lte = options.endDate;
         }
       }
 
@@ -388,36 +422,40 @@ export class DataSubjectRequestRepository {
           createdAt: true,
         },
         orderBy: {
-          createdAt: "asc",
+          createdAt: 'asc',
         },
-      })
+      });
 
-      const timeline: Record<string, number> = {}
-      
+      const timeline: Record<string, number> = {};
+
       // Ensure interval is a valid value
       const intervalValue = ensureString(
-        options.interval && ["day", "week", "month"].includes(options.interval) 
-          ? options.interval 
-          : "day"
+        options.interval && ['day', 'week', 'month'].includes(options.interval)
+          ? options.interval
+          : 'day'
       );
-      
+
       for (const request of requests) {
         if (!request.createdAt) {
           continue; // Skip entries without a creation date
         }
-        
+
         const date = new Date(request.createdAt);
         // Format the date according to the interval
         const key = formatDateForGrouping(date, intervalValue);
-        
+
         // Increment the counter for this time period
         timeline[key] = (timeline[key] || 0) + 1;
       }
 
-      return timeline
+      return timeline;
     } catch (error) {
-      logger.error("Failed to get data subject request timeline", { error, options })
-      throw new DatabaseError("Failed to get data subject request timeline", "DB_TIMELINE_ERROR", error instanceof Error ? error : undefined)
+      logger.error('Failed to get data subject request timeline', { error, options });
+      throw new DatabaseError(
+        'Failed to get data subject request timeline',
+        'DB_TIMELINE_ERROR',
+        error instanceof Error ? error : undefined
+      );
     }
   }
 
@@ -427,7 +465,7 @@ export class DataSubjectRequestRepository {
    */
   async deleteExpiredVerificationTokens(): Promise<number> {
     try {
-      const now = new Date()
+      const now = new Date();
       const result = await this.prisma.dataSubjectRequest.updateMany({
         where: {
           expiresAt: { lt: now },
@@ -438,11 +476,15 @@ export class DataSubjectRequestRepository {
           verificationToken: null,
           updatedAt: now,
         },
-      })
-      return result.count
+      });
+      return result.count;
     } catch (error) {
-      logger.error("Failed to delete expired verification tokens", { error })
-      throw new DatabaseError("Failed to delete expired verification tokens", "DB_UPDATE_ERROR", error instanceof Error ? error : undefined)
+      logger.error('Failed to delete expired verification tokens', { error });
+      throw new DatabaseError(
+        'Failed to delete expired verification tokens',
+        'DB_UPDATE_ERROR',
+        error instanceof Error ? error : undefined
+      );
     }
   }
 }

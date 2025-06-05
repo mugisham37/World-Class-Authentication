@@ -1,21 +1,21 @@
-import { Injectable } from "@tsed/di"
-import { PrismaBaseRepository } from "./prisma-base.repository"
-import { PrismaClient } from "@prisma/client"
-import { logger } from "../../infrastructure/logging/logger"
-import { BaseRepository } from "./base.repository"
+import { Injectable } from '@tsed/di';
+import { PrismaBaseRepository } from './prisma-base.repository';
+import { PrismaClient } from '@prisma/client';
+import { logger } from '../../infrastructure/logging/logger';
+import { BaseRepository } from './base.repository';
 
 /**
  * Repository for user devices
  */
 @Injectable()
 export class UserDeviceRepository extends PrismaBaseRepository<any, string> {
-  protected override readonly prisma: PrismaClient
-  protected readonly modelName: string = "userDevice"
-  protected logger = logger
+  protected override readonly prisma: PrismaClient;
+  protected readonly modelName: string = 'userDevice';
+  protected logger = logger;
 
   constructor(prisma: PrismaClient) {
-    super(prisma)
-    this.prisma = prisma
+    super(prisma);
+    this.prisma = prisma;
   }
 
   /**
@@ -24,8 +24,8 @@ export class UserDeviceRepository extends PrismaBaseRepository<any, string> {
    * @returns A new repository instance with the transaction client
    */
   protected withTransaction(tx: PrismaClient): BaseRepository<any, string> {
-    const repo = new UserDeviceRepository(tx)
-    return repo
+    const repo = new UserDeviceRepository(tx);
+    return repo;
   }
 
   /**
@@ -41,10 +41,10 @@ export class UserDeviceRepository extends PrismaBaseRepository<any, string> {
           userId,
           deviceHash,
         },
-      })
+      });
     } catch (error) {
-      this.logger.error("Error finding device by user ID and hash", { error, userId, deviceHash })
-      return null
+      this.logger.error('Error finding device by user ID and hash', { error, userId, deviceHash });
+      return null;
     }
   }
 
@@ -62,14 +62,14 @@ export class UserDeviceRepository extends PrismaBaseRepository<any, string> {
         select: {
           userId: true,
         },
-      })
+      });
 
       // Get unique user IDs
-      const uniqueUserIds = new Set(devices.map((device: { userId: string }) => device.userId))
-      return uniqueUserIds.size
+      const uniqueUserIds = new Set(devices.map((device: { userId: string }) => device.userId));
+      return uniqueUserIds.size;
     } catch (error) {
-      this.logger.error("Error counting users by device hash", { error, deviceHash })
-      return 0
+      this.logger.error('Error counting users by device hash', { error, deviceHash });
+      return 0;
     }
   }
 
@@ -87,10 +87,10 @@ export class UserDeviceRepository extends PrismaBaseRepository<any, string> {
         data: {
           lastSeen: new Date(),
         },
-      })
+      });
     } catch (error) {
-      this.logger.error("Error updating device last seen", { error, deviceId })
-      return null
+      this.logger.error('Error updating device last seen', { error, deviceId });
+      return null;
     }
   }
 }

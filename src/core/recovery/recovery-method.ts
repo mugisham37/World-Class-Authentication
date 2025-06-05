@@ -1,14 +1,14 @@
-import { Injectable } from "@tsed/di";
+import { Injectable } from '@tsed/di';
 
 /**
  * Recovery method types
  */
 export enum RecoveryMethodType {
-  EMAIL = "EMAIL",
-  SECURITY_QUESTIONS = "SECURITY_QUESTIONS",
-  TRUSTED_CONTACTS = "TRUSTED_CONTACTS",
-  ADMIN_RECOVERY = "ADMIN_RECOVERY",
-  RECOVERY_CODES = "RECOVERY_CODES",
+  EMAIL = 'EMAIL',
+  SECURITY_QUESTIONS = 'SECURITY_QUESTIONS',
+  TRUSTED_CONTACTS = 'TRUSTED_CONTACTS',
+  ADMIN_RECOVERY = 'ADMIN_RECOVERY',
+  RECOVERY_CODES = 'RECOVERY_CODES',
 }
 
 /**

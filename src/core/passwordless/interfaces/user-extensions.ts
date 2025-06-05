@@ -1,4 +1,4 @@
-import { User } from "../../../data/models/user.model";
+import { User } from '../../../data/models/user.model';
 
 /**
  * Extended User interface with display name

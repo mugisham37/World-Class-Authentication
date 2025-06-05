@@ -1,11 +1,11 @@
-import { PrismaClient, RecoveryMethod as PrismaRecoveryMethod} from '@prisma/client';
+import { PrismaClient, RecoveryMethod as PrismaRecoveryMethod } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
 import {
   RecoveryMethod,
   RecoveryMethodFilterOptions,
   RecoveryMethodStatus,
-  RecoveryMethodType
+  RecoveryMethodType,
 } from '../models/recovery-method.model';
 import { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';

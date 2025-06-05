@@ -1,7 +1,7 @@
-import { Injectable } from "@tsed/di"
-import { redisCache } from "../../data/connections/redis"
-import { logger } from "../../infrastructure/logging/logger"
-import { databaseConfig } from "../../config/database-config"
+import { Injectable } from '@tsed/di';
+import { redisCache } from '../../data/connections/redis';
+import { logger } from '../../infrastructure/logging/logger';
+import { databaseConfig } from '../../config/database-config';
 
 /**
  * Cache service for storing and retrieving data
@@ -9,10 +9,10 @@ import { databaseConfig } from "../../config/database-config"
  */
 @Injectable()
 export class CacheService {
-  private readonly defaultTtl: number
+  private readonly defaultTtl: number;
 
   constructor() {
-    this.defaultTtl = databaseConfig.redis.ttl
+    this.defaultTtl = databaseConfig.redis.ttl;
   }
 
   /**
@@ -22,10 +22,10 @@ export class CacheService {
    */
   async get<T>(key: string): Promise<T | null> {
     try {
-      return await redisCache.get<T>(key)
+      return await redisCache.get<T>(key);
     } catch (error) {
-      logger.error("Failed to get value from cache", { key, error })
-      return null
+      logger.error('Failed to get value from cache', { key, error });
+      return null;
     }
   }
 
@@ -37,9 +37,9 @@ export class CacheService {
    */
   async set(key: string, value: any, ttl?: number): Promise<void> {
     try {
-      await redisCache.set(key, value, ttl || this.defaultTtl)
+      await redisCache.set(key, value, ttl || this.defaultTtl);
     } catch (error) {
-      logger.error("Failed to set value in cache", { key, error })
+      logger.error('Failed to set value in cache', { key, error });
     }
   }
 
@@ -49,9 +49,9 @@ export class CacheService {
    */
   async delete(key: string): Promise<void> {
     try {
-      await redisCache.delete(key)
+      await redisCache.delete(key);
     } catch (error) {
-      logger.error("Failed to delete value from cache", { key, error })
+      logger.error('Failed to delete value from cache', { key, error });
     }
   }
 
@@ -61,13 +61,13 @@ export class CacheService {
   async clear(): Promise<void> {
     try {
       // Clear memory cache
-      redisCache.clearMemoryCache()
-      
+      redisCache.clearMemoryCache();
+
       // We don't flush the entire Redis database as that could affect other services
       // Instead, we would implement a more targeted approach if needed
-      logger.info("Cache cleared (memory only)")
+      logger.info('Cache cleared (memory only)');
     } catch (error) {
-      logger.error("Failed to clear cache", { error })
+      logger.error('Failed to clear cache', { error });
     }
   }
 
@@ -78,14 +78,17 @@ export class CacheService {
    */
   async mget<T>(keys: string[]): Promise<Record<string, T | null>> {
     try {
-      return await redisCache.mget<T>(keys)
+      return await redisCache.mget<T>(keys);
     } catch (error) {
-      logger.error("Failed to get multiple values from cache", { keys, error })
+      logger.error('Failed to get multiple values from cache', { keys, error });
       // Return empty object with null values
-      return keys.reduce((acc, key) => {
-        acc[key] = null
-        return acc
-      }, {} as Record<string, T | null>)
+      return keys.reduce(
+        (acc, key) => {
+          acc[key] = null;
+          return acc;
+        },
+        {} as Record<string, T | null>
+      );
     }
   }
 
@@ -96,9 +99,9 @@ export class CacheService {
    */
   async mset(entries: Record<string, any>, ttl?: number): Promise<void> {
     try {
-      await redisCache.mset(entries, ttl || this.defaultTtl)
+      await redisCache.mset(entries, ttl || this.defaultTtl);
     } catch (error) {
-      logger.error("Failed to set multiple values in cache", { entries, error })
+      logger.error('Failed to set multiple values in cache', { entries, error });
     }
   }
 
@@ -110,10 +113,10 @@ export class CacheService {
    */
   async increment(key: string, increment = 1): Promise<number | null> {
     try {
-      return await redisCache.increment(key, increment)
+      return await redisCache.increment(key, increment);
     } catch (error) {
-      logger.error("Failed to increment counter in cache", { key, error })
-      return null
+      logger.error('Failed to increment counter in cache', { key, error });
+      return null;
     }
   }
 
@@ -124,10 +127,10 @@ export class CacheService {
    */
   async exists(key: string): Promise<boolean> {
     try {
-      return await redisCache.exists(key)
+      return await redisCache.exists(key);
     } catch (error) {
-      logger.error("Failed to check if key exists in cache", { key, error })
-      return false
+      logger.error('Failed to check if key exists in cache', { key, error });
+      return false;
     }
   }
 }

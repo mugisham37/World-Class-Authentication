@@ -38,6 +38,6 @@
       "@config/*": ["src/config/*"]
     }
   },
-  "include": ["src/**/*", "tests/**/*"],
+  "include": ["src/**/*", "tests/**/*", "*.js", "*.ts"],
   "exclude": ["node_modules", "dist"]
 }

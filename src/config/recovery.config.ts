@@ -195,7 +195,7 @@ export const recoveryConfig = {
     /**
      * Minimum admin role required for recovery approval
      */
-    minApproverRole: "ADMIN", // "ADMIN" or "SUPER_ADMIN"
+    minApproverRole: 'ADMIN', // "ADMIN" or "SUPER_ADMIN"
 
     /**
      * Whether to require a reason for admin recovery
@@ -281,5 +281,5 @@ export const recoveryConfig = {
      * Whether to allow combining methods for progressive verification
      */
     allowProgressiveVerification: true,
-  }
+  },
 };
