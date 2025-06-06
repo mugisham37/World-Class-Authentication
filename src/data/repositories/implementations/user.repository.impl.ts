@@ -1,4 +1,4 @@
-import { User, UserProfile, CreateUserData, UpdateUserData } from '../../models/user.model';
+import { User, UserProfile } from '../../models/user.model';
 import { Session } from '../../models/session.model';
 import { UserRepository } from '../user.repository';
 
@@ -10,7 +10,7 @@ export class UserRepositoryImpl implements UserRepository {
    * Find user by ID
    * @param id User ID
    */
-  async findById(id: string): Promise<User | null> {
+  async findById(_id: string): Promise<User | null> {
     // Implementation would go here
     // This is a placeholder for demonstration purposes
     const user = {} as User; // Mock user
@@ -23,7 +23,7 @@ export class UserRepositoryImpl implements UserRepository {
    * Find user by email
    * @param email User email
    */
-  async findByEmail(email: string): Promise<User | null> {
+  async findByEmail(_email: string): Promise<User | null> {
     // Implementation would go here
     // This is a placeholder for demonstration purposes
     const user = {} as User; // Mock user
@@ -36,7 +36,7 @@ export class UserRepositoryImpl implements UserRepository {
    * Find user by phone number
    * @param phone User phone number
    */
-  async findByPhone(phone: string): Promise<User | null> {
+  async findByPhone(_phone: string): Promise<User | null> {
     // Implementation would go here
     // This is a placeholder for demonstration purposes
     const user = {} as User; // Mock user
@@ -49,7 +49,7 @@ export class UserRepositoryImpl implements UserRepository {
    * Find user by username
    * @param username Username
    */
-  async findByUsername(username: string): Promise<User | null> {
+  async findByUsername(_username: string): Promise<User | null> {
     // Implementation would go here
     // This is a placeholder for demonstration purposes
     const user = {} as User; // Mock user
@@ -62,7 +62,7 @@ export class UserRepositoryImpl implements UserRepository {
    * Create a new user
    * @param data User data
    */
-  async create(data: Partial<User>): Promise<User> {
+  async create(_data: Partial<User>): Promise<User> {
     // Implementation would go here
     // This is a placeholder for demonstration purposes
     const user = {} as User; // Mock user
@@ -76,7 +76,7 @@ export class UserRepositoryImpl implements UserRepository {
    * @param id User ID
    * @param data User data to update
    */
-  async update(id: string, data: Partial<User>): Promise<User> {
+  async update(_id: string, _data: Partial<User>): Promise<User> {
     // Implementation would go here
     // This is a placeholder for demonstration purposes
     const user = {} as User; // Mock user
@@ -90,7 +90,7 @@ export class UserRepositoryImpl implements UserRepository {
    * @param id User ID
    * @returns True if the user was deleted, false otherwise
    */
-  async delete(id: string): Promise<boolean> {
+  async delete(_id: string): Promise<boolean> {
     // Implementation would go here
     return true; // Mock result
   }
@@ -100,7 +100,7 @@ export class UserRepositoryImpl implements UserRepository {
    * @param id User ID
    * @returns The updated user
    */
-  async incrementFailedLoginAttempts(id: string): Promise<User> {
+  async incrementFailedLoginAttempts(_id: string): Promise<User> {
     // Implementation would go here
     // This is a placeholder for demonstration purposes
     const user = {} as User; // Mock user
@@ -114,7 +114,7 @@ export class UserRepositoryImpl implements UserRepository {
    * @param id User ID
    * @returns The updated user
    */
-  async resetFailedLoginAttempts(id: string): Promise<User> {
+  async resetFailedLoginAttempts(_id: string): Promise<User> {
     // Implementation would go here
     // This is a placeholder for demonstration purposes
     const user = {} as User; // Mock user
@@ -128,7 +128,7 @@ export class UserRepositoryImpl implements UserRepository {
    * @param id User ID
    * @returns The updated user
    */
-  async updateLastLogin(id: string): Promise<User> {
+  async updateLastLogin(_id: string): Promise<User> {
     // Implementation would go here
     // This is a placeholder for demonstration purposes
     const user = {} as User; // Mock user
@@ -141,7 +141,7 @@ export class UserRepositoryImpl implements UserRepository {
    * Find user profile by user ID
    * @param userId User ID
    */
-  async findProfileByUserId(userId: string): Promise<UserProfile | null> {
+  async findProfileByUserId(_userId: string): Promise<UserProfile | null> {
     // Implementation would go here
     return null; // Mock result
   }
@@ -150,7 +150,7 @@ export class UserRepositoryImpl implements UserRepository {
    * Find user sessions by user ID
    * @param userId User ID
    */
-  async findSessionsByUserId(userId: string): Promise<Session[]> {
+  async findSessionsByUserId(_userId: string): Promise<Session[]> {
     // Implementation would go here
     return []; // Mock result
   }
@@ -159,7 +159,7 @@ export class UserRepositoryImpl implements UserRepository {
    * Find user preferences by user ID
    * @param userId User ID
    */
-  async findPreferencesByUserId(userId: string): Promise<any | null> {
+  async findPreferencesByUserId(_userId: string): Promise<any | null> {
     // Implementation would go here
     return null; // Mock result
   }
@@ -168,7 +168,7 @@ export class UserRepositoryImpl implements UserRepository {
    * Anonymize user profile
    * @param userId User ID
    */
-  async anonymizeProfile(userId: string): Promise<void> {
+  async anonymizeProfile(_userId: string): Promise<void> {
     // Implementation would go here
   }
 
@@ -176,8 +176,22 @@ export class UserRepositoryImpl implements UserRepository {
    * Anonymize user sessions
    * @param userId User ID
    */
-  async anonymizeSessions(userId: string): Promise<void> {
+  async anonymizeSessions(_userId: string): Promise<void> {
     // Implementation would go here
+  }
+
+  /**
+   * Reset user password
+   * @param userId User ID
+   * @param newPassword New password (should be hashed before saving)
+   */
+  async resetPassword(_userId: string, _newPassword: string): Promise<void> {
+    // Implementation
+    // Note: Ensure password is properly hashed before calling this method
+    await this.update(_userId, {
+      password: _newPassword,
+      lastPasswordChange: new Date(),
+    });
   }
 
   /**
@@ -198,3 +212,6 @@ export class UserRepositoryImpl implements UserRepository {
     };
   }
 }
+
+// Export a singleton instance
+export const userRepository = new UserRepositoryImpl();

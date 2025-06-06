@@ -46,7 +46,7 @@ export class EmailService {
         Your Company Name
       `;
 
-      logger.info('Magic link email would be sent', { email, subject });
+      logger.info('Magic link email would be sent', { email, subject, body });
 
       return true;
     } catch (error) {
@@ -93,7 +93,7 @@ export class EmailService {
         Your Company Name
       `;
 
-      logger.info('OTP code email would be sent', { email, subject });
+      logger.info('OTP code email would be sent', { email, subject, body });
 
       return true;
     } catch (error) {
@@ -141,6 +141,7 @@ export class EmailService {
         email,
         subject,
         verificationLink,
+        body,
       });
 
       return true;
@@ -187,6 +188,7 @@ export class EmailService {
         email,
         subject,
         accessLink,
+        body,
       });
 
       return true;
@@ -240,6 +242,7 @@ export class EmailService {
         email,
         subject,
         verificationLink,
+        body,
       });
 
       return true;
@@ -277,7 +280,7 @@ export class EmailService {
         Your Company Name
       `;
 
-      logger.info('Data deletion request completed email would be sent', { email, subject });
+      logger.info('Data deletion request completed email would be sent', { email, subject, body });
 
       return true;
     } catch (error) {
@@ -336,7 +339,7 @@ export class EmailService {
         Your Company Name
       `;
 
-      logger.info('Data breach notification email would be sent', { email, subject });
+      logger.info('Data breach notification email would be sent', { email, subject, body });
 
       return true;
     } catch (error) {
@@ -378,7 +381,7 @@ export class EmailService {
         Your Company Name
       `;
 
-      logger.info('Compliance report email would be sent', { email, subject, reportUrl });
+      logger.info('Compliance report email would be sent', { email, subject, reportUrl, body });
 
       return true;
     } catch (error) {

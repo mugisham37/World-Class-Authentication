@@ -1,28 +1,102 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
+
+// Use Prisma's event types
+type QueryEvent = Prisma.QueryEvent;
+type LogEvent = Prisma.LogEvent;
+
+/**
+ * PrismaClient wrapper with properly typed events
+ */
+export class ExtendedPrismaClient {
+  private prisma: PrismaClient;
+
+  constructor() {
+    this.prisma = new PrismaClient({
+      log: [
+        { level: 'query', emit: 'event' },
+        { level: 'error', emit: 'event' },
+        { level: 'info', emit: 'event' },
+        { level: 'warn', emit: 'event' },
+      ],
+    });
+
+    // Set up event handlers
+    this.setupEventHandlers();
+  }
+
+  /**
+   * Set up event handlers for Prisma events
+   */
+  private setupEventHandlers() {
+    // We'll set these up in the PrismaClientManager
+  }
+
+  /**
+   * Register an event handler for Prisma query events
+   */
+  $on(event: 'query', callback: (event: QueryEvent) => void): void;
+  /**
+   * Register an event handler for Prisma log events
+   */
+  $on(event: 'info' | 'warn' | 'error', callback: (event: LogEvent) => void): void;
+  /**
+   * Implementation of the $on method
+   */
+  $on(event: string, callback: (event: any) => void): void {
+    // Use type assertion to bypass TypeScript's type checking
+    // This is safe because we're controlling the event types through our method overloads
+    (this.prisma as any).$on(event, callback);
+  }
+
+  /**
+   * Connect to the database
+   */
+  async $connect(): Promise<void> {
+    return this.prisma.$connect();
+  }
+
+  /**
+   * Disconnect from the database
+   */
+  async $disconnect(): Promise<void> {
+    return this.prisma.$disconnect();
+  }
+
+  /**
+   * Execute a raw query
+   */
+  async $queryRaw<T = unknown>(
+    query: TemplateStringsArray | Prisma.Sql,
+    ...values: any[]
+  ): Promise<T> {
+    return this.prisma.$queryRaw(query, ...values);
+  }
+
+  /**
+   * Access to the underlying PrismaClient instance
+   * Use this for model operations (e.g., prisma.user.findMany())
+   */
+  get client(): PrismaClient {
+    return this.prisma;
+  }
+}
 
 /**
  * Prisma client singleton
  */
 class PrismaClientManager {
-  private static instance: PrismaClient;
+  private static instance: ExtendedPrismaClient;
   private static isInitialized = false;
 
   /**
    * Get the Prisma client instance
    * Creates a new instance if one doesn't exist
    */
-  public static getInstance(): PrismaClient {
+  public static getInstance(): ExtendedPrismaClient {
     if (!PrismaClientManager.instance) {
-      PrismaClientManager.instance = new PrismaClient({
-        log: [
-          { level: 'query', emit: 'event' },
-          { level: 'error', emit: 'event' },
-          { level: 'info', emit: 'event' },
-          { level: 'warn', emit: 'event' },
-        ],
-      });
+      PrismaClientManager.instance = new ExtendedPrismaClient();
 
       // Set up logging for Prisma events
       PrismaClientManager.setupLogging();
@@ -37,27 +111,41 @@ class PrismaClientManager {
     const prisma = PrismaClientManager.instance;
 
     // Log queries
-    prisma.$on('query', (e: { query: string; params: string; duration: number }) => {
+    prisma.$on('query', (e: QueryEvent) => {
       logger.debug('Prisma query', {
         query: e.query,
         params: e.params,
         duration: e.duration,
+        timestamp: e.timestamp,
+        target: e.target,
       });
     });
 
     // Log errors
-    prisma.$on('error', (e: Error) => {
-      logger.error('Prisma error', { error: e });
+    prisma.$on('error', (e: LogEvent) => {
+      logger.error('Prisma error', {
+        message: e.message,
+        timestamp: e.timestamp,
+        target: e.target,
+      });
     });
 
     // Log info
-    prisma.$on('info', (e: string) => {
-      logger.info('Prisma info', { message: e });
+    prisma.$on('info', (e: LogEvent) => {
+      logger.info('Prisma info', {
+        message: e.message,
+        timestamp: e.timestamp,
+        target: e.target,
+      });
     });
 
     // Log warnings
-    prisma.$on('warn', (e: string) => {
-      logger.warn('Prisma warning', { message: e });
+    prisma.$on('warn', (e: LogEvent) => {
+      logger.warn('Prisma warning', {
+        message: e.message,
+        timestamp: e.timestamp,
+        target: e.target,
+      });
     });
   }
 
@@ -67,7 +155,7 @@ class PrismaClientManager {
   public static async connect(): Promise<void> {
     try {
       const prisma = PrismaClientManager.getInstance();
-      await prisma.$connect();
+      await prisma.client.$connect();
       PrismaClientManager.isInitialized = true;
       logger.info('Prisma client connected to database');
     } catch (error) {
@@ -89,7 +177,7 @@ class PrismaClientManager {
     }
 
     try {
-      await PrismaClientManager.instance.$disconnect();
+      await PrismaClientManager.instance.client.$disconnect();
       PrismaClientManager.isInitialized = false;
       logger.info('Prisma client disconnected from database');
     } catch (error) {
@@ -117,7 +205,7 @@ class PrismaClientManager {
       const prisma = PrismaClientManager.getInstance();
 
       // Execute a simple query to check the connection
-      await prisma.$queryRaw`SELECT 1`;
+      await prisma.client.$queryRaw`SELECT 1`;
 
       return {
         status: 'ok',

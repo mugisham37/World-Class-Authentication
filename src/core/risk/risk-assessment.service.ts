@@ -1,20 +1,19 @@
 import { Injectable } from '@tsed/di';
 import { riskConfig } from '../../config/risk.config';
-import { logger } from '../../infrastructure/logging/logger';
-import { RiskLevel, RiskFactor, type RiskAssessmentResult } from './risk-types';
-import type { IpReputationService } from './factors/ip-reputation.service';
-import type { GeolocationService } from './factors/geolocation.service';
-import type { DeviceFingerprintService } from './factors/device-fingerprint.service';
-import type { UserBehaviorService } from './factors/user-behavior.service';
-import type { TimePatternService } from './factors/time-pattern.service';
-import type { ThreatIntelligenceService } from './factors/threat-intelligence.service';
-import type { MachineLearningService } from './ml/machine-learning.service';
 import type { RiskAssessmentRepository } from '../../data/repositories/risk-assessment.repository';
-import type { UserRepository } from '../../data/repositories/user.repository';
 import type { SessionRepository } from '../../data/repositories/session.repository';
-import type { AuditLogService } from '../audit/audit-log.service';
 import type { EventEmitter } from '../../infrastructure/events/event-emitter';
+import { logger } from '../../infrastructure/logging/logger';
+import type { AuditLogService } from '../audit/audit-log.service';
+import type { DeviceFingerprintService } from './factors/device-fingerprint.service';
+import type { GeolocationService } from './factors/geolocation.service';
+import type { IpReputationService } from './factors/ip-reputation.service';
+import type { ThreatIntelligenceService } from './factors/threat-intelligence.service';
+import type { TimePatternService } from './factors/time-pattern.service';
+import type { UserBehaviorService } from './factors/user-behavior.service';
+import type { MachineLearningService } from './ml/machine-learning.service';
 import { RiskEvent } from './risk-events';
+import { RiskFactor, RiskLevel, type RiskAssessmentResult } from './risk-types';
 
 @Injectable()
 export class RiskAssessmentService {
@@ -27,7 +26,6 @@ export class RiskAssessmentService {
     private threatIntelligenceService: ThreatIntelligenceService,
     private machineLearningService: MachineLearningService,
     private riskAssessmentRepository: RiskAssessmentRepository,
-    private userRepository: UserRepository,
     private sessionRepository: SessionRepository,
     private auditLogService: AuditLogService,
     private eventEmitter: EventEmitter
@@ -121,7 +119,7 @@ export class RiskAssessmentService {
       }
 
       // Machine Learning (only if enabled and for existing users)
-      if (riskConfig.machineLeaning.enabled && userId) {
+      if (riskConfig.machineLearning.enabled && userId) {
         promises.push(
           this.machineLearningService.predictRisk(userId, context).then(score => {
             riskFactors[RiskFactor.MACHINE_LEARNING] = score;
@@ -148,7 +146,8 @@ export class RiskAssessmentService {
         riskScore,
         riskLevel,
         riskFactors,
-        actions
+        undefined,
+        undefined
       );
 
       // Log the assessment
@@ -294,7 +293,6 @@ export class RiskAssessmentService {
         assessment.riskScore,
         assessment.riskLevel,
         assessment.riskFactors,
-        assessment.actions,
         sessionId
       );
       assessment.id = assessmentId;
@@ -404,7 +402,6 @@ export class RiskAssessmentService {
           assessment.riskScore,
           assessment.riskLevel,
           assessment.riskFactors,
-          assessment.actions,
           sessionId,
           action
         );
@@ -429,14 +426,16 @@ export class RiskAssessmentService {
         const riskLevel = latestAssessment.riskLevel;
         const actions = this.determineRequiredActions(riskLevel);
 
+        // Ensure riskScore is a number
+        const riskScore = latestAssessment.riskScore || 0;
+
         // Save a record of this action assessment
         const assessmentId = await this.saveRiskAssessment(
           userId,
           context,
-          latestAssessment.riskScore,
+          riskScore,
           riskLevel,
           latestAssessment.riskFactors as any,
-          actions,
           sessionId,
           action
         );
@@ -447,7 +446,7 @@ export class RiskAssessmentService {
           sessionId,
           action,
           assessmentId,
-          riskScore: latestAssessment.riskScore,
+          riskScore,
           riskLevel,
           requiresStepUp: false,
           timestamp: new Date(),
@@ -456,7 +455,7 @@ export class RiskAssessmentService {
         return {
           id: assessmentId,
           userId,
-          riskScore: latestAssessment.riskScore,
+          riskScore,
           riskLevel,
           riskFactors: latestAssessment.riskFactors as any,
           actions,
@@ -544,7 +543,7 @@ export class RiskAssessmentService {
     }
 
     // If machine learning is enabled, give it special treatment
-    if (riskConfig.machineLeaning.enabled && riskFactors[RiskFactor.MACHINE_LEARNING] > 0) {
+    if (riskConfig.machineLearning.enabled && riskFactors[RiskFactor.MACHINE_LEARNING] > 0) {
       // ML can override other factors if it detects a high-risk situation
       if (riskFactors[RiskFactor.MACHINE_LEARNING] > 75) {
         return Math.max(weightedScore / totalWeight, riskFactors[RiskFactor.MACHINE_LEARNING]);
@@ -632,7 +631,6 @@ export class RiskAssessmentService {
    * @param riskScore Risk score
    * @param riskLevel Risk level
    * @param riskFactors Risk factors
-   * @param actions Required actions
    * @param sessionId Session ID (optional)
    * @param action Action being assessed (optional)
    * @returns Assessment ID
@@ -643,7 +641,6 @@ export class RiskAssessmentService {
     riskScore: number,
     riskLevel: RiskLevel,
     riskFactors: Record<RiskFactor, number>,
-    actions: Record<string, any>,
     sessionId?: string,
     action?: string
   ): Promise<string> {
@@ -654,13 +651,16 @@ export class RiskAssessmentService {
       // Convert risk factors to a format the repository can handle
       const convertedRiskFactors = this.convertRiskFactors(riskFactors);
 
+      // Ensure riskScore is a number
+      const safeRiskScore = Math.round(riskScore || 0);
+
       const assessment = await this.riskAssessmentRepository.create({
         userId,
         sessionId,
         ipAddress: context['ipAddress'] as string | undefined,
         userAgent: context['userAgent'] as string | undefined,
         deviceId: context['deviceFingerprint'] as string | undefined, // Map deviceFingerprint to deviceId
-        riskScore,
+        riskScore: safeRiskScore,
         riskLevel: convertedRiskLevel,
         riskFactors: convertedRiskFactors,
         action: action,
@@ -675,23 +675,13 @@ export class RiskAssessmentService {
 
   /**
    * Convert RiskLevel from risk-types.ts format to risk-assessment.model.ts format
-   * @param riskLevel Risk level from risk-types.ts (lowercase)
-   * @returns Risk level for risk-assessment.model.ts (uppercase)
+   * Since we've standardized the enum values, this now simply returns the same value
+   * @param riskLevel Risk level from risk-types.ts
+   * @returns Risk level for risk-assessment.model.ts
    */
-  private convertRiskLevel(riskLevel: RiskLevel): any {
-    // Map from lowercase to uppercase
-    switch (riskLevel) {
-      case RiskLevel.LOW:
-        return 'LOW';
-      case RiskLevel.MEDIUM:
-        return 'MEDIUM';
-      case RiskLevel.HIGH:
-        return 'HIGH';
-      case RiskLevel.CRITICAL:
-        return 'CRITICAL';
-      default:
-        return 'MEDIUM'; // Default to MEDIUM if unknown
-    }
+  private convertRiskLevel(riskLevel: RiskLevel): RiskLevel {
+    // Now that we've standardized the enum values, we can just return the input
+    return riskLevel;
   }
 
   /**

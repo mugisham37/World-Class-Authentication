@@ -9,9 +9,11 @@ export interface PostgresConfig {
   port: number;
   database: string;
   user: string;
+  username: string; // Alias for user
   password: string;
   ssl: boolean;
   poolSize: number;
+  maxConnections: number; // Alias for poolSize
   idleTimeout: number;
   connectionTimeout: number;
   slowQueryThreshold: number;
@@ -85,9 +87,11 @@ export const databaseConfig = {
     port: env.getNumber('DB_PORT', 5432) || 5432,
     database: env.get('DB_NAME', 'auth_db') || 'auth_db',
     user: env.get('DB_USER', 'postgres') || 'postgres',
+    username: env.get('DB_USERNAME', 'postgres') || 'postgres', // Alias for user
     password: env.get('DB_PASSWORD', 'postgres') || 'postgres',
     ssl: env.getBoolean('DB_SSL', false) ?? false,
     poolSize: env.getNumber('DB_POOL_SIZE', 10) || 10,
+    maxConnections: env.getNumber('DB_MAX_CONNECTIONS', 10) || 10, // Alias for poolSize
     idleTimeout: env.getNumber('DB_IDLE_TIMEOUT', 30000) || 30000,
     connectionTimeout: env.getNumber('DB_CONNECTION_TIMEOUT', 5000) || 5000,
     slowQueryThreshold: env.getNumber('DB_SLOW_QUERY_THRESHOLD', 1000) || 1000,

@@ -56,10 +56,7 @@ export function validateWebAuthnOptions(options: Partial<WebAuthnOptions>): void
  * @param type Type of operation (authentication or registration)
  * @returns WebAuthnOptions with defaults applied
  */
-export function createWebAuthnOptions(
-  options: Partial<WebAuthnOptions> = {},
-  type: 'authentication' | 'registration' = 'authentication'
-): WebAuthnOptions {
+export function createWebAuthnOptions(options: Partial<WebAuthnOptions> = {}): WebAuthnOptions {
   // Import here to avoid circular dependency
   const { passwordlessConfig } = require('../passwordless.config');
 

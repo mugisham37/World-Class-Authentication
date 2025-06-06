@@ -60,7 +60,7 @@ export class UserService {
    * @param password Password
    * @returns User object if authentication successful
    */
-  async authenticate(username: string, password: string): Promise<any> {
+  async authenticate(username: string): Promise<any> {
     try {
       // In a real implementation, this would verify credentials
       // For now, we'll return a mock user

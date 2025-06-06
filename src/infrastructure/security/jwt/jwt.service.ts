@@ -3,7 +3,6 @@ import * as jwt from 'jsonwebtoken';
 import { logger } from '../../logging/logger';
 
 // Define StringValue type to match jsonwebtoken's internal type
-type StringValue = string | Buffer;
 
 /**
  * JWT service

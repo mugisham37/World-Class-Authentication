@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError, NotFoundError } from '../../utils/error-handling';
-import { prisma } from '../prisma/client';
+import { prisma, ExtendedPrismaClient } from '../prisma/client';
 import {
   BaseRepository,
   CreateData,
@@ -24,7 +24,7 @@ export abstract class PrismaBaseRepository<T, ID>
   /**
    * The Prisma client instance
    */
-  protected readonly prisma: PrismaClient;
+  protected readonly prisma: PrismaClient | ExtendedPrismaClient;
 
   /**
    * The Prisma model name
@@ -35,7 +35,7 @@ export abstract class PrismaBaseRepository<T, ID>
    * Constructor
    * @param prismaClient Optional Prisma client instance
    */
-  constructor(prismaClient?: PrismaClient) {
+  constructor(prismaClient?: PrismaClient | ExtendedPrismaClient) {
     this.prisma = prismaClient || prisma;
   }
 
@@ -408,7 +408,7 @@ export abstract class PrismaBaseRepository<T, ID>
   async transaction<R>(
     callback: (
       tx: Omit<
-        PrismaClient,
+        PrismaClient | ExtendedPrismaClient,
         '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
       >
     ) => Promise<R>,
@@ -452,5 +452,7 @@ export abstract class PrismaBaseRepository<T, ID>
    * @param tx The transaction client
    * @returns A new repository instance with the transaction client
    */
-  protected abstract withTransaction(tx: PrismaClient): BaseRepository<T, ID>;
+  protected abstract withTransaction(
+    tx: PrismaClient | ExtendedPrismaClient
+  ): BaseRepository<T, ID>;
 }

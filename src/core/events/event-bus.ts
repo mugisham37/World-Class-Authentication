@@ -101,19 +101,23 @@ class EventBus {
    * Emit an event locally
    * @param eventType Event type
    * @param payload Event payload
-   * @param fromRedis Whether the event came from Redis
+   * @param fromRedis Whether the event came from Redis to prevent re-publishing
    */
   private emitLocal<T>(eventType: EventType, payload: T, fromRedis = false): void {
     try {
       this.eventEmitter.emit(eventType, payload);
 
       // Also emit to wildcard listeners
-      const parts = eventType.split('.');
-      while (parts.length > 0) {
-        parts.pop();
-        const wildcardEvent = parts.join('.') + '.*';
-        if (this.eventEmitter.listenerCount(wildcardEvent) > 0) {
-          this.eventEmitter.emit(wildcardEvent, { eventType, payload });
+      // Only process wildcards and potentially re-publish if not from Redis
+      // This prevents infinite loops in distributed event systems
+      if (!fromRedis) {
+        const parts = eventType.split('.');
+        while (parts.length > 0) {
+          parts.pop();
+          const wildcardEvent = parts.join('.') + '.*';
+          if (this.eventEmitter.listenerCount(wildcardEvent) > 0) {
+            this.eventEmitter.emit(wildcardEvent, { eventType, payload });
+          }
         }
       }
     } catch (error) {

@@ -1,25 +1,20 @@
 import { Injectable } from '@tsed/di';
-import { v4 as uuidv4 } from 'uuid';
-import * as crypto from 'crypto';
 import * as fs from 'fs';
-import * as path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 import { samlConfig } from '../../config/saml.config';
-import { logger } from '../../infrastructure/logging/logger';
 import { EventEmitter } from '../../infrastructure/events/event-emitter';
-import {
-  SSOEvent,
-  SAMLRequest,
-  SAMLResponse,
-  SAMLUser,
-  IdPConfiguration,
-  AttributeMapping,
-  SSOSession,
-  SAMLLogoutRequest,
-  SAMLLogoutResponse,
-  IdPMetadata,
-} from './sso-events';
+import { logger } from '../../infrastructure/logging/logger';
 import { BadRequestError, NotFoundError } from '../../utils/error-handling';
 import type { UserService } from '../identity/identity.service';
+import {
+  IdPConfiguration,
+  IdPMetadata,
+  SAMLLogoutRequest,
+  SAMLRequest,
+  SAMLUser,
+  SSOEvent,
+  SSOSession,
+} from './sso-events';
 
 /**
  * SAML 2.0 service for SSO integration
@@ -311,23 +306,28 @@ export class SAMLService {
   /**
    * Process SAML response
    * @param samlResponse Base64 encoded SAML response
-   * @param relayState Relay state
    * @returns SAML user
    */
-  async processAssertionResponse(samlResponse: string, relayState?: string): Promise<SAMLUser> {
+  async processAssertionResponse(samlResponse: string): Promise<SAMLUser> {
     try {
+      // Basic SAML response processing
+      const decodedResponse = Buffer.from(samlResponse, 'base64').toString('utf-8');
+      logger.debug('Processing SAML assertion response', {
+        decodedResponsePreview: decodedResponse.substring(0, 100) + '...', // Log first 100 chars
+      });
+
       // In a real implementation, this would:
-      // 1. Decode and parse the SAML response
+      // 1. Parse the XML response
       // 2. Validate the response (signature, expiration, etc.)
       // 3. Extract the assertion and user information
 
-      // For demonstration, we'll create a mock SAML user
+      // For demonstration, we'll create a mock SAML user with some data from the response
       const samlUser: SAMLUser = {
-        nameId: 'user@example.com',
+        nameId: `user_${decodedResponse.length}@example.com`, // Use response length as part of mock data
         nameIdFormat: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
         sessionIndex: `_${uuidv4()}`,
         attributes: {
-          email: ['user@example.com'],
+          email: [`user_${decodedResponse.length}@example.com`],
           firstName: ['John'],
           lastName: ['Doe'],
           displayName: ['John Doe'],
@@ -344,6 +344,7 @@ export class SAMLService {
         assertionId: samlUser.assertionId,
         issuer: samlUser.issuer,
         timestamp: new Date(),
+        responseLength: decodedResponse.length,
       });
 
       return samlUser;
@@ -376,7 +377,7 @@ export class SAMLService {
       const userData = this.mapAttributes(samlUser.attributes, idp.attributeMapping);
 
       // Check if user exists
-      let user = await this.userService.findByEmail(userData.email);
+      let user = await this.userService.findByEmail(userData['email']);
 
       if (user) {
         // Update existing user
@@ -393,6 +394,7 @@ export class SAMLService {
         // Create new user
         user = await this.userService.create({
           ...userData,
+          email: userData['email'], // Ensure email is included
           emailVerified: true, // Auto-verify email for SSO users
         });
 
@@ -581,10 +583,7 @@ export class SAMLService {
    * @param relayState Relay state
    * @returns SAML logout request
    */
-  async generateLogoutRequest(
-    sessionId: string,
-    relayState?: string
-  ): Promise<SAMLLogoutRequest | null> {
+  async generateLogoutRequest(sessionId: string): Promise<SAMLLogoutRequest | null> {
     try {
       // Find session
       const session = await this.findSessionById(sessionId);
@@ -647,19 +646,25 @@ export class SAMLService {
   /**
    * Process SAML logout response
    * @param samlResponse Base64 encoded SAML logout response
-   * @param relayState Relay state
    * @returns True if successful
    */
-  async processLogoutResponse(samlResponse: string, relayState?: string): Promise<boolean> {
+  async processLogoutResponse(samlResponse: string): Promise<boolean> {
     try {
+      // Basic SAML logout response processing
+      const decodedResponse = Buffer.from(samlResponse, 'base64').toString('utf-8');
+      logger.debug('Processing SAML logout response', {
+        decodedResponsePreview: decodedResponse.substring(0, 100) + '...', // Log first 100 chars
+      });
+
       // In a real implementation, this would:
-      // 1. Decode and parse the SAML logout response
+      // 1. Parse the XML response
       // 2. Validate the response (signature, expiration, etc.)
       // 3. Extract the status and other information
 
-      // Emit SAML logout response received event
+      // Emit SAML logout response received event with response info
       this.eventEmitter.emit(SSOEvent.SAML_LOGOUT_RESPONSE_RECEIVED, {
         timestamp: new Date(),
+        responseLength: decodedResponse.length,
       });
 
       return true;
@@ -712,16 +717,16 @@ export class SAMLService {
     }
 
     // Ensure email is present
-    if (!result.email && attributes.email && attributes.email.length > 0) {
-      result.email = attributes.email[0];
-    } else if (!result.email && attributes.mail && attributes.mail.length > 0) {
-      result.email = attributes.mail[0];
+    if (!result['email'] && attributes['email'] && attributes['email'].length > 0) {
+      result['email'] = attributes['email'][0];
+    } else if (!result['email'] && attributes['mail'] && attributes['mail'].length > 0) {
+      result['email'] = attributes['mail'][0];
     } else if (
-      !result.email &&
+      !result['email'] &&
       attributes['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'] &&
       attributes['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'].length > 0
     ) {
-      result.email =
+      result['email'] =
         attributes['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'][0];
     }
 

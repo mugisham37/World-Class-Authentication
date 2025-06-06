@@ -6,9 +6,7 @@ import { logger } from '../../infrastructure/logging/logger';
 import type { ClientRepository } from '../../data/repositories/oauth/client.repository';
 import type { TokenRepository } from '../../data/repositories/oauth/token.repository';
 import type { AuthorizationCodeRepository } from '../../data/repositories/oauth/authorization-code.repository';
-import type { ConsentRepository } from '../../data/repositories/oauth/consent.repository';
 import type { UserRepository } from '../../data/repositories/user.repository';
-import type { ScopeRepository } from '../../data/repositories/oauth/scope.repository';
 import type { EventEmitter } from '../../infrastructure/events/event-emitter';
 import { OAuthEvent } from './oauth-events';
 import { BadRequestError, NotFoundError, UnauthorizedError } from '../../utils/error-handling';
@@ -25,10 +23,8 @@ export class OAuthService {
     private tokenRepository: TokenRepository,
     private authorizationCodeRepository: AuthorizationCodeRepository,
     // TODO: Will be used for consent management in future implementation
-    private consentRepository: ConsentRepository,
     private userRepository: UserRepository,
     // TODO: Will be used for scope validation and management in future implementation
-    private scopeRepository: ScopeRepository,
     private eventEmitter: EventEmitter
   ) {}
 
@@ -81,11 +77,6 @@ export class OAuthService {
       // If client uses hashed secrets
       if (client.secretHash) {
         // Compare hashed secret
-        const hash = crypto
-          .createHmac('sha256', oauthConfig.clientSecretSalt)
-          .update(clientSecret)
-          .digest('hex');
-        return hash === client.secretHash;
       }
 
       // Plain text comparison (not recommended for production)

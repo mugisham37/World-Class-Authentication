@@ -268,6 +268,11 @@ export class AuthService {
     // Update risk assessment with session ID
     await riskAssessmentService.updateSessionId(riskAssessment.id, session.id);
 
+    // Check if user email is defined
+    if (!user.email) {
+      throw new AuthenticationError('User email is required', 'INVALID_USER_DATA');
+    }
+
     // Generate tokens
     const accessToken = generateAccessToken({
       sub: user.id,
@@ -307,6 +312,11 @@ export class AuthService {
       email: user.email,
       sessionId: session.id,
     });
+
+    // We've already checked that user.email is defined above, but let's be explicit for TypeScript
+    if (!user.email) {
+      throw new AuthenticationError('User email is required', 'INVALID_USER_DATA');
+    }
 
     return {
       accessToken,
@@ -362,6 +372,11 @@ export class AuthService {
 
       // Update session last active time
       await sessionRepository.updateLastActive(session.id);
+
+      // Check if user email is defined
+      if (!user.email) {
+        throw new AuthenticationError('User email is required', 'INVALID_USER_DATA');
+      }
 
       // Generate new tokens
       const newAccessToken = generateAccessToken({

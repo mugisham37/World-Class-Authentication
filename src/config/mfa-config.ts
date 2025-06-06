@@ -28,8 +28,8 @@ export type MfaConfig = {
     rpName: string;
     rpID: string;
     origin: string;
-    attestation: string;
-    userVerification: string;
+    attestation: 'direct' | 'none' | 'enterprise';
+    userVerification: 'required' | 'preferred' | 'discouraged';
     timeout: number;
   };
   sms: {

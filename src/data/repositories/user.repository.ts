@@ -1,6 +1,7 @@
 import { Injectable } from '@tsed/di';
-import { User, UserProfile } from '../models/user.model';
+import { User, UserProfile, UserStatus, UserRole } from '../models/user.model';
 import { Session } from '../models/session.model';
+import * as crypto from 'crypto';
 
 /**
  * Repository for user data
@@ -114,89 +115,166 @@ export interface UserRepository {
  */
 @Injectable()
 export class UserRepositoryImpl implements UserRepository {
-  async findById(id: string): Promise<User | null> {
-    // Implementation
-    return null;
+  // In-memory storage for demo/testing purposes
+  private users: Map<string, User> = new Map();
+  private profiles: Map<string, UserProfile> = new Map();
+  private sessions: Map<string, Session[]> = new Map();
+  private preferences: Map<string, any> = new Map();
+
+  async findById(_id: string): Promise<User | null> {
+    return this.users.get(_id) || null;
   }
 
-  async findByEmail(email: string): Promise<User | null> {
-    // Implementation
-    return null;
+  async findByEmail(_email: string): Promise<User | null> {
+    return Array.from(this.users.values()).find(user => user.email === _email) || null;
   }
 
-  async findByPhone(phone: string): Promise<User | null> {
-    // Implementation
-    return null;
+  async findByPhone(_phone: string): Promise<User | null> {
+    return Array.from(this.users.values()).find(user => user.phoneNumber === _phone) || null;
   }
 
-  async findByUsername(username: string): Promise<User | null> {
-    // Implementation
-    return null;
+  async findByUsername(_username: string): Promise<User | null> {
+    return Array.from(this.users.values()).find(user => user.username === _username) || null;
   }
 
-  async create(data: Partial<User>): Promise<User> {
-    // Implementation
-    return {} as User;
+  async create(_data: Partial<User>): Promise<User> {
+    const id = crypto.randomUUID();
+    const user: User = {
+      id,
+      ..._data,
+      email: _data.email || '',
+      username: _data.username || null,
+      password: _data.password || '',
+      status: _data.status || UserStatus.PENDING,
+      role: _data.role || UserRole.USER,
+      active: _data.active !== undefined ? _data.active : true,
+      lockedUntil: _data.lockedUntil || null,
+      failedLoginAttempts: _data.failedLoginAttempts || 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as User;
+
+    this.users.set(id, user);
+    return user;
   }
 
-  async update(id: string, data: Partial<User>): Promise<User> {
-    // Implementation
-    return {} as User;
+  async update(_id: string, _data: Partial<User>): Promise<User> {
+    const user = await this.findById(_id);
+    if (!user) throw new Error('User not found');
+
+    const updated = {
+      ...user,
+      ..._data,
+      updatedAt: new Date(),
+    };
+    this.users.set(_id, updated);
+    return updated;
   }
 
-  async delete(id: string): Promise<boolean> {
-    // Implementation
-    return true;
+  async delete(_id: string): Promise<boolean> {
+    return this.users.delete(_id);
   }
 
-  async incrementFailedLoginAttempts(id: string): Promise<User> {
-    // Implementation
-    return {} as User;
+  async incrementFailedLoginAttempts(_id: string): Promise<User> {
+    const user = await this.findById(_id);
+    if (!user) throw new Error('User not found');
+
+    const updated = {
+      ...user,
+      failedLoginAttempts: (user.failedLoginAttempts || 0) + 1,
+      updatedAt: new Date(),
+    };
+    this.users.set(_id, updated);
+    return updated;
   }
 
-  async resetFailedLoginAttempts(id: string): Promise<User> {
-    // Implementation
-    return {} as User;
+  async resetFailedLoginAttempts(_id: string): Promise<User> {
+    const user = await this.findById(_id);
+    if (!user) throw new Error('User not found');
+
+    const updated = {
+      ...user,
+      failedLoginAttempts: 0,
+      updatedAt: new Date(),
+    };
+    this.users.set(_id, updated);
+    return updated;
   }
 
-  async updateLastLogin(id: string): Promise<User> {
-    // Implementation
-    return {} as User;
+  async updateLastLogin(_id: string): Promise<User> {
+    const user = await this.findById(_id);
+    if (!user) throw new Error('User not found');
+
+    const updated = {
+      ...user,
+      lastLoginAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.users.set(_id, updated);
+    return updated;
   }
 
-  async findProfileByUserId(userId: string): Promise<UserProfile | null> {
-    // Implementation
-    return null;
+  async findProfileByUserId(_userId: string): Promise<UserProfile | null> {
+    return this.profiles.get(_userId) || null;
   }
 
-  async findSessionsByUserId(userId: string): Promise<Session[]> {
-    // Implementation
-    return [];
+  async findSessionsByUserId(_userId: string): Promise<Session[]> {
+    return this.sessions.get(_userId) || [];
   }
 
-  async findPreferencesByUserId(userId: string): Promise<any | null> {
-    // Implementation
-    return null;
+  async findPreferencesByUserId(_userId: string): Promise<any | null> {
+    return this.preferences.get(_userId) || null;
   }
 
-  async anonymizeProfile(userId: string): Promise<void> {
-    // Implementation
+  async anonymizeProfile(_userId: string): Promise<void> {
+    const profile = await this.findProfileByUserId(_userId);
+    if (!profile) return;
+
+    const anonymized: UserProfile = {
+      ...profile,
+      firstName: null,
+      lastName: null,
+      phone: null,
+      address: null,
+      city: null,
+      state: null,
+      country: null,
+      zipCode: null,
+      birthDate: null,
+      bio: null,
+      avatarUrl: null,
+      metadata: null,
+      updatedAt: new Date(),
+    };
+
+    this.profiles.set(_userId, anonymized);
   }
 
-  async anonymizeSessions(userId: string): Promise<void> {
-    // Implementation
+  async anonymizeSessions(_userId: string): Promise<void> {
+    const sessions = await this.findSessionsByUserId(_userId);
+    if (!sessions.length) return;
+
+    const anonymizedSessions = sessions.map(session => ({
+      ...session,
+      ipAddress: null,
+      userAgent: null,
+      location: null,
+      updatedAt: new Date(),
+    }));
+
+    this.sessions.set(_userId, anonymizedSessions);
   }
 
   /**
    * Reset user password
-   * @param userId User ID
-   * @param newPassword New password (should be hashed before saving)
+   * @param _userId User ID
+   * @param _newPassword New password (should be hashed before saving)
    */
-  async resetPassword(userId: string, newPassword: string): Promise<void> {
+  async resetPassword(_userId: string, _newPassword: string): Promise<void> {
     // Implementation
     // Note: Ensure password is properly hashed before calling this method
-    await this.update(userId, {
-      password: newPassword,
+    await this.update(_userId, {
+      password: _newPassword,
       lastPasswordChange: new Date(),
     });
   }

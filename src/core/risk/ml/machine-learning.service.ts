@@ -34,7 +34,7 @@ export class MachineLearningService {
 
       // Skip ML prediction if not enough data
       const assessmentCount = await this.riskAssessmentRepository.countByUserId(userId);
-      if (assessmentCount < riskConfig.machineLeaning.minDataPoints) {
+      if (assessmentCount < riskConfig.machineLearning.minDataPoints) {
         logger.debug('Not enough data for ML prediction', { userId, assessmentCount });
         return 0;
       }
@@ -58,18 +58,18 @@ export class MachineLearningService {
       logger.debug('ML risk prediction completed', {
         userId,
         riskScore,
-        anomalyScore: anomalyResults.anomalyScores.overall_anomaly,
-        clusterSimilarity: clusterResults.similarity,
+        anomalyScore: anomalyResults['anomalyScores'].overall_anomaly,
+        clusterSimilarity: clusterResults['similarity'],
       });
 
       // Emit ML prediction event
       this.eventEmitter.emit(RiskEvent.ML_PREDICTION_COMPLETED, {
         userId,
         riskScore,
-        anomalyScores: anomalyResults.anomalyScores,
+        anomalyScores: anomalyResults['anomalyScores'],
         clusterInfo: {
-          clusterId: clusterResults.clusterId,
-          similarity: clusterResults.similarity,
+          clusterId: clusterResults['clusterId'],
+          similarity: clusterResults['similarity'],
         },
         timestamp: new Date(),
       });
@@ -95,10 +95,10 @@ export class MachineLearningService {
   ): number {
     try {
       // Get overall anomaly score
-      const anomalyScore = anomalyResults.anomalyScores.overall_anomaly || 0;
+      const anomalyScore = anomalyResults['anomalyScores'].overall_anomaly || 0;
 
       // Get cluster similarity (higher similarity = lower risk)
-      const clusterSimilarity = clusterResults.similarity || 0;
+      const clusterSimilarity = clusterResults['similarity'] || 0;
       const clusterRisk = 100 - clusterSimilarity;
 
       // Calculate weighted risk score
@@ -113,36 +113,36 @@ export class MachineLearningService {
       let riskModifier = 0;
 
       // High-risk indicators
-      if (features.vpn_detected || features.proxy_detected || features.tor_detected) {
+      if (features['vpn_detected'] || features['proxy_detected'] || features['tor_detected']) {
         riskModifier += 15;
       }
 
-      if (features.is_new_country) {
+      if (features['is_new_country']) {
         riskModifier += 10;
       }
 
-      if (features.is_new_device) {
+      if (features['is_new_device']) {
         riskModifier += 10;
       }
 
-      if (features.suspicious_device_characteristics) {
+      if (features['suspicious_device_characteristics']) {
         riskModifier += 20;
       }
 
-      if (features.impossible_travel) {
+      if (features['impossible_travel']) {
         riskModifier += 25;
       }
 
       // Risk-reducing indicators
-      if (features.has_mfa && features.mfa_method_count > 1) {
+      if (features['has_mfa'] && features['mfa_method_count'] > 1) {
         riskModifier -= 10;
       }
 
-      if (features.device_age > 30 && features.device_usage_frequency > 10) {
+      if (features['device_age'] > 30 && features['device_usage_frequency'] > 10) {
         riskModifier -= 15;
       }
 
-      if (features.account_age > 365 && features.login_count > 100) {
+      if (features['account_age'] > 365 && features['login_count'] > 100) {
         riskModifier -= 10;
       }
 

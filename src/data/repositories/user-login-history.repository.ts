@@ -3,17 +3,18 @@ import { PrismaBaseRepository } from './prisma-base.repository';
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { BaseRepository } from './base.repository';
+import { ExtendedPrismaClient } from '../prisma/client';
 
 /**
  * Repository for user login history
  */
 @Injectable()
 export class UserLoginHistoryRepository extends PrismaBaseRepository<any, string> {
-  protected override readonly prisma: PrismaClient;
+  protected override readonly prisma: PrismaClient | ExtendedPrismaClient;
   protected readonly modelName: string = 'userLoginHistory';
   protected logger = logger;
 
-  constructor(prisma: PrismaClient) {
+  constructor(prisma: PrismaClient | ExtendedPrismaClient) {
     super(prisma);
     this.prisma = prisma;
   }
@@ -23,7 +24,7 @@ export class UserLoginHistoryRepository extends PrismaBaseRepository<any, string
    * @param tx The transaction client
    * @returns A new repository instance with the transaction client
    */
-  protected withTransaction(tx: PrismaClient): BaseRepository<any, string> {
+  protected withTransaction(tx: PrismaClient | ExtendedPrismaClient): BaseRepository<any, string> {
     const repo = new UserLoginHistoryRepository(tx);
     return repo;
   }

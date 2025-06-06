@@ -1,5 +1,6 @@
 import { Injectable } from '@tsed/di';
 import { v4 as uuidv4 } from 'uuid';
+import type { RegistrationResponseJSON } from '@simplewebauthn/types';
 import {
   MfaFactorType,
   MfaFactorStatus,
@@ -120,6 +121,9 @@ export class MfaService {
           );
           break;
         case MfaFactorType.EMAIL:
+          if (!user.email) {
+            throw new BadRequestError('Email is required for email MFA enrollment');
+          }
           enrollmentResult = await this.emailMfaService.startEnrollment(
             userId,
             factorName,
@@ -177,6 +181,23 @@ export class MfaService {
   }
 
   /**
+   * Type guard to check if data is a valid RegistrationResponseJSON
+   * @param data Data to check
+   * @returns Boolean indicating if data is a valid RegistrationResponseJSON
+   */
+  private isRegistrationResponseJSON(data: any): data is RegistrationResponseJSON {
+    return (
+      data &&
+      typeof data === 'object' &&
+      'id' in data &&
+      'rawId' in data &&
+      'response' in data &&
+      'clientExtensionResults' in data &&
+      'type' in data
+    );
+  }
+
+  /**
    * Complete MFA factor enrollment by verifying the factor
    * @param userId User ID
    * @param factorId Factor ID
@@ -216,6 +237,9 @@ export class MfaService {
           );
           break;
         case MfaFactorType.WEBAUTHN:
+          if (!this.isRegistrationResponseJSON(verificationData)) {
+            throw new BadRequestError('Invalid WebAuthn registration response');
+          }
           verificationResult = await this.webAuthnService.verifyEnrollment(
             factorId,
             verificationData
@@ -561,51 +585,74 @@ export class MfaService {
       return factors.filter(factor => factor && factor.id).map(factor => factor.id);
     };
 
-    // Perform risk assessment
-    const riskLevel = await this.riskAssessmentService.assessLoginRisk(userId, String(context), '');
+    try {
+      // Perform risk assessment
+      // Ensure all parameters are valid strings
+      const safeUserId = typeof userId === 'string' ? userId : '';
+      const contextString = context ? JSON.stringify(context) : '';
+      const userAgent = 'MFA-Service';
 
-    // If adaptive MFA is enabled, select factors based on risk level
-    if (mfaConfig.general.adaptiveMfaEnabled) {
-      const riskLevelStr = String(riskLevel);
-      switch (riskLevelStr) {
-        case 'high':
-          // For high risk, require all available factors (except recovery codes)
-          return getSafeFactorIds(
-            activeFactors.filter(factor => factor.type !== MfaFactorType.RECOVERY_CODE)
-          );
-        case 'medium':
-          // For medium risk, require strongest factor (prefer WebAuthn, then TOTP)
-          const preferredFactorTypes = [
-            MfaFactorType.WEBAUTHN,
-            MfaFactorType.TOTP,
-            MfaFactorType.SMS,
-            MfaFactorType.EMAIL,
-          ];
-          for (const type of preferredFactorTypes) {
-            const factor = activeFactors.find(f => f.type === type);
-            const factorId = getFactorId(factor);
-            if (factorId) {
-              return [factorId];
+      // Call risk assessment with guaranteed string parameters
+      const riskLevel = await this.riskAssessmentService.assessLoginRisk(
+        safeUserId,
+        contextString,
+        userAgent
+      );
+
+      // If adaptive MFA is enabled, select factors based on risk level
+      if (mfaConfig.general.adaptiveMfaEnabled) {
+        const riskLevelStr = String(riskLevel);
+        switch (riskLevelStr) {
+          case 'high':
+            // For high risk, require all available factors (except recovery codes)
+            return getSafeFactorIds(
+              activeFactors.filter(factor => factor.type !== MfaFactorType.RECOVERY_CODE)
+            );
+          case 'medium':
+            // For medium risk, require strongest factor (prefer WebAuthn, then TOTP)
+            const preferredFactorTypes = [
+              MfaFactorType.WEBAUTHN,
+              MfaFactorType.TOTP,
+              MfaFactorType.SMS,
+              MfaFactorType.EMAIL,
+            ];
+            for (const type of preferredFactorTypes) {
+              const factor = activeFactors.find(f => f.type === type);
+              const factorId = getFactorId(factor);
+              if (factorId) {
+                return [factorId];
+              }
             }
-          }
-          // If no preferred factor found, use the first available
-          const firstFactorId = getFactorId(activeFactors[0]);
-          return firstFactorId ? [firstFactorId] : [];
-        case 'low':
-          // For low risk, may skip MFA if device is remembered
-          if (context['isRememberedDevice']) {
-            return [];
-          }
-          // Otherwise, require one factor
-          const lowRiskFactorId = getFactorId(activeFactors[0]);
-          return lowRiskFactorId ? [lowRiskFactorId] : [];
-        default:
-          // Default to one factor
-          const defaultFactorId = getFactorId(activeFactors[0]);
-          return defaultFactorId ? [defaultFactorId] : [];
+            // If no preferred factor found, use the first available
+            const firstFactorId = getFactorId(activeFactors[0]);
+            return firstFactorId ? [firstFactorId] : [];
+          case 'low':
+            // For low risk, may skip MFA if device is remembered
+            if (context['isRememberedDevice']) {
+              return [];
+            }
+            // Otherwise, require one factor
+            const lowRiskFactorId = getFactorId(activeFactors[0]);
+            return lowRiskFactorId ? [lowRiskFactorId] : [];
+          default:
+            // Default to one factor
+            const defaultFactorId = getFactorId(activeFactors[0]);
+            return defaultFactorId ? [defaultFactorId] : [];
+        }
+      } else {
+        // If adaptive MFA is disabled, always require the first active factor
+        const factorId = getFactorId(activeFactors[0]);
+        return factorId ? [factorId] : [];
       }
-    } else {
-      // If adaptive MFA is disabled, always require the first active factor
+    } catch (error) {
+      // Log the error but don't throw it
+      logger.error('Failed to assess risk for MFA factor selection', {
+        error,
+        userId,
+        contextKeys: Object.keys(context),
+      });
+
+      // Default to requiring the first active factor in case of error
       const factorId = getFactorId(activeFactors[0]);
       return factorId ? [factorId] : [];
     }

@@ -1,22 +1,37 @@
-import { PrismaClient, User as PrismaUser, UserProfile as PrismaUserProfile } from '@prisma/client';
+import {
+  PrismaClient,
+  User as PrismaUser,
+  UserProfile as PrismaUserProfile,
+  Credential,
+  CredentialType,
+} from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
-import { User, UserProfile, UserFilterOptions } from '../models/user.model';
+import { Session } from '../models/session.model';
+import { User, UserFilterOptions, UserProfile } from '../models/user.model';
+import { ExtendedPrismaClient } from '../prisma/client';
 import { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
-import { Session } from '../models/session.model';
 import { UserRepository } from './user.repository';
 
 /**
  * Mapper function to convert Prisma User to application User
  * @param prismaUser The Prisma User object
+ * @param passwordCredential Optional password credential
  * @returns The application User object
  */
-function mapPrismaUserToModel(prismaUser: PrismaUser): User {
+function mapPrismaUserToModel(prismaUser: PrismaUser & { credentials?: Credential[] }): User {
+  // Find password credential if available
+  const passwordCredential = prismaUser.credentials?.find(
+    cred => cred.type === ('PASSWORD' as CredentialType)
+  );
+
   return {
     id: prismaUser.id,
     email: prismaUser.email,
     username: prismaUser.username,
+    // Use credential secret as password or a placeholder if not available
+    password: passwordCredential?.secret || '', // Provide password from credentials
     emailVerified: prismaUser.emailVerified,
     // Map optional properties safely
     phoneNumber: (prismaUser as any).phoneNumber || null,
@@ -29,6 +44,7 @@ function mapPrismaUserToModel(prismaUser: PrismaUser): User {
     createdAt: prismaUser.createdAt,
     updatedAt: prismaUser.updatedAt,
     lastLoginAt: prismaUser.lastLoginAt || undefined,
+    lastPasswordChange: passwordCredential?.updatedAt || null,
   };
 }
 
@@ -70,6 +86,34 @@ export class PrismaUserRepository
   protected readonly modelName = 'user';
 
   /**
+   * Find user by ID
+   * @param id User ID
+   * @returns The user or null if not found
+   */
+  override async findById(id: string): Promise<User | null> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id },
+        include: {
+          credentials: {
+            where: {
+              type: 'PASSWORD',
+            },
+          },
+        },
+      });
+      return user ? mapPrismaUserToModel(user) : null;
+    } catch (error) {
+      logger.error('Error finding user by ID', { id, error });
+      throw new DatabaseError(
+        'Error finding user by ID',
+        'USER_FIND_BY_ID_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
    * Find user by email
    * @param email User email
    * @returns The user or null if not found
@@ -78,6 +122,13 @@ export class PrismaUserRepository
     try {
       const user = await this.prisma.user.findUnique({
         where: { email },
+        include: {
+          credentials: {
+            where: {
+              type: 'PASSWORD',
+            },
+          },
+        },
       });
       return user ? mapPrismaUserToModel(user) : null;
     } catch (error) {
@@ -102,6 +153,13 @@ export class PrismaUserRepository
           // Use type assertion to handle potential schema differences
           phoneNumber: phone,
         } as any,
+        include: {
+          credentials: {
+            where: {
+              type: 'PASSWORD',
+            },
+          },
+        },
       });
       return user ? mapPrismaUserToModel(user) : null;
     } catch (error) {
@@ -123,6 +181,13 @@ export class PrismaUserRepository
     try {
       const user = await this.prisma.user.findFirst({
         where: { username },
+        include: {
+          credentials: {
+            where: {
+              type: 'PASSWORD',
+            },
+          },
+        },
       });
       return user ? mapPrismaUserToModel(user) : null;
     } catch (error) {
@@ -149,6 +214,13 @@ export class PrismaUserRepository
             increment: 1,
           },
         },
+        include: {
+          credentials: {
+            where: {
+              type: 'PASSWORD',
+            },
+          },
+        },
       });
       return mapPrismaUserToModel(user);
     } catch (error) {
@@ -173,6 +245,13 @@ export class PrismaUserRepository
         data: {
           failedLoginAttempts: 0,
         },
+        include: {
+          credentials: {
+            where: {
+              type: 'PASSWORD',
+            },
+          },
+        },
       });
       return mapPrismaUserToModel(user);
     } catch (error) {
@@ -196,6 +275,13 @@ export class PrismaUserRepository
         where: { id },
         data: {
           lastLoginAt: new Date(),
+        },
+        include: {
+          credentials: {
+            where: {
+              type: 'PASSWORD',
+            },
+          },
         },
       });
       return mapPrismaUserToModel(user);
@@ -330,6 +416,204 @@ export class PrismaUserRepository
   }
 
   /**
+   * Reset user password
+   * @param userId User ID
+   * @param newPassword New password (should be hashed before saving)
+   */
+  async resetPassword(userId: string, newPassword: string): Promise<void> {
+    try {
+      // First, update the user to reset failed login attempts and unlock the account
+      const user = await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          failedLoginAttempts: 0, // Reset failed attempts
+          lockedUntil: null, // Unlock account if locked
+        },
+        include: {
+          credentials: {
+            where: {
+              type: 'PASSWORD',
+            },
+          },
+        },
+      });
+
+      // Find the password credential
+      const passwordCredential = user.credentials.find(
+        cred => cred.type === ('PASSWORD' as CredentialType)
+      );
+
+      if (passwordCredential) {
+        // Update the password credential
+        await this.prisma.credential.update({
+          where: { id: passwordCredential.id },
+          data: {
+            secret: newPassword,
+            updatedAt: new Date(),
+          },
+        });
+      } else {
+        // Create a new password credential if one doesn't exist
+        await this.prisma.credential.create({
+          data: {
+            userId,
+            type: 'PASSWORD' as CredentialType,
+            identifier: user.email,
+            secret: newPassword,
+          },
+        });
+      }
+
+      // No need to return anything as the method signature is Promise<void>
+    } catch (error) {
+      logger.error('Error resetting password', { userId, error });
+      throw new DatabaseError(
+        'Error resetting password',
+        'USER_RESET_PASSWORD_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Create a new user
+   * @param data User data
+   * @returns The created user
+   */
+  override async create(data: Partial<User>): Promise<User> {
+    try {
+      // Extract password from data
+      const { password, ...userData } = data;
+
+      // Create user in transaction to ensure atomicity
+      return await this.prisma.$transaction(async tx => {
+        // Create the user
+        const user = await tx.user.create({
+          data: userData as any,
+          include: {
+            credentials: {
+              where: {
+                type: 'PASSWORD',
+              },
+            },
+          },
+        });
+
+        // Create password credential if password is provided
+        if (password) {
+          await tx.credential.create({
+            data: {
+              userId: user.id,
+              type: 'PASSWORD' as CredentialType,
+              identifier: user.email,
+              secret: password,
+            },
+          });
+        }
+
+        // Fetch the user with credentials
+        const createdUser = await tx.user.findUnique({
+          where: { id: user.id },
+          include: {
+            credentials: {
+              where: {
+                type: 'PASSWORD',
+              },
+            },
+          },
+        });
+
+        return mapPrismaUserToModel(createdUser!);
+      });
+    } catch (error) {
+      logger.error('Error creating user', { error });
+      throw new DatabaseError(
+        'Error creating user',
+        'USER_CREATE_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Update user data
+   * @param id User ID
+   * @param data User data to update
+   * @returns The updated user
+   */
+  override async update(id: string, data: Partial<User>): Promise<User> {
+    try {
+      // Extract password from data
+      const { password, ...userData } = data;
+
+      // Update user in transaction to ensure atomicity
+      return await this.prisma.$transaction(async tx => {
+        // Update the user
+        const user = await tx.user.update({
+          where: { id },
+          data: userData as any,
+          include: {
+            credentials: {
+              where: {
+                type: 'PASSWORD',
+              },
+            },
+          },
+        });
+
+        // Update password credential if password is provided
+        if (password) {
+          const passwordCredential = user.credentials.find(
+            cred => cred.type === ('PASSWORD' as CredentialType)
+          );
+
+          if (passwordCredential) {
+            // Update existing password credential
+            await tx.credential.update({
+              where: { id: passwordCredential.id },
+              data: {
+                secret: password,
+                updatedAt: new Date(),
+              },
+            });
+          } else {
+            // Create new password credential
+            await tx.credential.create({
+              data: {
+                userId: user.id,
+                type: 'PASSWORD' as CredentialType,
+                identifier: user.email,
+                secret: password,
+              },
+            });
+          }
+        }
+
+        // Fetch the updated user with credentials
+        const updatedUser = await tx.user.findUnique({
+          where: { id },
+          include: {
+            credentials: {
+              where: {
+                type: 'PASSWORD',
+              },
+            },
+          },
+        });
+
+        return mapPrismaUserToModel(updatedUser!);
+      });
+    } catch (error) {
+      logger.error('Error updating user', { id, error });
+      throw new DatabaseError(
+        'Error updating user',
+        'USER_UPDATE_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
    * Build a where clause from filter options
    * @param filter The filter options
    * @returns The Prisma where clause
@@ -418,7 +702,9 @@ export class PrismaUserRepository
    * @param tx The transaction client
    * @returns A new repository instance with the transaction client
    */
-  protected override withTransaction(tx: PrismaClient): BaseRepository<User, string> {
+  protected override withTransaction(
+    tx: PrismaClient | ExtendedPrismaClient
+  ): BaseRepository<User, string> {
     return new PrismaUserRepository(tx);
   }
 }

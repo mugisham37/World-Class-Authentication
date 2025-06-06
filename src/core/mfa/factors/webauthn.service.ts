@@ -1,17 +1,11 @@
 import { Injectable } from '@tsed/di';
-// Using @ts-ignore for external libraries that might not have proper type definitions
-// @ts-ignore
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
   generateAuthenticationOptions,
   verifyAuthenticationResponse,
 } from '@simplewebauthn/server';
-// @ts-ignore
-import type {
-  RegistrationResponseJSON,
-  AuthenticationResponseJSON,
-} from '@simplewebauthn/typescript-types';
+import type { RegistrationResponseJSON, AuthenticationResponseJSON } from '@simplewebauthn/types';
 import type { MfaFactorRepository } from '../../../data/repositories/mfa-factor.repository';
 import type { MfaChallengeRepository } from '../../../data/repositories/mfa-challenge.repository';
 import type { UserRepository } from '../../../data/repositories/user.repository';
@@ -21,6 +15,11 @@ import {
   type MfaEnrollmentResult,
   type MfaVerificationResult,
 } from '../mfa-factor-types';
+import {
+  WebAuthnAuthenticatorData,
+  WebAuthnVerificationError,
+  WebAuthnErrorType,
+} from './webauthn.types';
 import { mfaConfig } from '../../../config/mfa-config';
 import { logger } from '../../../infrastructure/logging/logger';
 import { BadRequestError, NotFoundError } from '../../../utils/error-handling';
@@ -76,17 +75,19 @@ export class WebAuthnService {
       // Convert userId to Uint8Array for WebAuthn compatibility
       const userIdBuffer = this.stringToBuffer(userId);
 
-      // @ts-ignore - Ignoring all type issues with the external library
+      // Ensure we have a valid username
+      const userName = user.username || user.email || userId;
+      if (!userName) {
+        throw new BadRequestError('No valid identifier found for user');
+      }
+
       const registrationOptions = await generateRegistrationOptions({
-        // @ts-ignore
         rpName,
-        // @ts-ignore
         rpID,
         userID: userIdBuffer,
-        userName: user.username || user.email,
-        userDisplayName: user.email,
-        // @ts-ignore - Ignoring type issues with attestationType
-        attestationType: mfaConfig.webAuthn.attestation,
+        userName, // Now guaranteed to be a string
+        userDisplayName: user.email || userName,
+        attestationType: mfaConfig.webAuthn.attestation as 'direct' | 'none' | 'enterprise',
         authenticatorSelection: {
           userVerification: mfaConfig.webAuthn.userVerification as
             | 'required'
@@ -151,7 +152,6 @@ export class WebAuthnService {
       const expectedRPID = factor.metadata['rpID'] || mfaConfig.webAuthn.rpID;
 
       // Verify attestation
-      // @ts-ignore - Ignoring type issues with the external library
       const verification = await verifyRegistrationResponse({
         response: attestationResponse,
         expectedChallenge,
@@ -160,9 +160,12 @@ export class WebAuthnService {
       });
 
       if (verification.verified) {
-        // Extract credential data
-        // @ts-ignore - Ignoring type issues with the external library
-        const { credentialID, credentialPublicKey } = verification.registrationInfo!;
+        // Extract credential data from the verification result
+        // Use type assertion to access the properties we need
+        const registrationInfo = verification.registrationInfo as any;
+        const credentialID = registrationInfo.credentialID;
+        const credentialPublicKey = registrationInfo.credentialPublicKey;
+        const counter = registrationInfo.counter || 0;
 
         // Update factor with credential data
         await this.mfaFactorRepository.update(factorId, {
@@ -170,12 +173,9 @@ export class WebAuthnService {
           metadata: {
             ...factor.metadata,
             credentialPublicKey: Buffer.from(credentialPublicKey).toString('base64url'),
-            // @ts-ignore
-            counter: verification.registrationInfo!.counter,
-            // @ts-ignore
-            credentialDeviceType: verification.registrationInfo!.credentialDeviceType,
-            // @ts-ignore
-            credentialBackedUp: verification.registrationInfo!.credentialBackedUp,
+            counter: counter || 0,
+            credentialDeviceType: 'security-key', // Default to security-key
+            credentialBackedUp: false, // Default to false
           },
         });
 
@@ -222,7 +222,6 @@ export class WebAuthnService {
       }
 
       // Generate authentication options
-      // @ts-ignore - Ignoring type issues with the external library
       const authenticationOptions = await generateAuthenticationOptions({
         rpID: factor.metadata['rpID'] || mfaConfig.webAuthn.rpID,
         userVerification: mfaConfig.webAuthn.userVerification as
@@ -232,9 +231,7 @@ export class WebAuthnService {
         timeout: mfaConfig.webAuthn.timeout,
         allowCredentials: [
           {
-            // @ts-ignore
-            id: Buffer.from(credentialID, 'base64url'),
-            type: 'public-key',
+            id: credentialID,
           },
         ],
       });
@@ -269,19 +266,24 @@ export class WebAuthnService {
       // Get challenge
       const challenge = await this.mfaChallengeRepository.findById(challengeId);
       if (!challenge || !challenge.metadata) {
-        return {
-          success: false,
-          message: 'Invalid challenge',
-        };
+        logger.warn('Invalid challenge for WebAuthn verification', { challengeId });
+        throw new WebAuthnVerificationError('Invalid challenge', {
+          type: WebAuthnErrorType.INVALID_CHALLENGE,
+          challengeId,
+        });
       }
 
       // Get factor
       const factor = await this.mfaFactorRepository.findById(challenge.factorId);
       if (!factor || factor.type !== MfaFactorType.WEBAUTHN || !factor.metadata) {
-        return {
-          success: false,
-          message: 'Invalid WebAuthn factor',
-        };
+        logger.warn('Invalid WebAuthn factor for verification', {
+          challengeId,
+          factorId: challenge.factorId,
+        });
+        throw new WebAuthnVerificationError('Invalid WebAuthn factor', {
+          type: WebAuthnErrorType.INVALID_FACTOR,
+          factorId: challenge.factorId,
+        });
       }
 
       // Extract expected values
@@ -291,28 +293,51 @@ export class WebAuthnService {
       const credentialPublicKey = Buffer.from(factor.metadata['credentialPublicKey'], 'base64url');
       const expectedCounter = factor.metadata['counter'] || 0;
 
+      // Prepare authenticator data with proper typing
+      const authenticator: WebAuthnAuthenticatorData = {
+        credentialID: Buffer.from(factor.credentialId!, 'base64url'),
+        credentialPublicKey: credentialPublicKey,
+        counter: expectedCounter,
+      };
+
       // Verify assertion
-      // @ts-ignore - Ignoring type issues with the external library
+      // Use type assertion to work around type issues with the authenticator parameter
       const verification = await verifyAuthenticationResponse({
         response: assertionResponse,
         expectedChallenge,
         expectedOrigin,
         expectedRPID,
-        // @ts-ignore
-        authenticator: {
-          credentialID: Buffer.from(factor.credentialId!, 'base64url'),
-          credentialPublicKey,
-          counter: expectedCounter,
-        },
-      });
+        authenticator,
+        ...(mfaConfig.webAuthn.userVerification === 'required'
+          ? { requireUserVerification: true }
+          : {}),
+      } as any);
 
       if (verification.verified) {
-        // Update counter
+        const newCounter = verification.authenticationInfo.newCounter;
+
+        // Verify counter to prevent replay attacks
+        if (newCounter <= expectedCounter) {
+          const details = {
+            factorId: factor.id,
+            expectedCounter,
+            receivedCounter: newCounter,
+            type: WebAuthnErrorType.REPLAY_ATTACK,
+          };
+
+          logger.warn('Possible replay attack detected', details);
+
+          throw new WebAuthnVerificationError(
+            'Authentication failed: Invalid counter value',
+            details
+          );
+        }
+
+        // Update factor with new counter value
         await this.mfaFactorRepository.update(factor.id, {
           metadata: {
             ...factor.metadata,
-            // @ts-ignore
-            counter: verification.authenticationInfo.newCounter,
+            counter: newCounter,
           },
         });
 
@@ -331,7 +356,30 @@ export class WebAuthnService {
         };
       }
     } catch (error: any) {
-      logger.error('Failed to verify WebAuthn challenge', { error, challengeId });
+      // Handle WebAuthnVerificationError specifically
+      if (error instanceof WebAuthnVerificationError) {
+        logger.warn('WebAuthn verification failed', {
+          error: error.message,
+          details: error.details,
+          challengeId,
+        });
+
+        return {
+          success: false,
+          message: error.message,
+          factorId: error.details['factorId'],
+          factorType: MfaFactorType.WEBAUTHN,
+        };
+      }
+
+      // Handle other errors
+      logger.error('Failed to verify WebAuthn challenge', {
+        error,
+        challengeId,
+        errorMessage: error.message,
+        stack: error.stack,
+      });
+
       return {
         success: false,
         message: 'Failed to verify WebAuthn challenge: ' + error.message,

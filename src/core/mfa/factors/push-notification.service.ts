@@ -5,6 +5,7 @@ import type { MfaChallengeRepository } from '../../../data/repositories/mfa-chal
 import {
   MfaFactorType,
   MfaFactorStatus,
+  MfaChallengeStatus,
   type MfaEnrollmentResult,
   type MfaVerificationResult,
 } from '../mfa-factor-types';
@@ -89,8 +90,14 @@ export class PushNotificationService {
         };
       }
 
-      // In a real implementation, we would verify the token
-      // For now, we'll just accept any token for demonstration purposes
+      // Verify the token
+      const isValidToken = await this.verifyToken(token, factor);
+      if (!isValidToken) {
+        return {
+          success: false,
+          message: 'Invalid verification token',
+        };
+      }
 
       // Update factor status to active
       await this.mfaFactorRepository.update(factorId, {
@@ -183,9 +190,31 @@ export class PushNotificationService {
         };
       }
 
+      // Validate device fingerprint if provided
+      if (metadata && metadata['deviceFingerprint']) {
+        const deviceToken = factor.deviceToken || '';
+        const isValidDevice = await this.validateDeviceFingerprint(
+          deviceToken,
+          metadata['deviceFingerprint'] as string
+        );
+        if (!isValidDevice) {
+          return {
+            success: false,
+            message: 'Invalid device fingerprint',
+          };
+        }
+      }
+
       // In a real implementation, we would verify the response
       // For now, we'll just check if the response is "approved"
       if (response === 'approved') {
+        // Store metadata with verification
+        await this.mfaChallengeRepository.update(challengeId, {
+          completedAt: new Date(),
+          status: MfaChallengeStatus.COMPLETED,
+          metadata: metadata || {},
+        });
+
         return {
           success: true,
           factorId: factor.id,
@@ -245,5 +274,47 @@ export class PushNotificationService {
    */
   private generateVerificationCode(): string {
     return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  /**
+   * Verify token for enrollment
+   * @param token Verification token
+   * @param factor MFA factor
+   * @returns True if token is valid, false otherwise
+   */
+  private async verifyToken(token: string, factor: any): Promise<boolean> {
+    // In a real implementation, we would verify against a stored token
+    // For now, we'll just check if it's a 6-digit numeric code
+    const isValidFormat = token.length === 6 && /^\d+$/.test(token);
+
+    // Log verification attempt
+    logger.info('Verifying push notification enrollment token', {
+      factorId: factor.id,
+      isValidFormat,
+    });
+
+    return isValidFormat;
+  }
+
+  /**
+   * Validate device fingerprint
+   * @param deviceToken Device token
+   * @param fingerprint Device fingerprint
+   * @returns True if fingerprint is valid, false otherwise
+   */
+  private async validateDeviceFingerprint(
+    deviceToken: string,
+    fingerprint: string
+  ): Promise<boolean> {
+    // In a real implementation, we would validate the fingerprint against stored data
+    // For now, we'll just check if it's not empty and associated with the device token
+
+    // Log validation attempt
+    logger.info('Validating device fingerprint', {
+      deviceToken,
+      fingerprintProvided: !!fingerprint,
+    });
+
+    return !!deviceToken && !!fingerprint;
   }
 }

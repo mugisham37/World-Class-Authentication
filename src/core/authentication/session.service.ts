@@ -1,4 +1,5 @@
-import { Session, CreateSessionData } from '../../data/models/session.model';
+import { CreateSessionData } from '../../data/models/session.model';
+import { Session, extendSession } from './types';
 import { sessionRepository } from '../../data/repositories/session.repository';
 import { logger } from '../../infrastructure/logging/logger';
 import { securityConfig } from '../../config/security-config';
@@ -54,7 +55,8 @@ export class SessionService {
       };
 
       // Create session
-      const session = await sessionRepository.create(sessionData);
+      const baseSession = await sessionRepository.create(sessionData);
+      const session = extendSession(baseSession);
 
       // Emit session created event
       emitEvent(EventType.SESSION_CREATED, {
@@ -90,7 +92,8 @@ export class SessionService {
    * @returns Session or null if not found
    */
   async getSessionById(id: string): Promise<Session | null> {
-    return await sessionRepository.findById(id);
+    const baseSession = await sessionRepository.findById(id);
+    return baseSession ? extendSession(baseSession) : null;
   }
 
   /**
@@ -99,7 +102,8 @@ export class SessionService {
    * @returns Session or null if not found
    */
   async getSessionByToken(token: string): Promise<Session | null> {
-    return await sessionRepository.findByToken(token);
+    const baseSession = await sessionRepository.findByToken(token);
+    return baseSession ? extendSession(baseSession) : null;
   }
 
   /**
@@ -108,7 +112,8 @@ export class SessionService {
    * @returns List of sessions
    */
   async getUserSessions(userId: string): Promise<Session[]> {
-    return await sessionRepository.findByUserId(userId);
+    const baseSessions = await sessionRepository.findByUserId(userId);
+    return baseSessions.map(session => extendSession(session));
   }
 
   /**
@@ -118,7 +123,8 @@ export class SessionService {
    */
   async updateSessionActivity(id: string): Promise<Session> {
     try {
-      return await sessionRepository.updateLastActive(id);
+      const baseSession = await sessionRepository.updateLastActive(id);
+      return extendSession(baseSession);
     } catch (error) {
       logger.error('Failed to update session activity', {
         error,
@@ -143,7 +149,7 @@ export class SessionService {
       }
 
       // Store session data before deletion
-      const terminatedSession = { ...session };
+      const terminatedSession = extendSession(session);
 
       // Delete session
       const deleted = await sessionRepository.delete(id);
@@ -249,7 +255,7 @@ export class SessionService {
         throw new AuthenticationError('Session not found', 'SESSION_NOT_FOUND');
       }
 
-      return session;
+      return extendSession(session);
     } catch (error) {
       logger.error('Failed to validate refresh token', {
         error,

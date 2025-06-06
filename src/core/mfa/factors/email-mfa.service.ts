@@ -150,11 +150,16 @@ export class EmailMfaService {
         throw new NotFoundError('Invalid email MFA factor');
       }
 
+      // Check if email exists
+      if (!factor.email) {
+        throw new NotFoundError('Email not found for this MFA factor');
+      }
+
       // Generate verification code
       const verificationCode = this.generateVerificationCode(mfaConfig.email.codeLength);
 
       // Send verification email
-      await this.emailService.sendMfaVerificationCode(factor.email!, verificationCode);
+      await this.emailService.sendMfaVerificationCode(factor.email, verificationCode);
 
       return {
         challenge: verificationCode,

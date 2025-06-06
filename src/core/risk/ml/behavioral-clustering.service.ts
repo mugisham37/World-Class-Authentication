@@ -1,8 +1,6 @@
 import { Injectable } from '@tsed/di';
 import { logger } from '../../../infrastructure/logging/logger';
 import type { FeatureExtractionService } from './feature-extraction.service';
-import type { UserLoginHistoryRepository } from '../../../data/repositories/user-login-history.repository';
-import type { UserRepository } from '../../../data/repositories/user.repository';
 import type { CacheService } from '../../cache/cache.service';
 
 /**
@@ -16,8 +14,6 @@ export class BehavioralClusteringService {
 
   constructor(
     private featureExtractionService: FeatureExtractionService,
-    private userLoginHistoryRepository: UserLoginHistoryRepository,
-    private userRepository: UserRepository,
     private cacheService: CacheService
   ) {}
 
@@ -50,10 +46,9 @@ export class BehavioralClusteringService {
       );
 
       // Get user's login history
-      const loginHistory = await this.userLoginHistoryRepository.findRecentByUserId(userId, 50);
 
       // Determine user's behavioral cluster
-      const cluster = await this.determineCluster(features, loginHistory);
+      const cluster = await this.determineCluster(features);
 
       // Cache the cluster information
       await this.cacheService.set(cacheKey, cluster, this.CACHE_TTL);
@@ -78,10 +73,7 @@ export class BehavioralClusteringService {
    * @param loginHistory User's login history
    * @returns Cluster information
    */
-  private async determineCluster(
-    features: Record<string, any>,
-    loginHistory: any[]
-  ): Promise<Record<string, any>> {
+  private async determineCluster(features: Record<string, any>): Promise<Record<string, any>> {
     try {
       // In a real implementation, this would use a clustering algorithm
       // For now, we'll use a simple rule-based approach

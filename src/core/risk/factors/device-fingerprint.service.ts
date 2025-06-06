@@ -419,7 +419,7 @@ export class DeviceFingerprintService {
           const brandMatch = model.match(
             /^(Samsung|LG|Huawei|Xiaomi|OnePlus|Google|Motorola|Sony|Nokia|HTC)/i
           );
-          if (bruandMatch) {
+          if (brandMatch) {
             brand = brandMatch[1];
           }
         }
@@ -477,7 +477,8 @@ export class DeviceFingerprintService {
 
       // Check for touch support inconsistency
       if (
-        (device?.type === 'mobile' || device?.type === 'tablet') &&
+        device &&
+        (device.type === 'mobile' || device.type === 'tablet') &&
         data['touchSupport'] === false
       ) {
         anomalies.push('touch_support_inconsistency');
@@ -604,9 +605,9 @@ export class DeviceFingerprintService {
 
       // Unusual OS versions
       if (
-        (os?.name === 'Windows' && ['XP', 'Vista', '7'].includes(os.version || '')) ||
-        (os?.name === 'Android' && Number.parseInt(os.version || '0') < 8) ||
-        (os?.name === 'iOS' && Number.parseInt(os.version || '0') < 12)
+        (os?.name === 'Windows' && os?.version && ['XP', 'Vista', '7'].includes(os.version)) ||
+        (os?.name === 'Android' && os?.version && Number.parseInt(os.version || '0') < 8) ||
+        (os?.name === 'iOS' && os?.version && Number.parseInt(os.version || '0') < 12)
       ) {
         suspiciousScore += 20;
       }
