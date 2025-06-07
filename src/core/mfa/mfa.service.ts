@@ -805,4 +805,69 @@ export class MfaService {
 
     return result.recoveryCodes || [];
   }
+
+  /**
+   * Verify a recovery code for a user
+   * @param userId User ID
+   * @param recoveryCode Recovery code to verify
+   * @returns Verification result
+   */
+  async verifyRecoveryCode(userId: string, recoveryCode: string): Promise<MfaVerificationResult> {
+    try {
+      // Find recovery code factors for the user
+      const recoveryFactors = await this.mfaFactorRepository.findByUserIdAndType(
+        userId,
+        MfaFactorType.RECOVERY_CODE
+      );
+
+      if (recoveryFactors.length === 0) {
+        return {
+          success: false,
+          message: 'No recovery codes found for this user',
+        };
+      }
+
+      // Try to verify the code with each factor
+      for (const factor of recoveryFactors) {
+        if (factor.status === MfaFactorStatus.ACTIVE) {
+          const result = await this.recoveryCodeService.verifyChallenge(factor.id, recoveryCode);
+          if (result.success) {
+            // Log successful verification
+            await this.auditLogService.create({
+              userId,
+              action: 'MFA_RECOVERY_CODE_USED',
+              entityType: 'MFA_FACTOR',
+              entityId: factor.id,
+            });
+
+            return result;
+          }
+        }
+      }
+
+      // If we get here, no valid code was found
+      return {
+        success: false,
+        message: 'Invalid recovery code',
+      };
+    } catch (error: any) {
+      logger.error('Failed to verify recovery code', { error, userId });
+
+      // Log verification error
+      await this.auditLogService.create({
+        userId,
+        action: 'MFA_RECOVERY_CODE_VERIFICATION_ERROR',
+        entityType: 'USER',
+        entityId: userId,
+        metadata: {
+          error: error.message,
+        },
+      });
+
+      return {
+        success: false,
+        message: 'Error verifying recovery code: ' + error.message,
+      };
+    }
+  }
 }
