@@ -4,6 +4,7 @@ import { DatabaseError } from '../../utils/error-handling';
 import { UserProfile } from '../models/user.model';
 import { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
+import { TransactionClient, safeTransaction } from '../types/prisma-types';
 
 /**
  * User profile repository interface
@@ -208,13 +209,21 @@ export class PrismaUserProfileRepository
     userId: string,
     data: Partial<UserProfile>
   ): Promise<UserProfile> {
-    return await this.prisma.$transaction(async tx => {
-      // Create a new instance with the transaction client
-      const repo = new PrismaUserProfileRepository(tx as PrismaClient);
+    return await safeTransaction(
+      this.prisma,
+      async (tx: TransactionClient) => {
+        // Create a new instance with the transaction client
+        const repo = this.withTransaction(tx) as UserProfileRepository;
 
-      // Use the repository to update the profile
-      return await repo.updateByUserId(userId, data);
-    });
+        // Use the repository to update the profile
+        return await repo.updateByUserId(userId, data);
+      },
+      // Fallback operation if transaction is not supported
+      async () => {
+        logger.warn('Transaction not supported, falling back to direct update');
+        return this.updateByUserId(userId, data);
+      }
+    );
   }
 
   /**
@@ -222,10 +231,10 @@ export class PrismaUserProfileRepository
    * @param tx The transaction client
    * @returns A new repository instance with the transaction client
    */
-  protected withTransaction(tx: PrismaClient): BaseRepository<UserProfile, string> {
-    return new PrismaUserProfileRepository(tx);
+  protected withTransaction(tx: TransactionClient): UserProfileRepository {
+    return new PrismaUserProfileRepository(tx as PrismaClient);
   }
 }
 
-// Export a singleton instance
-export const userProfileRepository = new PrismaUserProfileRepository();
+// Export a singleton instance with a proper PrismaClient
+export const userProfileRepository = new PrismaUserProfileRepository(new PrismaClient());

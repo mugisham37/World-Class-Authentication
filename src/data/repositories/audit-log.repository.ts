@@ -652,7 +652,7 @@ export class PrismaAuditLogRepository
             _count: true,
           });
           result = actionStats.reduce(
-            (acc, curr) => {
+            (acc: Record<string, number>, curr: { action: string; _count: number }) => {
               acc[curr.action] = curr._count;
               return acc;
             },
@@ -667,7 +667,7 @@ export class PrismaAuditLogRepository
             _count: true,
           });
           result = entityTypeStats.reduce(
-            (acc, curr) => {
+            (acc: Record<string, number>, curr: { entityType: string | null; _count: number }) => {
               acc[curr.entityType || 'unknown'] = curr._count;
               return acc;
             },
@@ -691,7 +691,10 @@ export class PrismaAuditLogRepository
           // Process logs to extract severity information
           // This is a placeholder implementation - adjust based on your actual data structure
           result = severityLogs.reduce(
-            (acc, log) => {
+            (
+              acc: Record<string, number>,
+              log: { id: string; metadata: Prisma.JsonValue | null }
+            ) => {
               // Assuming severity might be stored in metadata
               const severity =
                 log.metadata && typeof log.metadata === 'object'
@@ -712,7 +715,7 @@ export class PrismaAuditLogRepository
             _count: true,
           });
           result = statusStats.reduce(
-            (acc, curr) => {
+            (acc: Record<string, number>, curr: { status: string; _count: number }) => {
               acc[curr.status] = curr._count;
               return acc;
             },
@@ -733,7 +736,7 @@ export class PrismaAuditLogRepository
           });
 
           result = timeLogs.reduce(
-            (acc, log) => {
+            (acc: Record<string, number>, log: { createdAt: Date }) => {
               let key: string;
               const date = log.createdAt;
 

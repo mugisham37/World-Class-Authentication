@@ -1,5 +1,4 @@
 import {
-  PrismaClient,
   User as PrismaUser,
   UserProfile as PrismaUserProfile,
   Credential,
@@ -9,7 +8,7 @@ import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
 import { Session } from '../models/session.model';
 import { User, UserFilterOptions, UserProfile } from '../models/user.model';
-import { ExtendedPrismaClient } from '../prisma/client';
+import { executeInTransaction, TransactionClient } from '../types/prisma-types';
 import { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
 import { UserRepository } from './user.repository';
@@ -23,7 +22,7 @@ import { UserRepository } from './user.repository';
 function mapPrismaUserToModel(prismaUser: PrismaUser & { credentials?: Credential[] }): User {
   // Find password credential if available
   const passwordCredential = prismaUser.credentials?.find(
-    cred => cred.type === ('PASSWORD' as CredentialType)
+    (cred: Credential) => cred.type === ('PASSWORD' as CredentialType)
   );
 
   return {
@@ -440,7 +439,7 @@ export class PrismaUserRepository
 
       // Find the password credential
       const passwordCredential = user.credentials.find(
-        cred => cred.type === ('PASSWORD' as CredentialType)
+        (cred: Credential) => cred.type === ('PASSWORD' as CredentialType)
       );
 
       if (passwordCredential) {
@@ -486,7 +485,8 @@ export class PrismaUserRepository
       const { password, ...userData } = data;
 
       // Create user in transaction to ensure atomicity
-      return await this.prisma.$transaction(async tx => {
+      // Use executeInTransaction helper to handle type compatibility
+      return await executeInTransaction(this.prisma, async (tx: TransactionClient) => {
         // Create the user
         const user = await tx.user.create({
           data: userData as any,
@@ -547,7 +547,8 @@ export class PrismaUserRepository
       const { password, ...userData } = data;
 
       // Update user in transaction to ensure atomicity
-      return await this.prisma.$transaction(async tx => {
+      // Use executeInTransaction helper to handle type compatibility
+      return await executeInTransaction(this.prisma, async (tx: TransactionClient) => {
         // Update the user
         const user = await tx.user.update({
           where: { id },
@@ -564,7 +565,7 @@ export class PrismaUserRepository
         // Update password credential if password is provided
         if (password) {
           const passwordCredential = user.credentials.find(
-            cred => cred.type === ('PASSWORD' as CredentialType)
+            (cred: Credential) => cred.type === ('PASSWORD' as CredentialType)
           );
 
           if (passwordCredential) {
@@ -702,9 +703,8 @@ export class PrismaUserRepository
    * @param tx The transaction client
    * @returns A new repository instance with the transaction client
    */
-  protected override withTransaction(
-    tx: PrismaClient | ExtendedPrismaClient
-  ): BaseRepository<User, string> {
+  protected override withTransaction(tx: TransactionClient): BaseRepository<User, string> {
+    // Create a new repository instance with the transaction client
     return new PrismaUserRepository(tx);
   }
 }

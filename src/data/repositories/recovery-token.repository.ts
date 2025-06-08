@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, RecoveryToken as PrismaRecoveryToken } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
 import {
@@ -10,16 +10,55 @@ import { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
 
 // Type mapping helper for converting between Prisma and model types
-const mapPrismaRecoveryTokenToModel = (prismaToken: any): RecoveryToken => {
+const mapPrismaRecoveryTokenToModel = (prismaToken: PrismaRecoveryToken): RecoveryToken => {
   return {
-    ...prismaToken,
+    id: prismaToken.id,
+    token: prismaToken.token,
     type: prismaToken.type as unknown as RecoveryTokenType,
+    userId: prismaToken.userId || '', // Ensure userId is never null
+    email: prismaToken.email,
+    expiresAt: prismaToken.expiresAt,
+    usedAt: prismaToken.usedAt,
+    createdAt: prismaToken.createdAt,
+    metadata: prismaToken.metadata as Record<string, any> | null,
   };
 };
 
 // Type mapping helper for converting model type to Prisma type
-const mapRecoveryTokenTypeToPrisma = (type: RecoveryTokenType): any => {
-  return type as any;
+const mapRecoveryTokenTypeToPrisma = (type: RecoveryTokenType): PrismaRecoveryToken['type'] => {
+  return type as unknown as PrismaRecoveryToken['type'];
+};
+
+// Type guard for PrismaRecoveryToken
+const isPrismaRecoveryToken = (token: unknown): token is PrismaRecoveryToken => {
+  return (
+    token !== null &&
+    typeof token === 'object' &&
+    'id' in token &&
+    'token' in token &&
+    'type' in token
+  );
+};
+
+/**
+ * Helper function to handle repository errors in a standardized way
+ * @param error The error that occurred
+ * @param operation Description of the operation that failed
+ * @param errorCode Error code for the database error
+ * @param context Additional context for logging
+ */
+const handleRepositoryError = (
+  error: unknown,
+  operation: string,
+  errorCode: string,
+  context: Record<string, unknown> = {}
+): never => {
+  logger.error(`Error in recovery token repository: ${operation}`, { ...context, error });
+  throw new DatabaseError(
+    `Error in recovery token repository: ${operation}`,
+    errorCode,
+    error instanceof Error ? error : undefined
+  );
 };
 
 /**
@@ -138,7 +177,12 @@ export class PrismaRecoveryTokenRepository
       const recoveryToken = await this.prisma.recoveryToken.findUnique({
         where: { token },
       });
-      return recoveryToken ? mapPrismaRecoveryTokenToModel(recoveryToken) : null;
+
+      if (recoveryToken && isPrismaRecoveryToken(recoveryToken)) {
+        return mapPrismaRecoveryTokenToModel(recoveryToken);
+      }
+
+      return null;
     } catch (error) {
       logger.error('Error finding recovery token by token string', { token, error });
       throw new DatabaseError(
@@ -165,7 +209,7 @@ export class PrismaRecoveryTokenRepository
         where,
         orderBy: { createdAt: 'desc' },
       });
-      return tokens.map(token => mapPrismaRecoveryTokenToModel(token));
+      return tokens.map((token: PrismaRecoveryToken) => mapPrismaRecoveryTokenToModel(token));
     } catch (error) {
       logger.error('Error finding recovery tokens by user ID', { userId, options, error });
       throw new DatabaseError(
@@ -189,7 +233,7 @@ export class PrismaRecoveryTokenRepository
         where,
         orderBy: { createdAt: 'desc' },
       });
-      return tokens.map(token => mapPrismaRecoveryTokenToModel(token));
+      return tokens.map((token: PrismaRecoveryToken) => mapPrismaRecoveryTokenToModel(token));
     } catch (error) {
       logger.error('Error finding recovery tokens by email', { email, options, error });
       throw new DatabaseError(
@@ -221,7 +265,7 @@ export class PrismaRecoveryTokenRepository
         },
         orderBy: { createdAt: 'desc' },
       });
-      return tokens.map(token => mapPrismaRecoveryTokenToModel(token));
+      return tokens.map((token: PrismaRecoveryToken) => mapPrismaRecoveryTokenToModel(token));
     } catch (error) {
       logger.error('Error finding active recovery tokens by user ID and type', {
         userId,
@@ -254,7 +298,7 @@ export class PrismaRecoveryTokenRepository
         },
         orderBy: { createdAt: 'desc' },
       });
-      return tokens.map(token => mapPrismaRecoveryTokenToModel(token));
+      return tokens.map((token: PrismaRecoveryToken) => mapPrismaRecoveryTokenToModel(token));
     } catch (error) {
       logger.error('Error finding active recovery tokens by email and type', {
         email,
@@ -282,13 +326,18 @@ export class PrismaRecoveryTokenRepository
           usedAt: new Date(),
         },
       });
+
+      if (!isPrismaRecoveryToken(token)) {
+        throw new Error('Invalid token data returned from database');
+      }
+
       return mapPrismaRecoveryTokenToModel(token);
     } catch (error) {
-      logger.error('Error marking recovery token as used', { id, error });
-      throw new DatabaseError(
-        'Error marking recovery token as used',
+      return handleRepositoryError(
+        error,
+        'marking recovery token as used',
         'RECOVERY_TOKEN_MARK_AS_USED_ERROR',
-        error instanceof Error ? error : undefined
+        { id }
       );
     }
   }
@@ -306,13 +355,18 @@ export class PrismaRecoveryTokenRepository
           usedAt: new Date(),
         },
       });
+
+      if (!isPrismaRecoveryToken(updatedToken)) {
+        throw new Error('Invalid token data returned from database');
+      }
+
       return mapPrismaRecoveryTokenToModel(updatedToken);
     } catch (error) {
-      logger.error('Error marking recovery token as used by token string', { token, error });
-      throw new DatabaseError(
-        'Error marking recovery token as used by token string',
+      return handleRepositoryError(
+        error,
+        'marking recovery token as used by token string',
         'RECOVERY_TOKEN_MARK_AS_USED_BY_TOKEN_ERROR',
-        error instanceof Error ? error : undefined
+        { token }
       );
     }
   }
@@ -332,7 +386,12 @@ export class PrismaRecoveryTokenRepository
           usedAt: null,
         },
       });
-      return recoveryToken ? mapPrismaRecoveryTokenToModel(recoveryToken) : null;
+
+      if (recoveryToken && isPrismaRecoveryToken(recoveryToken)) {
+        return mapPrismaRecoveryTokenToModel(recoveryToken);
+      }
+
+      return null;
     } catch (error) {
       logger.error('Error verifying recovery token', { token, error });
       throw new DatabaseError(
@@ -471,85 +530,85 @@ export class PrismaRecoveryTokenRepository
    * @param filter The filter options
    * @returns The Prisma where clause
    */
-  private buildWhereClause(filter?: RecoveryTokenFilterOptions): any {
+  private buildWhereClause(filter?: RecoveryTokenFilterOptions): Record<string, unknown> {
     if (!filter) {
       return {};
     }
 
-    const where: any = {};
+    const where: Record<string, unknown> = {};
 
     if (filter.id) {
-      where.id = filter.id;
+      where['id'] = filter.id;
     }
 
     if (filter.token) {
-      where.token = filter.token;
+      where['token'] = filter.token;
     }
 
     if (filter.type) {
-      where.type = mapRecoveryTokenTypeToPrisma(filter.type);
+      where['type'] = mapRecoveryTokenTypeToPrisma(filter.type);
     }
 
     if (filter.userId) {
-      where.userId = filter.userId;
+      where['userId'] = filter.userId;
     }
 
     if (filter.email) {
-      where.email = filter.email;
+      where['email'] = filter.email;
     }
 
     // Boolean filters
     if (filter.isUsed !== undefined) {
       if (filter.isUsed) {
-        where.usedAt = { not: null };
+        where['usedAt'] = { not: null };
       } else {
-        where.usedAt = null;
+        where['usedAt'] = null;
       }
     }
 
     if (filter.isExpired !== undefined) {
       const now = new Date();
       if (filter.isExpired) {
-        where.expiresAt = { lt: now };
+        where['expiresAt'] = { lt: now };
       } else {
-        where.expiresAt = { gte: now };
+        where['expiresAt'] = { gte: now };
       }
     }
 
     // Date range filters
     if (filter.createdAtBefore || filter.createdAtAfter) {
-      where.createdAt = {};
+      where['createdAt'] = {} as Record<string, unknown>;
 
       if (filter.createdAtBefore) {
-        where.createdAt.lte = filter.createdAtBefore;
+        (where['createdAt'] as Record<string, unknown>)['lte'] = filter.createdAtBefore;
       }
 
       if (filter.createdAtAfter) {
-        where.createdAt.gte = filter.createdAtAfter;
+        (where['createdAt'] as Record<string, unknown>)['gte'] = filter.createdAtAfter;
       }
     }
 
     if (filter.expiresAtBefore || filter.expiresAtAfter) {
-      where.expiresAt = where.expiresAt || {};
+      where['expiresAt'] = (where['expiresAt'] as Record<string, unknown>) || {};
 
       if (filter.expiresAtBefore) {
-        where.expiresAt.lte = filter.expiresAtBefore;
+        (where['expiresAt'] as Record<string, unknown>)['lte'] = filter.expiresAtBefore;
       }
 
       if (filter.expiresAtAfter) {
-        where.expiresAt.gte = filter.expiresAtAfter;
+        (where['expiresAt'] as Record<string, unknown>)['gte'] = filter.expiresAtAfter;
       }
     }
 
     if (filter.usedAtBefore || filter.usedAtAfter) {
-      where.usedAt = where.usedAt || {};
+      where['usedAt'] = (where['usedAt'] as Record<string, unknown>) || {};
 
       if (filter.usedAtBefore) {
-        where.usedAt.lte = filter.usedAtBefore;
+        (where['usedAt'] as Record<string, unknown>)['lte'] = filter.usedAtBefore;
       }
 
       if (filter.usedAtAfter) {
-        where.usedAt.gte = filter.usedAtAfter;
+        (where['usedAt'] as Record<string, unknown>)['gte'] = filter.usedAtAfter;
       }
     }
 

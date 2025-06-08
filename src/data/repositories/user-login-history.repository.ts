@@ -1,20 +1,19 @@
 import { Injectable } from '@tsed/di';
 import { PrismaBaseRepository } from './prisma-base.repository';
-import { PrismaClient } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { BaseRepository } from './base.repository';
-import { ExtendedPrismaClient } from '../prisma/client';
+import { TransactionClient, PrismaClientType } from '../types/prisma-types';
 
 /**
  * Repository for user login history
  */
 @Injectable()
 export class UserLoginHistoryRepository extends PrismaBaseRepository<any, string> {
-  protected override readonly prisma: PrismaClient | ExtendedPrismaClient;
+  protected override readonly prisma: PrismaClientType;
   protected readonly modelName: string = 'userLoginHistory';
   protected logger = logger;
 
-  constructor(prisma: PrismaClient | ExtendedPrismaClient) {
+  constructor(prisma: PrismaClientType) {
     super(prisma);
     this.prisma = prisma;
   }
@@ -24,7 +23,7 @@ export class UserLoginHistoryRepository extends PrismaBaseRepository<any, string
    * @param tx The transaction client
    * @returns A new repository instance with the transaction client
    */
-  protected withTransaction(tx: PrismaClient | ExtendedPrismaClient): BaseRepository<any, string> {
+  protected override withTransaction(tx: TransactionClient): BaseRepository<any, string> {
     const repo = new UserLoginHistoryRepository(tx);
     return repo;
   }

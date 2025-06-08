@@ -1,7 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError, NotFoundError } from '../../utils/error-handling';
-import { prisma, ExtendedPrismaClient } from '../prisma/client';
+import { prisma } from '../prisma/client';
 import {
   BaseRepository,
   CreateData,
@@ -11,6 +11,12 @@ import {
   TransactionOptions,
   UpdateData,
 } from './base.repository';
+import {
+  PrismaClientType,
+  TransactionClient,
+  supportsTransactions,
+  executeInTransaction,
+} from '../types/prisma-types';
 
 /**
  * Base Prisma repository implementation
@@ -24,7 +30,7 @@ export abstract class PrismaBaseRepository<T, ID>
   /**
    * The Prisma client instance
    */
-  protected readonly prisma: PrismaClient | ExtendedPrismaClient;
+  protected readonly prisma: PrismaClientType;
 
   /**
    * The Prisma model name
@@ -35,7 +41,7 @@ export abstract class PrismaBaseRepository<T, ID>
    * Constructor
    * @param prismaClient Optional Prisma client instance
    */
-  constructor(prismaClient?: PrismaClient | ExtendedPrismaClient) {
+  constructor(prismaClient?: PrismaClientType) {
     this.prisma = prismaClient || prisma;
   }
 
@@ -212,10 +218,10 @@ export abstract class PrismaBaseRepository<T, ID>
     try {
       // Prisma's createMany doesn't return the created records
       // So we use transaction to create each record and return them
-      const results = await this.prisma.$transaction(async tx => {
+      const results = await (this.prisma as any).$transaction(async (tx: any) => {
         const createdItems: T[] = [];
         for (const item of data) {
-          const result = await (tx as any)[this.modelName].create({
+          const result = await tx[this.modelName].create({
             data: item,
           });
           createdItems.push(result as T);
@@ -406,37 +412,35 @@ export abstract class PrismaBaseRepository<T, ID>
    * @returns The result of the callback function
    */
   async transaction<R>(
-    callback: (
-      tx: Omit<
-        PrismaClient | ExtendedPrismaClient,
-        '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
-      >
-    ) => Promise<R>,
+    callback: (tx: TransactionClient) => Promise<R>,
     options?: TransactionOptions
   ): Promise<R> {
     try {
+      // Check if the client supports transactions
+      if (!supportsTransactions(this.prisma)) {
+        throw new Error(`Transaction not supported for ${this.modelName}`);
+      }
+
       // Prepare transaction options
       const txOptions: {
-        isolationLevel?: any;
+        isolationLevel?: Prisma.TransactionIsolationLevel;
         timeout?: number;
-      } = {};
+        maxWait?: number;
+      } = {
+        maxWait: 5000,
+        timeout: 10000,
+      };
 
       if (options?.isolationLevel) {
-        txOptions.isolationLevel = options.isolationLevel;
+        txOptions.isolationLevel = options.isolationLevel as Prisma.TransactionIsolationLevel;
       }
 
       if (options?.timeout) {
         txOptions.timeout = options.timeout;
       }
 
-      // Execute the transaction
-      return await this.prisma.$transaction(async prismaClient => {
-        // Create a new instance of the repository with the transaction client
-        // const repo = this.withTransaction(prismaClient as PrismaClient);
-
-        // Execute the callback with the transaction client
-        return await callback(prismaClient as any);
-      }, txOptions);
+      // Use executeInTransaction which handles the type checking
+      return await executeInTransaction(this.prisma, callback);
     } catch (error) {
       logger.error(`Transaction failed for ${this.modelName}`, { error });
       throw new DatabaseError(
@@ -452,7 +456,5 @@ export abstract class PrismaBaseRepository<T, ID>
    * @param tx The transaction client
    * @returns A new repository instance with the transaction client
    */
-  protected abstract withTransaction(
-    tx: PrismaClient | ExtendedPrismaClient
-  ): BaseRepository<T, ID>;
+  protected abstract withTransaction(tx: TransactionClient): BaseRepository<T, ID>;
 }

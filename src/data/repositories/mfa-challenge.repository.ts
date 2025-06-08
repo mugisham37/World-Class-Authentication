@@ -1,14 +1,15 @@
-import { PrismaClient } from '@prisma/client';
+import { MfaChallenge as PrismaMfaChallenge } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
 import {
   MfaChallenge,
-  MfaChallengeStatus,
   MfaChallengeFilterOptions,
+  MfaChallengeStatus,
   MfaChallengeVerificationResult,
 } from '../models/mfa-challenge.model';
 import { BaseRepository } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
+import { PrismaClientType, TransactionClient } from '../types/prisma-types';
 
 /**
  * MFA challenge repository interface
@@ -105,6 +106,14 @@ export class PrismaMfaChallengeRepository
   implements MfaChallengeRepository
 {
   /**
+   * Constructor
+   * @param prismaClient Optional Prisma client instance
+   */
+  constructor(prismaClient?: PrismaClientType) {
+    super(prismaClient);
+  }
+
+  /**
    * The Prisma model name
    */
   protected readonly modelName = 'mfaChallenge';
@@ -114,7 +123,7 @@ export class PrismaMfaChallengeRepository
    * @param prismaMfaChallenge The Prisma MFA challenge
    * @returns The domain MFA challenge
    */
-  protected mapToDomainModel(prismaMfaChallenge: any): MfaChallenge {
+  protected mapToDomainModel(prismaMfaChallenge: PrismaMfaChallenge): MfaChallenge {
     // Map the Prisma status to the domain status
     let status: MfaChallengeStatus;
     switch (prismaMfaChallenge.status) {
@@ -144,7 +153,7 @@ export class PrismaMfaChallengeRepository
       completedAt: prismaMfaChallenge.completedAt,
       status,
       attempts: prismaMfaChallenge.attempts,
-      metadata: prismaMfaChallenge.metadata,
+      metadata: prismaMfaChallenge.metadata as Record<string, any> | null,
     };
   }
 
@@ -576,7 +585,7 @@ export class PrismaMfaChallengeRepository
    * @param tx The transaction client
    * @returns A new repository instance with the transaction client
    */
-  protected withTransaction(tx: PrismaClient): BaseRepository<MfaChallenge, string> {
+  protected withTransaction(tx: TransactionClient): PrismaMfaChallengeRepository {
     return new PrismaMfaChallengeRepository(tx);
   }
 }

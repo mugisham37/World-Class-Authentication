@@ -1,0 +1,20 @@
+{
+  "watch": ["src"],
+  "ext": "ts,json",
+  "ignore": ["src/**/*.spec.ts", "src/**/*.test.ts"],
+  "exec": "ts-node src/server.ts",
+  "events": {
+    "restart": "echo \"Server restarted due to changes\"",
+    "crash": "echo \"Server crashed - waiting for changes before restarting\""
+  },
+  "env": {
+    "NODE_ENV": "development",
+    "TS_NODE_PROJECT": "tsconfig.json",
+    "PRISMA_STUDIO_VERBOSE": "false",
+    "PRISMA_HIDE_UPDATE_MESSAGE": "true"
+  },
+  "quiet": false,
+  "verbose": false,
+  "colours": true,
+  "restartable": "rs"
+}

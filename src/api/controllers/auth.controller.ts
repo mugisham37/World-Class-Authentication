@@ -175,7 +175,7 @@ class RequestValidator {
  * Enhanced Authentication Controller with comprehensive error handling and type safety
  */
 export class AuthController extends BaseController {
-  private readonly isProduction = process.env.NODE_ENV === 'production';
+  private readonly isProduction = process.env['NODE_ENV'] === 'production';
   private readonly cookieConfig = getCookieConfig(this.isProduction);
 
   /**
@@ -667,7 +667,7 @@ export class AuthController extends BaseController {
   terminateSession = this.handleAsync(
     async (req: AuthenticatedRequest, res: Response): Promise<void> => {
       const user = this.validateAuthenticatedUser(req);
-      const sessionId = req.params.id;
+      const sessionId = req.params['id'];
 
       if (!sessionId || typeof sessionId !== 'string') {
         throw new BadRequestError('Session ID is required', 'SESSION_ID_REQUIRED');

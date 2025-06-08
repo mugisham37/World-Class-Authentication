@@ -1,10 +1,14 @@
-import type { PrismaClient } from '@prisma/client';
-import { Prisma } from '@prisma/client';
+import { Prisma, PasswordHistory as PrismaPasswordHistory } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
-import type { PasswordHistory } from '../models/password-history.model';
-import type { BaseRepository } from './base.repository';
+import {
+  PasswordHistory,
+  PasswordHistoryFilterOptions,
+  CreatePasswordHistoryData,
+} from '../models/password-history.model';
+import { BaseRepository, QueryOptions } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
+import { TransactionClient } from '../types/prisma-types';
 
 /**
  * Password history repository interface
@@ -13,56 +17,56 @@ import { PrismaBaseRepository } from './prisma-base.repository';
 export interface PasswordHistoryRepository extends BaseRepository<PasswordHistory, string> {
   /**
    * Find password history entries by user ID
-   * @param userId User ID
-   * @param limit Maximum number of entries to return
-   * @returns List of password history entries
+   * @param userId The user ID
+   * @param options Optional query options
+   * @returns Array of password history entries
    */
-  findByUserId(userId: string, limit?: number): Promise<PasswordHistory[]>;
+  findByUserId(userId: string, options?: QueryOptions): Promise<PasswordHistory[]>;
 
   /**
    * Find password history entries by credential ID
-   * @param credentialId Credential ID
-   * @param limit Maximum number of entries to return
-   * @returns List of password history entries
+   * @param credentialId The credential ID
+   * @param options Optional query options
+   * @returns Array of password history entries
    */
-  findByCredentialId(credentialId: string, limit?: number): Promise<PasswordHistory[]>;
+  findByCredentialId(credentialId: string, options?: QueryOptions): Promise<PasswordHistory[]>;
 
   /**
-   * Count password history entries by user ID
-   * @param userId User ID
-   * @returns Number of password history entries
+   * Find password history entries by user ID and credential ID
+   * @param userId The user ID
+   * @param credentialId The credential ID
+   * @param options Optional query options
+   * @returns Array of password history entries
    */
-  countByUserId(userId: string): Promise<number>;
+  findByUserIdAndCredentialId(
+    userId: string,
+    credentialId: string,
+    options?: QueryOptions
+  ): Promise<PasswordHistory[]>;
 
   /**
-   * Check if a password hash exists in the user's history
-   * @param userId User ID
-   * @param passwordHash Password hash to check
+   * Find recent password history entries by user ID
+   * @param userId The user ID
+   * @param limit The maximum number of entries to return
+   * @returns Array of password history entries
+   */
+  findRecentByUserId(userId: string, limit: number): Promise<PasswordHistory[]>;
+
+  /**
+   * Check if a password hash exists in user's history
+   * @param userId The user ID
+   * @param passwordHash The password hash to check
    * @returns True if the password hash exists in the user's history, false otherwise
    */
-  existsByUserIdAndPasswordHash(userId: string, passwordHash: string): Promise<boolean>;
+  isPasswordHashInHistory(userId: string, passwordHash: string): Promise<boolean>;
 
   /**
-   * Delete password history entries by user ID
-   * @param userId User ID
-   * @returns Number of deleted entries
+   * Delete password history entries older than a certain date for a user
+   * @param userId The user ID
+   * @param date The date threshold
+   * @returns The number of deleted entries
    */
-  deleteByUserId(userId: string): Promise<number>;
-
-  /**
-   * Delete password history entries by credential ID
-   * @param credentialId Credential ID
-   * @returns Number of deleted entries
-   */
-  deleteByCredentialId(credentialId: string): Promise<number>;
-
-  /**
-   * Delete old password history entries for a user
-   * @param userId User ID
-   * @param maxEntries Maximum number of entries to keep
-   * @returns Number of deleted entries
-   */
-  deleteOldEntries(userId: string, maxEntries: number): Promise<number>;
+  deleteOlderThan(userId: string, date: Date): Promise<number>;
 }
 
 /**
@@ -72,76 +76,151 @@ export class PrismaPasswordHistoryRepository
   extends PrismaBaseRepository<PasswordHistory, string>
   implements PasswordHistoryRepository
 {
+  /**
+   * The Prisma model name
+   */
   protected readonly modelName = 'passwordHistory';
 
-  async findByUserId(userId: string, limit?: number): Promise<PasswordHistory[]> {
+  /**
+   * Maps a Prisma password history to a domain model password history
+   * @param prismaPasswordHistory The Prisma password history
+   * @returns The domain model password history
+   */
+  protected mapToDomainModel(prismaPasswordHistory: PrismaPasswordHistory): PasswordHistory {
+    return {
+      id: prismaPasswordHistory.id,
+      userId: prismaPasswordHistory.userId,
+      credentialId: prismaPasswordHistory.credentialId,
+      passwordHash: prismaPasswordHistory.passwordHash,
+      createdAt: prismaPasswordHistory.createdAt,
+    };
+  }
+
+  /**
+   * Find password history entries by user ID
+   * @param userId The user ID
+   * @param options Optional query options
+   * @returns Array of password history entries
+   */
+  async findByUserId(userId: string, options?: QueryOptions): Promise<PasswordHistory[]> {
     try {
-      const queryOptions: Prisma.PasswordHistoryFindManyArgs = {
+      const prismaOptions = this.toPrismaOptions(options);
+      const passwordHistories = await this.prisma.passwordHistory.findMany({
         where: { userId },
         orderBy: { createdAt: 'desc' },
-      };
+        ...prismaOptions,
+      });
 
-      // Only add take property if limit is defined
-      if (typeof limit === 'number') {
-        queryOptions.take = limit;
-      }
-
-      const entries = await this.prisma.passwordHistory.findMany(queryOptions);
-      return entries;
+      return passwordHistories.map(history => this.mapToDomainModel(history));
     } catch (error) {
-      logger.error('Error finding password history entries by user ID', { userId, error });
+      logger.error('Error finding password history by user ID', { userId, error });
       throw new DatabaseError(
-        'Error finding password history entries by user ID',
+        'Error finding password history by user ID',
         'PASSWORD_HISTORY_FIND_BY_USER_ID_ERROR',
         error instanceof Error ? error : undefined
       );
     }
   }
 
-  async findByCredentialId(credentialId: string, limit?: number): Promise<PasswordHistory[]> {
+  /**
+   * Find password history entries by credential ID
+   * @param credentialId The credential ID
+   * @param options Optional query options
+   * @returns Array of password history entries
+   */
+  async findByCredentialId(
+    credentialId: string,
+    options?: QueryOptions
+  ): Promise<PasswordHistory[]> {
     try {
-      const queryOptions: Prisma.PasswordHistoryFindManyArgs = {
+      const prismaOptions = this.toPrismaOptions(options);
+      const passwordHistories = await this.prisma.passwordHistory.findMany({
         where: { credentialId },
         orderBy: { createdAt: 'desc' },
-      };
-
-      // Only add take property if limit is defined
-      if (typeof limit === 'number') {
-        queryOptions.take = limit;
-      }
-
-      const entries = await this.prisma.passwordHistory.findMany(queryOptions);
-      return entries;
-    } catch (error) {
-      logger.error('Error finding password history entries by credential ID', {
-        credentialId,
-        error,
+        ...prismaOptions,
       });
+
+      return passwordHistories.map(history => this.mapToDomainModel(history));
+    } catch (error) {
+      logger.error('Error finding password history by credential ID', { credentialId, error });
       throw new DatabaseError(
-        'Error finding password history entries by credential ID',
+        'Error finding password history by credential ID',
         'PASSWORD_HISTORY_FIND_BY_CREDENTIAL_ID_ERROR',
         error instanceof Error ? error : undefined
       );
     }
   }
 
-  async countByUserId(userId: string): Promise<number> {
+  /**
+   * Find password history entries by user ID and credential ID
+   * @param userId The user ID
+   * @param credentialId The credential ID
+   * @param options Optional query options
+   * @returns Array of password history entries
+   */
+  async findByUserIdAndCredentialId(
+    userId: string,
+    credentialId: string,
+    options?: QueryOptions
+  ): Promise<PasswordHistory[]> {
     try {
-      const count = await this.prisma.passwordHistory.count({
-        where: { userId },
+      const prismaOptions = this.toPrismaOptions(options);
+      const passwordHistories = await this.prisma.passwordHistory.findMany({
+        where: {
+          userId,
+          credentialId,
+        },
+        orderBy: { createdAt: 'desc' },
+        ...prismaOptions,
       });
-      return count;
+
+      return passwordHistories.map(history => this.mapToDomainModel(history));
     } catch (error) {
-      logger.error('Error counting password history entries by user ID', { userId, error });
+      logger.error('Error finding password history by user ID and credential ID', {
+        userId,
+        credentialId,
+        error,
+      });
       throw new DatabaseError(
-        'Error counting password history entries by user ID',
-        'PASSWORD_HISTORY_COUNT_BY_USER_ID_ERROR',
+        'Error finding password history by user ID and credential ID',
+        'PASSWORD_HISTORY_FIND_BY_USER_ID_AND_CREDENTIAL_ID_ERROR',
         error instanceof Error ? error : undefined
       );
     }
   }
 
-  async existsByUserIdAndPasswordHash(userId: string, passwordHash: string): Promise<boolean> {
+  /**
+   * Find recent password history entries by user ID
+   * @param userId The user ID
+   * @param limit The maximum number of entries to return
+   * @returns Array of password history entries
+   */
+  async findRecentByUserId(userId: string, limit: number): Promise<PasswordHistory[]> {
+    try {
+      const passwordHistories = await this.prisma.passwordHistory.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+      });
+
+      return passwordHistories.map(history => this.mapToDomainModel(history));
+    } catch (error) {
+      logger.error('Error finding recent password history by user ID', { userId, limit, error });
+      throw new DatabaseError(
+        'Error finding recent password history by user ID',
+        'PASSWORD_HISTORY_FIND_RECENT_BY_USER_ID_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Check if a password hash exists in user's history
+   * @param userId The user ID
+   * @param passwordHash The password hash to check
+   * @returns True if the password hash exists in the user's history, false otherwise
+   */
+  async isPasswordHashInHistory(userId: string, passwordHash: string): Promise<boolean> {
     try {
       const count = await this.prisma.passwordHistory.count({
         where: {
@@ -149,89 +228,138 @@ export class PrismaPasswordHistoryRepository
           passwordHash,
         },
       });
+
       return count > 0;
     } catch (error) {
-      logger.error('Error checking if password hash exists in user history', {
-        userId,
-        error,
-      });
+      logger.error('Error checking if password hash is in history', { userId, error });
       throw new DatabaseError(
-        'Error checking if password hash exists in user history',
-        'PASSWORD_HISTORY_EXISTS_BY_USER_ID_AND_PASSWORD_HASH_ERROR',
+        'Error checking if password hash is in history',
+        'PASSWORD_HISTORY_CHECK_HASH_ERROR',
         error instanceof Error ? error : undefined
       );
     }
   }
 
-  async deleteByUserId(userId: string): Promise<number> {
+  /**
+   * Delete password history entries older than a certain date for a user
+   * @param userId The user ID
+   * @param date The date threshold
+   * @returns The number of deleted entries
+   */
+  async deleteOlderThan(userId: string, date: Date): Promise<number> {
     try {
-      const result = await this.prisma.passwordHistory.deleteMany({
-        where: { userId },
-      });
-      return result.count;
-    } catch (error) {
-      logger.error('Error deleting password history entries by user ID', { userId, error });
-      throw new DatabaseError(
-        'Error deleting password history entries by user ID',
-        'PASSWORD_HISTORY_DELETE_BY_USER_ID_ERROR',
-        error instanceof Error ? error : undefined
-      );
-    }
-  }
-
-  async deleteByCredentialId(credentialId: string): Promise<number> {
-    try {
-      const result = await this.prisma.passwordHistory.deleteMany({
-        where: { credentialId },
-      });
-      return result.count;
-    } catch (error) {
-      logger.error('Error deleting password history entries by credential ID', {
-        credentialId,
-        error,
-      });
-      throw new DatabaseError(
-        'Error deleting password history entries by credential ID',
-        'PASSWORD_HISTORY_DELETE_BY_CREDENTIAL_ID_ERROR',
-        error instanceof Error ? error : undefined
-      );
-    }
-  }
-
-  async deleteOldEntries(userId: string, maxEntries: number): Promise<number> {
-    try {
-      const recentEntries = await this.prisma.passwordHistory.findMany({
-        where: { userId },
-        orderBy: { createdAt: 'desc' },
-        take: maxEntries,
-        select: { id: true },
-      });
-
-      const recentEntryIds = recentEntries.map((entry: { id: string }) => entry.id);
-
       const result = await this.prisma.passwordHistory.deleteMany({
         where: {
           userId,
-          id: {
-            notIn: recentEntryIds,
+          createdAt: {
+            lt: date,
           },
         },
       });
 
       return result.count;
     } catch (error) {
-      logger.error('Error deleting old password history entries', { userId, maxEntries, error });
+      logger.error('Error deleting password history older than date', { userId, date, error });
       throw new DatabaseError(
-        'Error deleting old password history entries',
-        'PASSWORD_HISTORY_DELETE_OLD_ENTRIES_ERROR',
+        'Error deleting password history older than date',
+        'PASSWORD_HISTORY_DELETE_OLDER_THAN_ERROR',
         error instanceof Error ? error : undefined
       );
     }
   }
 
-  protected withTransaction(tx: PrismaClient): BaseRepository<PasswordHistory, string> {
+  /**
+   * Create a new password history entry
+   * @param data The password history data
+   * @returns The created password history entry
+   */
+  override async create(data: CreatePasswordHistoryData): Promise<PasswordHistory> {
+    try {
+      const passwordHistory = await this.prisma.passwordHistory.create({
+        data: {
+          userId: data.userId,
+          credentialId: data.credentialId,
+          passwordHash: data.passwordHash,
+        },
+      });
+
+      return this.mapToDomainModel(passwordHistory);
+    } catch (error) {
+      logger.error('Error creating password history', { data, error });
+      throw new DatabaseError(
+        'Error creating password history',
+        'PASSWORD_HISTORY_CREATE_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Find password history entries by filter options
+   * @param filter The filter options
+   * @param options Optional query options
+   * @returns Array of password history entries
+   */
+  override async findBy(
+    filter: PasswordHistoryFilterOptions,
+    options?: QueryOptions
+  ): Promise<PasswordHistory[]> {
+    try {
+      const where: Prisma.PasswordHistoryWhereInput = {};
+
+      if (filter.id) {
+        where.id = filter.id;
+      }
+
+      if (filter.userId) {
+        where.userId = filter.userId;
+      }
+
+      if (filter.credentialId) {
+        where.credentialId = filter.credentialId;
+      }
+
+      if (filter.createdAtBefore) {
+        where.createdAt = {
+          ...((where.createdAt as any) || {}),
+          lt: filter.createdAtBefore,
+        };
+      }
+
+      if (filter.createdAtAfter) {
+        where.createdAt = {
+          ...((where.createdAt as any) || {}),
+          gt: filter.createdAtAfter,
+        };
+      }
+
+      const prismaOptions = this.toPrismaOptions(options);
+      const passwordHistories = await this.prisma.passwordHistory.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        ...prismaOptions,
+      });
+
+      return passwordHistories.map(history => this.mapToDomainModel(history));
+    } catch (error) {
+      logger.error('Error finding password history by filter', { filter, error });
+      throw new DatabaseError(
+        'Error finding password history by filter',
+        'PASSWORD_HISTORY_FIND_BY_FILTER_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Create a new repository instance with a transaction client
+   * @param tx The transaction client
+   * @returns A new repository instance with the transaction client
+   */
+  protected withTransaction(tx: TransactionClient): BaseRepository<PasswordHistory, string> {
     return new PrismaPasswordHistoryRepository(tx);
   }
 }
 
+// Export a singleton instance
 export const passwordHistoryRepository = new PrismaPasswordHistoryRepository();

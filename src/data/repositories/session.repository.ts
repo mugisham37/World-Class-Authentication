@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
 import { Session, UpdateSessionData, SessionFilterOptions } from '../models/session.model';
-import { BaseRepository } from './base.repository';
+import { BaseRepository, TransactionClient } from './base.repository';
 import { PrismaBaseRepository } from './prisma-base.repository';
 
 /**
@@ -720,8 +720,8 @@ export class PrismaSessionRepository
     }
   }
 
-  protected withTransaction(tx: PrismaClient): BaseRepository<Session, string> {
-    return new PrismaSessionRepository(tx);
+  protected withTransaction(tx: TransactionClient): BaseRepository<Session, string> {
+    return new PrismaSessionRepository(tx as PrismaClient);
   }
 }
 

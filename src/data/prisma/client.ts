@@ -1,6 +1,7 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
+import { ExtendedPrismaClient as ExtendedPrismaClientType } from './prisma-types';
 
 // Use Prisma's event types
 type QueryEvent = Prisma.QueryEvent;
@@ -8,8 +9,9 @@ type LogEvent = Prisma.LogEvent;
 
 /**
  * PrismaClient wrapper with properly typed events
+ * Implements the ExtendedPrismaClientType to ensure all Prisma models are accessible
  */
-export class ExtendedPrismaClient {
+export class ExtendedPrismaClient implements ExtendedPrismaClientType {
   private prisma: PrismaClient;
 
   constructor() {
@@ -75,12 +77,129 @@ export class ExtendedPrismaClient {
   }
 
   /**
+   * Execute a function within a transaction
+   * @param fn The function to execute within the transaction
+   * @param options Optional transaction options
+   * @returns The result of the function
+   */
+  async $transaction<R>(
+    fn: (prisma: ExtendedPrismaClient) => Promise<R>,
+    options?: {
+      maxWait?: number;
+      timeout?: number;
+      isolationLevel?: 'ReadUncommitted' | 'ReadCommitted' | 'RepeatableRead' | 'Serializable';
+    }
+  ): Promise<R> {
+    // Create transaction options object
+    const txOptions: any = {};
+
+    if (options?.maxWait) {
+      txOptions.maxWait = options.maxWait;
+    }
+
+    if (options?.timeout) {
+      txOptions.timeout = options.timeout;
+    }
+
+    if (options?.isolationLevel) {
+      txOptions.isolationLevel = options.isolationLevel;
+    }
+
+    // Execute the transaction
+    return this.prisma.$transaction(async tx => {
+      // Create a transaction-scoped client
+      const txClient = new ExtendedPrismaClient();
+      // Replace its Prisma instance with the transaction
+      (txClient as any).prisma = tx;
+      // Execute the provided function
+      return fn(txClient);
+    }, txOptions);
+  }
+
+  /**
    * Access to the underlying PrismaClient instance
    * Use this for model operations (e.g., prisma.user.findMany())
    */
   get client(): PrismaClient {
     return this.prisma;
   }
+
+  /**
+   * Access to the credential model
+   * This ensures TypeScript recognizes the credential property
+   */
+  get credential() {
+    return this.prisma.credential;
+  }
+
+  /**
+   * Access to the adminApproval model
+   * This ensures TypeScript recognizes the adminApproval property
+   */
+  get adminApproval() {
+    return this.prisma.adminApproval;
+  }
+
+  /**
+   * Access to the auditLog model
+   * This ensures TypeScript recognizes the auditLog property
+   */
+  get auditLog() {
+    return this.prisma.auditLog;
+  }
+
+  /**
+   * Access to the mfaChallenge model
+   * This ensures TypeScript recognizes the mfaChallenge property
+   */
+  get mfaChallenge() {
+    return this.prisma.mfaChallenge;
+  }
+
+  /**
+   * Access to the mfaFactor model
+   * This ensures TypeScript recognizes the mfaFactor property
+   */
+  get mfaFactor() {
+    return this.prisma.mfaFactor;
+  }
+
+  /**
+   * Access to the passwordHistory model
+   * This ensures TypeScript recognizes the passwordHistory property
+   */
+  get passwordHistory() {
+    return this.prisma.passwordHistory;
+  }
+
+  /**
+   * Access to the user model
+   * This ensures TypeScript recognizes the user property
+   */
+  get user() {
+    return this.prisma.user;
+  }
+
+  /**
+   * Access to the session model
+   * This ensures TypeScript recognizes the session property
+   */
+  get session() {
+    return this.prisma.session;
+  }
+
+  /**
+   * Access to the userProfile model
+   * This ensures TypeScript recognizes the userProfile property
+   */
+  get userProfile() {
+    return this.prisma.userProfile;
+  }
+
+  /**
+   * Forward any other method calls to the underlying PrismaClient
+   */
+  [key: string]: any;
 }
 
 /**

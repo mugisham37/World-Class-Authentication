@@ -1,11 +1,12 @@
 import {
-  PrismaClient,
   MfaFactor as PrismaMfaFactor,
   MfaFactorType as PrismaMfaFactorType,
   MfaFactorStatus as PrismaMfaFactorStatus,
 } from '@prisma/client';
 import { logger } from '../../infrastructure/logging/logger';
 import { DatabaseError } from '../../utils/error-handling';
+import { prisma } from '../prisma/client';
+import { TransactionClient, PrismaClientType } from '../types/prisma-types';
 import {
   MfaFactor,
   MfaFactorType,
@@ -134,6 +135,14 @@ export class PrismaMfaFactorRepository
    * @param prismaMfaFactor Prisma MFA factor
    * @returns Domain MFA factor
    */
+  /**
+   * Constructor
+   * @param prismaClient Optional Prisma client instance
+   */
+  constructor(prismaClient?: PrismaClientType) {
+    super(prismaClient || prisma);
+  }
+
   protected mapToDomainModel(prismaMfaFactor: PrismaMfaFactor): MfaFactor {
     return {
       id: prismaMfaFactor.id,
@@ -255,7 +264,7 @@ export class PrismaMfaFactorRepository
         where,
         orderBy: { createdAt: 'desc' },
       });
-      return factors.map(factor => this.mapToDomainModel(factor));
+      return factors.map((factor: PrismaMfaFactor) => this.mapToDomainModel(factor));
     } catch (error) {
       logger.error('Error finding MFA factors by user ID', { userId, options, error });
       throw new DatabaseError(
@@ -280,7 +289,7 @@ export class PrismaMfaFactorRepository
         },
         orderBy: { createdAt: 'desc' },
       });
-      return factors.map(factor => this.mapToDomainModel(factor));
+      return factors.map((factor: PrismaMfaFactor) => this.mapToDomainModel(factor));
     } catch (error) {
       logger.error('Error finding active MFA factors by user ID', { userId, error });
       throw new DatabaseError(
@@ -306,7 +315,7 @@ export class PrismaMfaFactorRepository
         },
         orderBy: { createdAt: 'desc' },
       });
-      return factors.map(factor => this.mapToDomainModel(factor));
+      return factors.map((factor: PrismaMfaFactor) => this.mapToDomainModel(factor));
     } catch (error) {
       logger.error('Error finding MFA factors by user ID and type', { userId, type, error });
       throw new DatabaseError(
@@ -632,10 +641,10 @@ export class PrismaMfaFactorRepository
    * @param tx The transaction client
    * @returns A new repository instance with the transaction client
    */
-  protected withTransaction(tx: PrismaClient): BaseRepository<MfaFactor, string> {
+  protected withTransaction(tx: TransactionClient): BaseRepository<MfaFactor, string> {
     return new PrismaMfaFactorRepository(tx);
   }
 }
 
 // Export a singleton instance
-export const mfaFactorRepository = new PrismaMfaFactorRepository();
+export const mfaFactorRepository = new PrismaMfaFactorRepository(prisma);

@@ -3,11 +3,10 @@
   "version": "1.0.0",
   "description": "A comprehensive, enterprise-grade authentication system built with Node.js, TypeScript, and modern security practices",
   "main": "dist/server.js",
-  "type": "module",
   "scripts": {
     "build": "rimraf dist && tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
-    "start:dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "start:dev": "nodemon --exec ts-node src/server.ts",
     "start:debug": "ts-node-dev --respawn --transpile-only --inspect src/server.ts",
     "start:prod": "npm run build && npm start",
     "test": "jest",
@@ -32,7 +31,9 @@
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docs:generate": "swagger-jsdoc -d docs/swagger.config.js src/api/routes/*.ts -o docs/swagger.json",
-    "dev": "concurrently \"npm run start:dev\" \"npm run db:studio\"",
+    "dev": "nodemon --exec ts-node src/server.ts",
+    "db": "prisma studio",
+    "dev:all": "concurrently \"npm run dev\" \"npm run db\"",
     "clean": "rimraf dist coverage .nyc_output",
     "typecheck": "tsc --noEmit"
   },
