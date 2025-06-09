@@ -3,6 +3,16 @@ import { BaseController } from './base.controller';
 import { sendOkResponse, sendCreatedResponse } from '../responses';
 import { AuthenticationError, BadRequestError } from '../../utils/error-handling';
 import { logger } from '../../infrastructure/logging/logger';
+import { AuthUser } from './types/auth.types';
+
+/**
+ * Type guard to check if a user object has the required properties
+ * @param user - The user object to check
+ * @returns boolean indicating if the user has the required properties
+ */
+function isValidUser(user: any): user is AuthUser {
+  return user && typeof user.id === 'string';
+}
 
 /**
  * Compliance controller
@@ -114,7 +124,12 @@ export class ComplianceController extends BaseController {
 
       sendOkResponse(res, 'Data subject requests retrieved successfully', requests);
     } catch (error) {
-      logger.error("Error getting user's data subject requests", { error, userId: req.user.id });
+      // Ensure user has id property before accessing it
+      if (req.user && isValidUser(req.user)) {
+        logger.error("Error getting user's data subject requests", { error, userId: req.user.id });
+      } else {
+        logger.error("Error getting user's data subject requests", { error, userId: 'unknown' });
+      }
       throw error;
     }
   });
@@ -134,17 +149,25 @@ export class ComplianceController extends BaseController {
 
       // In a real implementation, this would update the database
       // For now, we'll just log the request
-      logger.info('Data subject request cancelled', {
-        requestId: id,
-        userId: req.user.id,
-      });
+      // Ensure user has id property before accessing it
+      if (req.user && isValidUser(req.user)) {
+        logger.info('Data subject request cancelled', {
+          requestId: id,
+          userId: req.user.id,
+        });
+      } else {
+        logger.info('Data subject request cancelled', {
+          requestId: id,
+          userId: 'unknown',
+        });
+      }
 
       sendOkResponse(res, 'Data subject request cancelled successfully');
     } catch (error) {
       logger.error('Error cancelling data subject request', {
         error,
         requestId: req.params['id'],
-        userId: req.user?.id,
+        userId: req.user && isValidUser(req.user) ? req.user.id : 'unknown',
       });
       throw error;
     }
@@ -314,7 +337,7 @@ export class ComplianceController extends BaseController {
       // For now, we'll just log the preferences
       logger.info('Cookie preferences updated', {
         preferences,
-        userId: req.user?.id || 'anonymous',
+        userId: req.user && isValidUser(req.user) ? req.user.id : 'anonymous',
         ip: req.ip,
       });
 
@@ -322,7 +345,7 @@ export class ComplianceController extends BaseController {
       res.cookie('cookie_preferences', JSON.stringify(preferences), {
         maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
         httpOnly: false, // Allow JavaScript access
-        secure: process.env.NODE_ENV === 'production',
+        secure: process.env['NODE_ENV'] === 'production',
         sameSite: 'strict',
       });
 
@@ -330,7 +353,7 @@ export class ComplianceController extends BaseController {
     } catch (error) {
       logger.error('Error updating cookie preferences', {
         error,
-        userId: req.user?.id || 'anonymous',
+        userId: req.user && isValidUser(req.user) ? req.user.id : 'anonymous',
       });
       throw error;
     }
@@ -381,7 +404,12 @@ export class ComplianceController extends BaseController {
 
         sendOkResponse(res, 'Data processing records retrieved successfully', records);
       } catch (error) {
-        logger.error('Error getting data processing records', { error, userId: req.user.id });
+        // Ensure user has id property before accessing it
+        if (req.user && isValidUser(req.user)) {
+          logger.error('Error getting data processing records', { error, userId: req.user.id });
+        } else {
+          logger.error('Error getting data processing records', { error, userId: 'unknown' });
+        }
         throw error;
       }
     }

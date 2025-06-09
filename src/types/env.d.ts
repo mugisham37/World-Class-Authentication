@@ -19,6 +19,43 @@ declare global {
       // JWT
       JWT_SECRET?: string;
       JWT_EXPIRATION?: string;
+      JWT_ACCESS_TOKEN_SECRET?: string;
+      JWT_REFRESH_TOKEN_SECRET?: string;
+      JWT_ACCESS_TOKEN_EXPIRES_IN?: string;
+      JWT_REFRESH_TOKEN_EXPIRES_IN?: string;
+      JWT_ISSUER?: string;
+      JWT_AUDIENCE?: string;
+
+      // OAuth
+      OAUTH_ACCESS_TOKEN_TTL?: string;
+      OAUTH_REFRESH_TOKEN_TTL?: string;
+      OAUTH_ID_TOKEN_TTL?: string;
+      OAUTH_AUTHORIZATION_CODE_TTL?: string;
+      OAUTH_JWT_ALGORITHM?: string;
+      OAUTH_REQUIRE_PKCE?: string;
+      OAUTH_ALLOW_IMPLICIT_FLOW?: string;
+      OAUTH_ALLOW_CLIENT_CREDENTIALS_FLOW?: string;
+      OAUTH_ALLOW_PASSWORD_FLOW?: string;
+      OAUTH_ALLOW_REFRESH_TOKEN?: string;
+      OAUTH_ROTATE_REFRESH_TOKEN?: string;
+      OAUTH_ISSUER?: string;
+      OAUTH_JWKS_URI?: string;
+      OAUTH_AUTHORIZATION_ENDPOINT?: string;
+      OAUTH_TOKEN_ENDPOINT?: string;
+      OAUTH_USERINFO_ENDPOINT?: string;
+      OAUTH_REVOCATION_ENDPOINT?: string;
+      OAUTH_INTROSPECTION_ENDPOINT?: string;
+      OAUTH_END_SESSION_ENDPOINT?: string;
+      OAUTH_SUPPORTED_SCOPES?: string;
+      OAUTH_DEFAULT_SCOPES?: string;
+      OAUTH_SUPPORTED_PKCE_TRANSFORMATIONS?: string;
+      OAUTH_REGISTRATION_ENDPOINT?: string;
+      OAUTH_DYNAMIC_REGISTRATION?: string;
+      OAUTH_ALLOWED_GRANT_TYPES?: string;
+      OAUTH_ALLOWED_RESPONSE_TYPES?: string;
+      OAUTH_ALLOWED_SCOPES?: string;
+      OAUTH_JWT_ACCESS_TOKENS?: string;
+      OAUTH_REFRESH_TOKEN_ROTATION?: string;
 
       // Passwordless
       PASSWORDLESS_WEBAUTHN_ENABLED?: string;

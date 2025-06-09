@@ -1,210 +1,489 @@
-import dotenv from 'dotenv';
-import path from 'path';
-import { validateConfig } from '../../utils/validation';
 import { z } from 'zod';
+import { logger } from '../../infrastructure/logging/logger';
+import { validateEnvVars } from '../../utils/env-validator';
+import { loadTokenConfig, TokenConfig, tokenConfigSchema } from './token.config';
 
-// Load environment variables from .env file
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+/**
+ * TypeScript type definitions for environment variables
+ * This improves type safety when accessing process.env
+ */
+declare global {
+  namespace NodeJS {
+    interface ProcessEnv {
+      JWT_SECRET?: string;
+      OAUTH_AUTHORIZATION_CODE_TTL?: string;
+      OAUTH_ACCESS_TOKEN_TTL?: string;
+      OAUTH_REFRESH_TOKEN_TTL?: string;
+      OAUTH_ID_TOKEN_TTL?: string;
+      OAUTH_JWT_ALGORITHM?: string;
+      OAUTH_REQUIRE_PKCE?: string;
+      OAUTH_ALLOW_IMPLICIT_FLOW?: string;
+      OAUTH_ALLOW_CLIENT_CREDENTIALS_FLOW?: string;
+      OAUTH_ALLOW_PASSWORD_FLOW?: string;
+      OAUTH_ALLOW_REFRESH_TOKEN?: string;
+      OAUTH_ROTATE_REFRESH_TOKEN?: string;
+      OAUTH_ISSUER?: string;
+      OAUTH_JWKS_URI?: string;
+      OAUTH_AUTHORIZATION_ENDPOINT?: string;
+      OAUTH_TOKEN_ENDPOINT?: string;
+      OAUTH_USERINFO_ENDPOINT?: string;
+      OAUTH_REVOCATION_ENDPOINT?: string;
+      OAUTH_INTROSPECTION_ENDPOINT?: string;
+      OAUTH_END_SESSION_ENDPOINT?: string;
+      OAUTH_REGISTRATION_ENDPOINT?: string;
+      OAUTH_SUPPORTED_SCOPES?: string;
+      OAUTH_DEFAULT_SCOPES?: string;
+      OAUTH_ALLOWED_GRANT_TYPES?: string;
+      OAUTH_ALLOWED_RESPONSE_TYPES?: string;
+      OAUTH_ALLOWED_SCOPES?: string;
+      OAUTH_SUPPORTED_PKCE_TRANSFORMATIONS?: string;
+      OAUTH_DYNAMIC_REGISTRATION?: string;
+      OAUTH_JWT_ACCESS_TOKENS?: string;
+      OAUTH_REFRESH_TOKEN_ROTATION?: string;
+    }
+  }
+}
 
-// Define OAuth config schema with Zod
-const oauthConfigSchema = z.object({
-  clientSecretSalt: z.string().default('default-salt'),
-  server: z.object({
-    issuer: z.string().default('https://auth.example.com'),
-    authorizationEndpoint: z.string().default('/oauth/authorize'),
-    tokenEndpoint: z.string().default('/oauth/token'),
-    jwksEndpoint: z.string().default('/.well-known/jwks.json'),
-    userinfoEndpoint: z.string().default('/oauth/userinfo'),
-    revocationEndpoint: z.string().default('/oauth/revoke'),
-    introspectionEndpoint: z.string().default('/oauth/introspect'),
-    endSessionEndpoint: z.string().default('/oauth/logout'),
-    registrationEndpoint: z.string().optional(),
-    discoveryEndpoint: z.string().default('/.well-known/openid-configuration'),
+/**
+ * OAuth configuration schema
+ * Defines the validation schema for OAuth configuration
+ */
+export const oauthConfigSchema = z.object({
+  // Authorization code settings
+  authorizationCode: z.object({
+    ttl: z.number().int().positive().default(600), // 10 minutes
   }),
+
+  // Token settings
   tokens: z.object({
     accessToken: z.object({
+      ttl: z.number().int().positive().default(3600), // 1 hour
+      algorithm: z.string().default('RS256'),
       expiresIn: z.number().int().positive().default(3600), // 1 hour
-      algorithm: z.enum(['RS256', 'HS256']).default('RS256'),
-      privateKey: z.string().optional(),
-      publicKey: z.string().optional(),
       secret: z.string().optional(),
     }),
     refreshToken: z.object({
+      ttl: z.number().int().positive().default(2592000), // 30 days
+      rotation: z.boolean().default(true),
       expiresIn: z.number().int().positive().default(2592000), // 30 days
-      length: z.number().int().positive().default(64),
-      rotationEnabled: z.boolean().default(true),
-      rotationWindow: z.number().int().positive().default(86400), // 1 day
+      length: z.number().int().positive().default(64), // Length in characters
+      rotationWindow: z.number().int().positive().default(86400), // 1 day in seconds
     }),
     idToken: z.object({
+      ttl: z.number().int().positive().default(3600), // 1 hour
       expiresIn: z.number().int().positive().default(3600), // 1 hour
-      algorithm: z.enum(['RS256', 'HS256']).default('RS256'),
     }),
     authorizationCode: z.object({
-      expiresIn: z.number().int().positive().default(60), // 1 minute
-      length: z.number().int().positive().default(32),
+      expiresIn: z.number().int().positive().default(600), // 10 minutes
     }),
   }),
-  clients: z.object({
-    dynamicRegistration: z.boolean().default(false),
-    allowWildcardRedirectUris: z.boolean().default(false),
-    requirePkce: z.boolean().default(true),
-    defaultScopes: z.array(z.string()).default(['openid', 'profile', 'email']),
-    allowedScopes: z
+
+  // Flow settings
+  flows: z.object({
+    authorizationCode: z.object({
+      enabled: z.boolean().default(true),
+      requirePkce: z.boolean().default(true),
+    }),
+    implicit: z.object({
+      enabled: z.boolean().default(true),
+    }),
+    clientCredentials: z.object({
+      enabled: z.boolean().default(true),
+    }),
+    password: z.object({
+      enabled: z.boolean().default(false),
+    }),
+    refreshToken: z.object({
+      enabled: z.boolean().default(true),
+    }),
+  }),
+
+  // Endpoint settings
+  endpoints: z.object({
+    issuer: z.string().url().default('https://auth.example.com'),
+    jwksUri: z.string().url().default('https://auth.example.com/.well-known/jwks.json'),
+    authorization: z.string().url().default('https://auth.example.com/oauth/authorize'),
+    token: z.string().url().default('https://auth.example.com/oauth/token'),
+    userInfo: z.string().url().default('https://auth.example.com/oauth/userinfo'),
+    revocation: z.string().url().default('https://auth.example.com/oauth/revoke'),
+    introspection: z.string().url().default('https://auth.example.com/oauth/introspect'),
+    endSession: z.string().url().default('https://auth.example.com/oauth/logout'),
+  }),
+
+  // Scope settings
+  scopes: z.object({
+    supported: z
       .array(z.string())
       .default(['openid', 'profile', 'email', 'address', 'phone', 'offline_access']),
+    default: z.array(z.string()).default(['openid', 'profile', 'email']),
+  }),
+
+  // PKCE settings
+  pkce: z.object({
+    supportedTransformations: z.array(z.string()).default(['S256', 'plain']),
+  }),
+
+  // Server settings
+  server: z.object({
+    issuer: z.string().default('https://auth.example.com'),
+    registrationEndpoint: z.string().default('/oauth/register'),
+  }),
+
+  // Client settings
+  clients: z.object({
+    dynamicRegistration: z.boolean().default(false),
     allowedGrantTypes: z
       .array(z.string())
       .default(['authorization_code', 'refresh_token', 'client_credentials']),
     allowedResponseTypes: z.array(z.string()).default(['code', 'token', 'id_token']),
+    defaultScopes: z.array(z.string()).default(['openid', 'profile', 'email']),
+    allowedScopes: z
+      .array(z.string())
+      .default(['openid', 'profile', 'email', 'address', 'phone', 'offline_access']),
   }),
+
+  // Feature flags
   features: z.object({
-    pkce: z.object({
-      enabled: z.boolean().default(true),
-      forcePkceForPublicClients: z.boolean().default(true),
-    }),
     jwtAccessTokens: z.boolean().default(true),
     refreshTokenRotation: z.boolean().default(true),
-    introspection: z.boolean().default(true),
-    revocation: z.boolean().default(true),
-    deviceFlow: z.boolean().default(false),
-    clientCredentials: z.boolean().default(true),
-    implicitFlow: z.boolean().default(false),
-  }),
-  oidc: z.object({
-    enabled: z.boolean().default(true),
-    subjectTypes: z.array(z.enum(['public', 'pairwise'])).default(['public']),
-    defaultAcrValues: z.array(z.string()).default([]),
-    supportedClaims: z
-      .array(z.string())
-      .default([
-        'sub',
-        'name',
-        'given_name',
-        'family_name',
-        'middle_name',
-        'nickname',
-        'preferred_username',
-        'profile',
-        'picture',
-        'website',
-        'email',
-        'email_verified',
-        'gender',
-        'birthdate',
-        'zoneinfo',
-        'locale',
-        'phone_number',
-        'phone_number_verified',
-        'address',
-        'updated_at',
-      ]),
-    idTokenSigningAlgs: z.array(z.string()).default(['RS256']),
-  }),
-  consent: z.object({
-    enabled: z.boolean().default(true),
-    expiration: z
-      .number()
-      .int()
-      .positive()
-      .default(30 * 24 * 60 * 60), // 30 days
-    implicitForFirstParty: z.boolean().default(true),
-  }),
-  session: z.object({
-    cookieName: z.string().default('oauth_session'),
-    cookieMaxAge: z
-      .number()
-      .int()
-      .positive()
-      .default(24 * 60 * 60 * 1000), // 24 hours
-    cookieSecure: z.boolean().default(true),
-    cookieHttpOnly: z.boolean().default(true),
-    cookieSameSite: z.enum(['strict', 'lax', 'none']).default('lax'),
   }),
 });
 
-// Parse and validate environment variables
-const rawConfig = {
-  clientSecretSalt: process.env['OAUTH_CLIENT_SECRET_SALT'],
-  server: {
-    issuer: process.env['OAUTH_ISSUER'],
-    authorizationEndpoint: process.env['OAUTH_AUTHORIZATION_ENDPOINT'],
-    tokenEndpoint: process.env['OAUTH_TOKEN_ENDPOINT'],
-    jwksEndpoint: process.env['OAUTH_JWKS_ENDPOINT'],
-    userinfoEndpoint: process.env['OAUTH_USERINFO_ENDPOINT'],
-    revocationEndpoint: process.env['OAUTH_REVOCATION_ENDPOINT'],
-    introspectionEndpoint: process.env['OAUTH_INTROSPECTION_ENDPOINT'],
-    endSessionEndpoint: process.env['OAUTH_END_SESSION_ENDPOINT'],
-    registrationEndpoint: process.env['OAUTH_REGISTRATION_ENDPOINT'],
-    discoveryEndpoint: process.env['OAUTH_DISCOVERY_ENDPOINT'],
+/**
+ * OAuth configuration type
+ * TypeScript type definition for the OAuth configuration
+ */
+export type OAuthConfig = z.infer<typeof oauthConfigSchema>;
+
+/**
+ * Default OAuth configuration
+ * Provides sensible defaults for all OAuth configuration options
+ */
+export const DEFAULT_OAUTH_CONFIG: OAuthConfig = {
+  authorizationCode: {
+    ttl: 600, // 10 minutes
   },
   tokens: {
     accessToken: {
-      expiresIn: Number(process.env['OAUTH_ACCESS_TOKEN_EXPIRES_IN']),
-      algorithm: process.env['OAUTH_ACCESS_TOKEN_ALGORITHM'] as 'RS256' | 'HS256',
-      privateKey: process.env['OAUTH_PRIVATE_KEY'],
-      publicKey: process.env['OAUTH_PUBLIC_KEY'],
-      secret: process.env['OAUTH_TOKEN_SECRET'],
+      ttl: 3600, // 1 hour
+      algorithm: 'RS256',
+      expiresIn: 3600, // 1 hour
+      secret: process.env['JWT_SECRET'] || 'default-secret',
     },
     refreshToken: {
-      expiresIn: Number(process.env['OAUTH_REFRESH_TOKEN_EXPIRES_IN']),
-      length: Number(process.env['OAUTH_REFRESH_TOKEN_LENGTH']),
-      rotationEnabled: process.env['OAUTH_REFRESH_TOKEN_ROTATION_ENABLED'] === 'true',
-      rotationWindow: Number(process.env['OAUTH_REFRESH_TOKEN_ROTATION_WINDOW']),
+      ttl: 2592000, // 30 days
+      rotation: true,
+      expiresIn: 2592000, // 30 days
+      length: 64, // Length in characters
+      rotationWindow: 86400, // 1 day in seconds
     },
     idToken: {
-      expiresIn: Number(process.env['OAUTH_ID_TOKEN_EXPIRES_IN']),
-      algorithm: process.env['OAUTH_ID_TOKEN_ALGORITHM'] as 'RS256' | 'HS256',
+      ttl: 3600, // 1 hour
+      expiresIn: 3600, // 1 hour
     },
     authorizationCode: {
-      expiresIn: Number(process.env['OAUTH_AUTHORIZATION_CODE_EXPIRES_IN']),
-      length: Number(process.env['OAUTH_AUTHORIZATION_CODE_LENGTH']),
+      expiresIn: 600, // 10 minutes
     },
+  },
+  flows: {
+    authorizationCode: {
+      enabled: true,
+      requirePkce: true,
+    },
+    implicit: {
+      enabled: true,
+    },
+    clientCredentials: {
+      enabled: true,
+    },
+    password: {
+      enabled: false,
+    },
+    refreshToken: {
+      enabled: true,
+    },
+  },
+  endpoints: {
+    issuer: 'https://auth.example.com',
+    jwksUri: 'https://auth.example.com/.well-known/jwks.json',
+    authorization: 'https://auth.example.com/oauth/authorize',
+    token: 'https://auth.example.com/oauth/token',
+    userInfo: 'https://auth.example.com/oauth/userinfo',
+    revocation: 'https://auth.example.com/oauth/revoke',
+    introspection: 'https://auth.example.com/oauth/introspect',
+    endSession: 'https://auth.example.com/oauth/logout',
+  },
+  scopes: {
+    supported: ['openid', 'profile', 'email', 'address', 'phone', 'offline_access'],
+    default: ['openid', 'profile', 'email'],
+  },
+  pkce: {
+    supportedTransformations: ['S256', 'plain'],
+  },
+  server: {
+    issuer: 'https://auth.example.com',
+    registrationEndpoint: '/oauth/register',
   },
   clients: {
-    dynamicRegistration: process.env['OAUTH_DYNAMIC_REGISTRATION'] === 'true',
-    allowWildcardRedirectUris: process.env['OAUTH_ALLOW_WILDCARD_REDIRECT_URIS'] === 'true',
-    requirePkce: process.env['OAUTH_REQUIRE_PKCE'] !== 'false',
-    defaultScopes: process.env['OAUTH_DEFAULT_SCOPES']?.split(','),
-    allowedScopes: process.env['OAUTH_ALLOWED_SCOPES']?.split(','),
-    allowedGrantTypes: process.env['OAUTH_ALLOWED_GRANT_TYPES']?.split(','),
-    allowedResponseTypes: process.env['OAUTH_ALLOWED_RESPONSE_TYPES']?.split(','),
+    dynamicRegistration: false,
+    allowedGrantTypes: ['authorization_code', 'refresh_token', 'client_credentials'],
+    allowedResponseTypes: ['code', 'token', 'id_token'],
+    defaultScopes: ['openid', 'profile', 'email'],
+    allowedScopes: ['openid', 'profile', 'email', 'address', 'phone', 'offline_access'],
   },
   features: {
-    pkce: {
-      enabled: process.env['OAUTH_PKCE_ENABLED'] !== 'false',
-      forcePkceForPublicClients: process.env['OAUTH_FORCE_PKCE_FOR_PUBLIC_CLIENTS'] !== 'false',
-    },
-    jwtAccessTokens: process.env['OAUTH_JWT_ACCESS_TOKENS'] !== 'false',
-    refreshTokenRotation: process.env['OAUTH_REFRESH_TOKEN_ROTATION'] !== 'false',
-    introspection: process.env['OAUTH_INTROSPECTION_ENABLED'] !== 'false',
-    revocation: process.env['OAUTH_REVOCATION_ENABLED'] !== 'false',
-    deviceFlow: process.env['OAUTH_DEVICE_FLOW_ENABLED'] === 'true',
-    clientCredentials: process.env['OAUTH_CLIENT_CREDENTIALS_ENABLED'] !== 'false',
-    implicitFlow: process.env['OAUTH_IMPLICIT_FLOW_ENABLED'] === 'true',
-  },
-  oidc: {
-    enabled: process.env['OIDC_ENABLED'] !== 'false',
-    subjectTypes: process.env['OIDC_SUBJECT_TYPES']?.split(',') as ('public' | 'pairwise')[],
-    defaultAcrValues: process.env['OIDC_DEFAULT_ACR_VALUES']?.split(','),
-    supportedClaims: process.env['OIDC_SUPPORTED_CLAIMS']?.split(','),
-    idTokenSigningAlgs: process.env['OIDC_ID_TOKEN_SIGNING_ALGS']?.split(','),
-  },
-  consent: {
-    enabled: process.env['OAUTH_CONSENT_ENABLED'] !== 'false',
-    expiration: Number(process.env['OAUTH_CONSENT_EXPIRATION']),
-    implicitForFirstParty: process.env['OAUTH_IMPLICIT_CONSENT_FOR_FIRST_PARTY'] !== 'false',
-  },
-  session: {
-    cookieName: process.env['OAUTH_SESSION_COOKIE_NAME'],
-    cookieMaxAge: Number(process.env['OAUTH_SESSION_COOKIE_MAX_AGE']),
-    cookieSecure: process.env['OAUTH_SESSION_COOKIE_SECURE'] !== 'false',
-    cookieHttpOnly: process.env['OAUTH_SESSION_COOKIE_HTTP_ONLY'] !== 'false',
-    cookieSameSite: process.env['OAUTH_SESSION_COOKIE_SAME_SITE'] as 'strict' | 'lax' | 'none',
+    jwtAccessTokens: true,
+    refreshTokenRotation: true,
   },
 };
 
-// Validate and export config
-export const oauthConfig = validateConfig(oauthConfigSchema, rawConfig);
+/**
+ * Load OAuth configuration from environment variables
+ * @returns Validated OAuth configuration
+ */
+export function loadOAuthConfig(): OAuthConfig {
+  try {
+    // Define required and optional environment variables
+    const requiredEnvVars: string[] = [];
+    const optionalEnvVars: string[] = [
+      'OAUTH_AUTHORIZATION_CODE_TTL',
+      'OAUTH_ACCESS_TOKEN_TTL',
+      'OAUTH_REFRESH_TOKEN_TTL',
+      'OAUTH_ID_TOKEN_TTL',
+      'OAUTH_JWT_ALGORITHM',
+      'OAUTH_REQUIRE_PKCE',
+      'OAUTH_ALLOW_IMPLICIT_FLOW',
+      'OAUTH_ALLOW_CLIENT_CREDENTIALS_FLOW',
+      'OAUTH_ALLOW_PASSWORD_FLOW',
+      'OAUTH_ALLOW_REFRESH_TOKEN',
+      'OAUTH_ROTATE_REFRESH_TOKEN',
+      'OAUTH_ISSUER',
+      'OAUTH_JWKS_URI',
+      'OAUTH_AUTHORIZATION_ENDPOINT',
+      'OAUTH_TOKEN_ENDPOINT',
+      'OAUTH_USERINFO_ENDPOINT',
+      'OAUTH_REVOCATION_ENDPOINT',
+      'OAUTH_INTROSPECTION_ENDPOINT',
+      'OAUTH_END_SESSION_ENDPOINT',
+      'OAUTH_SUPPORTED_SCOPES',
+      'OAUTH_DEFAULT_SCOPES',
+      'OAUTH_SUPPORTED_PKCE_TRANSFORMATIONS',
+    ];
 
-// Export config type
-export type OAuthConfig = typeof oauthConfig;
+    // Validate environment variables
+    validateEnvVars(requiredEnvVars, optionalEnvVars);
+
+    // Load token configuration
+    const tokenConfig = loadTokenConfig();
+
+    // Parse environment variables
+    const oauthConfig = {
+      authorizationCode: {
+        ttl: parseInt(process.env['OAUTH_AUTHORIZATION_CODE_TTL'] || '600', 10),
+      },
+      tokens: {
+        accessToken: {
+          ttl: parseInt(process.env['OAUTH_ACCESS_TOKEN_TTL'] || '3600', 10),
+          algorithm: process.env['OAUTH_JWT_ALGORITHM'] || 'RS256',
+          expiresIn: tokenConfig.accessToken.expiresIn,
+          secret: process.env['JWT_SECRET'] || 'default-secret',
+        },
+        refreshToken: {
+          ttl: parseInt(process.env['OAUTH_REFRESH_TOKEN_TTL'] || '2592000', 10),
+          rotation: process.env['OAUTH_ROTATE_REFRESH_TOKEN'] === 'true',
+          expiresIn: tokenConfig.refreshToken.expiresIn,
+          length: tokenConfig.refreshToken.length,
+          rotationWindow: tokenConfig.refreshToken.rotationWindow,
+        },
+        idToken: {
+          ttl: parseInt(process.env['OAUTH_ID_TOKEN_TTL'] || '3600', 10),
+          expiresIn: tokenConfig.idToken.expiresIn,
+        },
+        authorizationCode: {
+          expiresIn: parseInt(process.env['OAUTH_AUTHORIZATION_CODE_TTL'] || '600', 10),
+        },
+      },
+      flows: {
+        authorizationCode: {
+          enabled: true,
+          requirePkce: process.env['OAUTH_REQUIRE_PKCE'] === 'true',
+        },
+        implicit: {
+          enabled: process.env['OAUTH_ALLOW_IMPLICIT_FLOW'] === 'true',
+        },
+        clientCredentials: {
+          enabled: process.env['OAUTH_ALLOW_CLIENT_CREDENTIALS_FLOW'] === 'true',
+        },
+        password: {
+          enabled: process.env['OAUTH_ALLOW_PASSWORD_FLOW'] === 'true',
+        },
+        refreshToken: {
+          enabled: process.env['OAUTH_ALLOW_REFRESH_TOKEN'] === 'true',
+        },
+      },
+      endpoints: {
+        issuer: process.env['OAUTH_ISSUER'] || 'https://auth.example.com',
+        jwksUri: process.env['OAUTH_JWKS_URI'] || 'https://auth.example.com/.well-known/jwks.json',
+        authorization:
+          process.env['OAUTH_AUTHORIZATION_ENDPOINT'] || 'https://auth.example.com/oauth/authorize',
+        token: process.env['OAUTH_TOKEN_ENDPOINT'] || 'https://auth.example.com/oauth/token',
+        userInfo:
+          process.env['OAUTH_USERINFO_ENDPOINT'] || 'https://auth.example.com/oauth/userinfo',
+        revocation:
+          process.env['OAUTH_REVOCATION_ENDPOINT'] || 'https://auth.example.com/oauth/revoke',
+        introspection:
+          process.env['OAUTH_INTROSPECTION_ENDPOINT'] ||
+          'https://auth.example.com/oauth/introspect',
+        endSession:
+          process.env['OAUTH_END_SESSION_ENDPOINT'] || 'https://auth.example.com/oauth/logout',
+      },
+      scopes: {
+        supported: process.env['OAUTH_SUPPORTED_SCOPES']?.split(',') || [
+          'openid',
+          'profile',
+          'email',
+          'address',
+          'phone',
+          'offline_access',
+        ],
+        default: process.env['OAUTH_DEFAULT_SCOPES']?.split(',') || ['openid', 'profile', 'email'],
+      },
+      pkce: {
+        supportedTransformations: process.env['OAUTH_SUPPORTED_PKCE_TRANSFORMATIONS']?.split(
+          ','
+        ) || ['S256', 'plain'],
+      },
+      server: {
+        issuer: process.env['OAUTH_ISSUER'] || 'https://auth.example.com',
+        registrationEndpoint: process.env['OAUTH_REGISTRATION_ENDPOINT'] || '/oauth/register',
+      },
+      clients: {
+        dynamicRegistration: process.env['OAUTH_DYNAMIC_REGISTRATION'] === 'true',
+        allowedGrantTypes: process.env['OAUTH_ALLOWED_GRANT_TYPES']?.split(',') || [
+          'authorization_code',
+          'refresh_token',
+          'client_credentials',
+        ],
+        allowedResponseTypes: process.env['OAUTH_ALLOWED_RESPONSE_TYPES']?.split(',') || [
+          'code',
+          'token',
+          'id_token',
+        ],
+        defaultScopes: process.env['OAUTH_DEFAULT_SCOPES']?.split(',') || [
+          'openid',
+          'profile',
+          'email',
+        ],
+        allowedScopes: process.env['OAUTH_ALLOWED_SCOPES']?.split(',') || [
+          'openid',
+          'profile',
+          'email',
+          'address',
+          'phone',
+          'offline_access',
+        ],
+      },
+      features: {
+        jwtAccessTokens: process.env['OAUTH_JWT_ACCESS_TOKENS'] === 'true',
+        refreshTokenRotation: process.env['OAUTH_REFRESH_TOKEN_ROTATION'] === 'true',
+      },
+    };
+
+    // Validate configuration
+    const validatedConfig = oauthConfigSchema.parse(oauthConfig);
+
+    // Log successful configuration loading
+    logger.debug('OAuth configuration loaded successfully');
+
+    return validatedConfig;
+  } catch (error) {
+    // Log error and use default configuration
+    logger.error('Failed to load OAuth configuration, using defaults', { error });
+
+    if (error instanceof Error) {
+      logger.error(error.message);
+    }
+
+    return DEFAULT_OAUTH_CONFIG;
+  }
+}
+
+/**
+ * Validate OAuth configuration
+ * Helper function to validate an OAuth configuration object
+ *
+ * @param config OAuth configuration to validate
+ * @returns Validated OAuth configuration
+ */
+export function validateOAuthConfig(config: Partial<OAuthConfig>): OAuthConfig {
+  try {
+    // Merge with defaults for any missing properties
+    const mergedConfig = {
+      authorizationCode: {
+        ...DEFAULT_OAUTH_CONFIG.authorizationCode,
+        ...config.authorizationCode,
+      },
+      tokens: {
+        accessToken: {
+          ...DEFAULT_OAUTH_CONFIG.tokens.accessToken,
+          ...config.tokens?.accessToken,
+        },
+        refreshToken: {
+          ...DEFAULT_OAUTH_CONFIG.tokens.refreshToken,
+          ...config.tokens?.refreshToken,
+        },
+        idToken: {
+          ...DEFAULT_OAUTH_CONFIG.tokens.idToken,
+          ...config.tokens?.idToken,
+        },
+      },
+      flows: {
+        authorizationCode: {
+          ...DEFAULT_OAUTH_CONFIG.flows.authorizationCode,
+          ...config.flows?.authorizationCode,
+        },
+        implicit: {
+          ...DEFAULT_OAUTH_CONFIG.flows.implicit,
+          ...config.flows?.implicit,
+        },
+        clientCredentials: {
+          ...DEFAULT_OAUTH_CONFIG.flows.clientCredentials,
+          ...config.flows?.clientCredentials,
+        },
+        password: {
+          ...DEFAULT_OAUTH_CONFIG.flows.password,
+          ...config.flows?.password,
+        },
+        refreshToken: {
+          ...DEFAULT_OAUTH_CONFIG.flows.refreshToken,
+          ...config.flows?.refreshToken,
+        },
+      },
+      endpoints: {
+        ...DEFAULT_OAUTH_CONFIG.endpoints,
+        ...config.endpoints,
+      },
+      scopes: {
+        ...DEFAULT_OAUTH_CONFIG.scopes,
+        ...config.scopes,
+      },
+      pkce: {
+        ...DEFAULT_OAUTH_CONFIG.pkce,
+        ...config.pkce,
+      },
+    };
+
+    // Validate the merged configuration
+    return oauthConfigSchema.parse(mergedConfig);
+  } catch (error) {
+    // Log validation error and throw
+    logger.error('OAuth configuration validation failed', { error });
+    throw error;
+  }
+}
+
+/**
+ * Export an instance of the OAuth configuration
+ * This is used by services that need access to the configuration
+ */
+export const oauthConfig = loadOAuthConfig();

@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { AuthUser } from '../controllers/auth.controller';
+import { AuthUser } from './types/auth.types';
 
 /**
  * Extended request interface with properly typed user property
@@ -29,16 +29,19 @@ export abstract class BaseController {
       try {
         const correlationId = getCurrentCorrelationId() || 'unknown';
 
+        // Use explicit type assertion for req.user to ensure TypeScript recognizes the id property
+        const typedUser = req.user as AuthUser | undefined;
+
         logger.debug(`[${correlationId}] Processing request: ${req.method} ${req.path}`, {
           correlationId,
-          userId: req.user?.['id'],
+          userId: typedUser?.id,
           path: req.path,
           method: req.method,
         });
 
         await handler(req as ExtendedRequest, res, next);
       } catch (error) {
-        this.handleError(error, req, res, next);
+        this.handleError(error, req as ExtendedRequest, res, next);
       }
     };
   };

@@ -3,6 +3,7 @@ import { BaseController } from './base.controller';
 import { sendOkResponse } from '../responses';
 import { AuthenticationError, BadRequestError } from '../../utils/error-handling';
 import { logger } from '../../infrastructure/logging/logger';
+import { AuthUser, isAuthUser } from './types/auth.types';
 
 /**
  * Risk controller
@@ -15,7 +16,7 @@ export class RiskController extends BaseController {
    */
   getRiskAssessment = this.handleAsync(async (req: Request, res: Response): Promise<void> => {
     // Check if user is authenticated and has admin role
-    if (!req.user) {
+    if (!req.user || !isAuthUser(req.user)) {
       throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
     }
 
@@ -71,7 +72,7 @@ export class RiskController extends BaseController {
    */
   getSuspiciousActivities = this.handleAsync(async (req: Request, res: Response): Promise<void> => {
     // Check if user is authenticated
-    if (!req.user) {
+    if (!req.user || !isAuthUser(req.user)) {
       throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
     }
 
@@ -124,7 +125,7 @@ export class RiskController extends BaseController {
   resolveSuspiciousActivity = this.handleAsync(
     async (req: Request, res: Response): Promise<void> => {
       // Check if user is authenticated
-      if (!req.user) {
+      if (!req.user || !isAuthUser(req.user)) {
         throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
       }
 
@@ -167,7 +168,7 @@ export class RiskController extends BaseController {
    */
   getTrustedDevices = this.handleAsync(async (req: Request, res: Response): Promise<void> => {
     // Check if user is authenticated
-    if (!req.user) {
+    if (!req.user || !isAuthUser(req.user)) {
       throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
     }
 
@@ -226,7 +227,7 @@ export class RiskController extends BaseController {
    */
   removeTrustedDevice = this.handleAsync(async (req: Request, res: Response): Promise<void> => {
     // Check if user is authenticated
-    if (!req.user) {
+    if (!req.user || !isAuthUser(req.user)) {
       throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
     }
 
@@ -257,7 +258,7 @@ export class RiskController extends BaseController {
    */
   getTrustedLocations = this.handleAsync(async (req: Request, res: Response): Promise<void> => {
     // Check if user is authenticated
-    if (!req.user) {
+    if (!req.user || !isAuthUser(req.user)) {
       throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
     }
 
@@ -322,7 +323,7 @@ export class RiskController extends BaseController {
    */
   addTrustedLocation = this.handleAsync(async (req: Request, res: Response): Promise<void> => {
     // Check if user is authenticated
-    if (!req.user) {
+    if (!req.user || !isAuthUser(req.user)) {
       throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
     }
 
@@ -372,7 +373,7 @@ export class RiskController extends BaseController {
    */
   removeTrustedLocation = this.handleAsync(async (req: Request, res: Response): Promise<void> => {
     // Check if user is authenticated
-    if (!req.user) {
+    if (!req.user || !isAuthUser(req.user)) {
       throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
     }
 
@@ -404,7 +405,7 @@ export class RiskController extends BaseController {
   getSecurityRecommendations = this.handleAsync(
     async (req: Request, res: Response): Promise<void> => {
       // Check if user is authenticated
-      if (!req.user) {
+      if (!req.user || !isAuthUser(req.user)) {
         throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
       }
 
@@ -460,7 +461,7 @@ export class RiskController extends BaseController {
   dismissSecurityRecommendation = this.handleAsync(
     async (req: Request, res: Response): Promise<void> => {
       // Check if user is authenticated
-      if (!req.user) {
+      if (!req.user || !isAuthUser(req.user)) {
         throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
       }
 

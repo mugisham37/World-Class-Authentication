@@ -1,16 +1,16 @@
 import { Injectable } from '@tsed/di';
 import * as crypto from 'crypto';
 import * as jwt from 'jsonwebtoken';
-import { oauthConfig } from './oauth.config';
-import { logger } from '../../infrastructure/logging/logger';
+import { UserWithProfile } from '../../data/models/user.model';
+import type { AuthorizationCodeRepository } from '../../data/repositories/oauth/authorization-code.repository';
 import type { ClientRepository } from '../../data/repositories/oauth/client.repository';
 import type { TokenRepository } from '../../data/repositories/oauth/token.repository';
-import type { AuthorizationCodeRepository } from '../../data/repositories/oauth/authorization-code.repository';
 import type { UserRepository } from '../../data/repositories/user.repository';
 import type { EventEmitter } from '../../infrastructure/events/event-emitter';
-import { OAuthEvent } from './oauth-events';
+import { logger } from '../../infrastructure/logging/logger';
 import { BadRequestError, NotFoundError, UnauthorizedError } from '../../utils/error-handling';
-import { UserWithProfile } from '../../data/models/user.model';
+import { OAuthEvent } from './oauth-events';
+import { oauthConfig } from './oauth.config';
 
 /**
  * OAuth 2.0 service

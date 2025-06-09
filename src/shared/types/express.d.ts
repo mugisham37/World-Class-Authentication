@@ -1,4 +1,5 @@
 import { Session } from '../../core/authentication/types';
+import { AuthUser } from '../../api/controllers/types/auth.types';
 
 /**
  * Express namespace extensions
@@ -6,16 +7,16 @@ import { Session } from '../../core/authentication/types';
  */
 declare global {
   namespace Express {
+    /**
+     * Extend the User interface to match AuthUser
+     */
+    interface User extends AuthUser {}
+
     interface Request {
       /**
        * User information from authentication
        */
-      user?: {
-        id: string;
-        email: string;
-        sessionId: string;
-        roles?: string[];
-      };
+      user?: AuthUser;
 
       /**
        * Device ID from fingerprinting

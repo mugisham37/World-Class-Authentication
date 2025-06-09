@@ -37,6 +37,14 @@ export interface BaseAuthUser {
 }
 
 /**
+ * Authenticated user with extended properties
+ * Used in request objects and authentication flows
+ */
+export interface AuthUser extends BaseAuthUser {
+  permissions?: string[];
+}
+
+/**
  * Service response interfaces
  */
 
@@ -191,6 +199,24 @@ export function isBaseAuthUser(obj: any): obj is BaseAuthUser {
     typeof obj.email === 'string' &&
     typeof obj.sessionId === 'string'
   );
+}
+
+export function isAuthUser(obj: any): obj is AuthUser {
+  // First check if it's a BaseAuthUser
+  if (!isBaseAuthUser(obj)) {
+    return false;
+  }
+
+  // Then check if permissions property exists and is valid
+  if ('permissions' in obj) {
+    return (
+      Array.isArray(obj.permissions) &&
+      obj.permissions.every((permission: any) => typeof permission === 'string')
+    );
+  }
+
+  // If permissions doesn't exist, it's still a valid AuthUser
+  return true;
 }
 
 export function isAuthenticationServiceResponse(obj: any): obj is AuthenticationServiceResponse {

@@ -19,8 +19,8 @@ export class RateLimiterFactory {
     try {
       if (securityConfig.rateLimit.useRedis) {
         this.redisClient = createClient({
-          url: `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || '6379'}`,
-          ...(process.env.REDIS_PASSWORD ? { password: process.env.REDIS_PASSWORD } : {}),
+          url: `redis://${process.env['REDIS_HOST'] || 'localhost'}:${process.env['REDIS_PORT'] || '6379'}`,
+          ...(process.env['REDIS_PASSWORD'] ? { password: process.env['REDIS_PASSWORD'] } : {}),
         }) as RedisClientType;
 
         this.redisClient.on('error', err => {
@@ -171,7 +171,7 @@ export class RateLimiter {
     if (forwardedFor) {
       // Get the first IP in the list
       const ips = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor.split(',')[0];
-      return ips.trim();
+      return (ips || '').trim() || 'unknown';
     }
 
     // Fall back to connection remote address
@@ -245,9 +245,9 @@ export class RateLimiter {
       // Execute pipeline
       const results = await pipeline.exec();
 
-      // Extract results
-      const count = results![0] as number;
-      const ttl = results![2] as number;
+      // Extract results and safely convert to numbers
+      const count = results && results[0] ? Number(results[0]) : 0;
+      const ttl = results && results[2] ? Number(results[2]) : windowSize;
 
       return { count, ttl };
     } catch (error) {

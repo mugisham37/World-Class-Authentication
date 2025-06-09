@@ -24,6 +24,13 @@ export interface PasswordHistoryRepository extends BaseRepository<PasswordHistor
   findByUserId(userId: string, options?: QueryOptions): Promise<PasswordHistory[]>;
 
   /**
+   * Count password history entries by user ID
+   * @param userId The user ID to count entries for
+   * @returns The number of password history entries for the user
+   */
+  countByUserId(userId: string): Promise<number>;
+
+  /**
    * Find password history entries by credential ID
    * @param credentialId The credential ID
    * @param options Optional query options
@@ -263,6 +270,26 @@ export class PrismaPasswordHistoryRepository
       throw new DatabaseError(
         'Error deleting password history older than date',
         'PASSWORD_HISTORY_DELETE_OLDER_THAN_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  /**
+   * Count password history entries by user ID
+   * @param userId The user ID to count entries for
+   * @returns The number of password history entries for the user
+   */
+  async countByUserId(userId: string): Promise<number> {
+    try {
+      return await this.prisma.passwordHistory.count({
+        where: { userId },
+      });
+    } catch (error) {
+      logger.error('Error counting password history by user ID', { userId, error });
+      throw new DatabaseError(
+        'Error counting password history by user ID',
+        'PASSWORD_HISTORY_COUNT_ERROR',
         error instanceof Error ? error : undefined
       );
     }

@@ -286,7 +286,7 @@ export class MagicLinkService {
   ): Promise<void> {
     try {
       // Construct magic link URL
-      const baseUrl = options.origin || process.env.APP_URL || 'http://localhost:3000';
+      const baseUrl = options.origin || process.env['APP_URL'] || 'http://localhost:3000';
       const magicLinkUrl = `${baseUrl}/auth/verify-magic-link?token=${token}`;
 
       // Send email

@@ -42,7 +42,7 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
   async isAvailableForUser(userId: string, _options: Record<string, any> = {}): Promise<boolean> {
     try {
       // Admin recovery is always available if enabled in config
-      return recoveryConfig.admin.enabled;
+      return recoveryConfig.adminRecovery.enabled;
     } catch (error) {
       logger.error('Failed to check if admin recovery is available', { error, userId });
       return false;
@@ -65,7 +65,7 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
       }
 
       // Check if admin recovery is enabled
-      if (!recoveryConfig.admin.enabled) {
+      if (!recoveryConfig.adminRecovery.enabled) {
         throw new BadRequestError('Admin recovery is not enabled');
       }
 
@@ -113,7 +113,7 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
   ): Promise<RecoveryInitiationResult> {
     try {
       // Check if admin recovery is enabled
-      if (!recoveryConfig.admin.enabled) {
+      if (!recoveryConfig.adminRecovery.enabled) {
         throw new BadRequestError('Admin recovery is not enabled');
       }
 
@@ -146,7 +146,7 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
 
       // Check if minimum admin role is met
       if (
-        recoveryConfig.admin.minApproverRole === 'SUPER_ADMIN' &&
+        recoveryConfig.adminRecovery.minApproverRole === 'SUPER_ADMIN' &&
         admin.role !== UserRole.SUPER_ADMIN
       ) {
         throw new UnauthorizedError('Super admin privileges required for recovery approval');
@@ -154,7 +154,7 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
 
       // Check if reason is provided when required
       const reason = options['reason'];
-      if (recoveryConfig.admin.requireReason && (!reason || reason.trim().length === 0)) {
+      if (recoveryConfig.adminRecovery.requireReason && (!reason || reason.trim().length === 0)) {
         throw new BadRequestError('Recovery reason is required');
       }
 
@@ -201,8 +201,8 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
         clientData: {
           message: 'Administrative recovery initiated',
           targetUser: user.email,
-          requiresApproval: recoveryConfig.admin.requireMultipleApprovals,
-          requiredApprovals: recoveryConfig.admin.requiredApprovals,
+          requiresApproval: recoveryConfig.adminRecovery.requireMultipleApprovals,
+          requiredApprovals: recoveryConfig.adminRecovery.requiredApprovals,
           expiresAt,
         },
       };
@@ -261,7 +261,7 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
 
       // In a real implementation, verify the admin code against a secure system
       // For now, we'll use a simple check
-      if (recoveryConfig.admin.requireMultipleApprovals) {
+      if (recoveryConfig.adminRecovery.requireMultipleApprovals) {
         // Check if confirmation code is provided
         if (!confirmationCode) {
           return {
@@ -356,7 +356,7 @@ export class AdminRecoveryService extends BaseRecoveryMethod {
 
       // Check if minimum admin role is met
       if (
-        recoveryConfig.admin.minApproverRole === 'SUPER_ADMIN' &&
+        recoveryConfig.adminRecovery.minApproverRole === 'SUPER_ADMIN' &&
         admin.role !== UserRole.SUPER_ADMIN
       ) {
         throw new UnauthorizedError('Super admin privileges required for recovery approval');

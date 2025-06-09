@@ -1,14 +1,12 @@
-import { Session } from '../core/authentication/types';
+import { AuthUser } from '../api/controllers/types/auth.types';
 
 declare global {
   namespace Express {
+    // Extend the User interface to match AuthUser
+    interface User extends AuthUser {}
+
     interface Request {
-      user?: {
-        [key: string]: any;
-        id: string;
-        email: string;
-        sessionId?: string;
-      };
+      user?: AuthUser;
       deviceId?: string;
     }
   }

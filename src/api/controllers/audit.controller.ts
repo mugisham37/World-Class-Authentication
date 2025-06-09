@@ -3,6 +3,16 @@ import { BaseController } from './base.controller';
 import { sendOkResponse } from '../responses';
 import { AuthenticationError } from '../../utils/error-handling';
 import { logger } from '../../infrastructure/logging/logger';
+import { AuthUser } from './types/auth.types';
+
+/**
+ * Type guard to check if a user object has the required properties
+ * @param user - The user object to check
+ * @returns boolean indicating if the user has the required properties
+ */
+function isValidUser(user: any): user is AuthUser {
+  return user && typeof user.id === 'string';
+}
 
 /**
  * Validates if the provided date range is valid
@@ -94,7 +104,12 @@ export class AuditController extends BaseController {
 
       sendOkResponse(res, 'Audit logs retrieved successfully', auditLogs);
     } catch (error) {
-      logger.error('Error getting audit logs', { error, userId: req.user.id });
+      // Ensure user has id property before accessing it
+      if (req.user && isValidUser(req.user)) {
+        logger.error('Error getting audit logs', { error, userId: req.user.id });
+      } else {
+        logger.error('Error getting audit logs', { error, userId: 'unknown' });
+      }
       throw error;
     }
   });
@@ -134,11 +149,20 @@ export class AuditController extends BaseController {
 
       sendOkResponse(res, 'Audit log retrieved successfully', auditLog);
     } catch (error) {
-      logger.error('Error getting audit log by ID', {
-        error,
-        logId: req.params['id'],
-        userId: req.user.id,
-      });
+      // Ensure user has id property before accessing it
+      if (req.user && isValidUser(req.user)) {
+        logger.error('Error getting audit log by ID', {
+          error,
+          logId: req.params['id'],
+          userId: req.user.id,
+        });
+      } else {
+        logger.error('Error getting audit log by ID', {
+          error,
+          logId: req.params['id'],
+          userId: 'unknown',
+        });
+      }
       throw error;
     }
   });
@@ -157,7 +181,7 @@ export class AuditController extends BaseController {
       const { userId } = req.params;
 
       // Check if user is requesting their own logs or has admin role
-      if (userId !== req.user.id) {
+      if (!isValidUser(req.user) || userId !== req.user.id) {
         // In a real implementation, check if user has admin role
         // For now, we'll just assume they don't
         throw new AuthenticationError("Unauthorized to access other users' logs", 'UNAUTHORIZED');
@@ -219,11 +243,20 @@ export class AuditController extends BaseController {
 
       sendOkResponse(res, 'User activity logs retrieved successfully', activityLogs);
     } catch (error) {
-      logger.error('Error getting user activity logs', {
-        error,
-        userId: req.params['userId'],
-        requesterId: req.user.id,
-      });
+      // Ensure user has id property before accessing it
+      if (req.user && isValidUser(req.user)) {
+        logger.error('Error getting user activity logs', {
+          error,
+          userId: req.params['userId'],
+          requesterId: req.user.id,
+        });
+      } else {
+        logger.error('Error getting user activity logs', {
+          error,
+          userId: req.params['userId'],
+          requesterId: 'unknown',
+        });
+      }
       throw error;
     }
   });
@@ -303,7 +336,12 @@ export class AuditController extends BaseController {
 
       sendOkResponse(res, 'Security events retrieved successfully', securityEvents);
     } catch (error) {
-      logger.error('Error getting security events', { error, userId: req.user.id });
+      // Ensure user has id property before accessing it
+      if (req.user && isValidUser(req.user)) {
+        logger.error('Error getting security events', { error, userId: req.user.id });
+      } else {
+        logger.error('Error getting security events', { error, userId: 'unknown' });
+      }
       throw error;
     }
   });
@@ -394,7 +432,12 @@ export class AuditController extends BaseController {
       // Send data
       res.status(200).send(exportData);
     } catch (error) {
-      logger.error('Error exporting audit logs', { error, userId: req.user.id });
+      // Ensure user has id property before accessing it
+      if (req.user && isValidUser(req.user)) {
+        logger.error('Error exporting audit logs', { error, userId: req.user.id });
+      } else {
+        logger.error('Error exporting audit logs', { error, userId: 'unknown' });
+      }
       throw error;
     }
   });

@@ -56,6 +56,7 @@ const securityConfigSchema = z.object({
       .default(15 * 60 * 1000), // 15 minutes
   }),
   rateLimit: z.object({
+    useRedis: z.boolean().default(false),
     login: z.object({
       windowMs: z
         .number()
@@ -80,6 +81,14 @@ const securityConfigSchema = z.object({
         .positive()
         .default(60 * 60 * 1000), // 1 hour
       max: z.number().int().positive().default(3), // 3 attempts per windowMs
+    }),
+    api: z.object({
+      windowMs: z
+        .number()
+        .int()
+        .positive()
+        .default(60 * 1000), // 1 minute
+      max: z.number().int().positive().default(100), // 100 requests per minute
     }),
   }),
   encryption: z.object({
@@ -154,6 +163,7 @@ const rawConfig = {
     idleTimeout: env.getNumber('SESSION_IDLE_TIMEOUT'),
   },
   rateLimit: {
+    useRedis: env.getBoolean('RATE_LIMIT_USE_REDIS', false),
     login: {
       windowMs: env.getNumber('RATE_LIMIT_LOGIN_WINDOW_MS'),
       max: env.getNumber('RATE_LIMIT_LOGIN_MAX'),
@@ -166,6 +176,10 @@ const rawConfig = {
     passwordReset: {
       windowMs: env.getNumber('RATE_LIMIT_PASSWORD_RESET_WINDOW_MS'),
       max: env.getNumber('RATE_LIMIT_PASSWORD_RESET_MAX'),
+    },
+    api: {
+      windowMs: env.getNumber('RATE_LIMIT_API_WINDOW_MS', 60 * 1000),
+      max: env.getNumber('RATE_LIMIT_API_MAX', 100),
     },
   },
   encryption: {
@@ -204,3 +218,57 @@ export const securityConfig = validateConfig(securityConfigSchema, rawConfig);
 
 // Export config type
 export type SecurityConfig = typeof securityConfig;
+
+// Add helper getters to map between different naming conventions
+// This is to maintain backward compatibility with existing code
+Object.defineProperties(securityConfig.rateLimit.login, {
+  maxAttempts: {
+    get() {
+      return this.max;
+    },
+  },
+  windowSizeInSeconds: {
+    get() {
+      return Math.floor(this.windowMs / 1000);
+    },
+  },
+});
+
+Object.defineProperties(securityConfig.rateLimit.registration, {
+  maxAttempts: {
+    get() {
+      return this.max;
+    },
+  },
+  windowSizeInSeconds: {
+    get() {
+      return Math.floor(this.windowMs / 1000);
+    },
+  },
+});
+
+Object.defineProperties(securityConfig.rateLimit.passwordReset, {
+  maxAttempts: {
+    get() {
+      return this.max;
+    },
+  },
+  windowSizeInSeconds: {
+    get() {
+      return Math.floor(this.windowMs / 1000);
+    },
+  },
+});
+
+Object.defineProperties(securityConfig.rateLimit.api, {
+  maxRequests: {
+    get() {
+      return this.max;
+    },
+  },
+  windowSizeInSeconds: {
+    get() {
+      return Math.floor(this.windowMs / 1000);
+    },
+  },
+});

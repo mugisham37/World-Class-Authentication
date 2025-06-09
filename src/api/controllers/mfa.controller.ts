@@ -1,5 +1,5 @@
-import type { Request, Response } from 'express';
-import { BaseController } from './base.controller';
+import type { Response } from 'express';
+import { BaseController, ExtendedRequest } from './base.controller';
 import { sendOkResponse, sendCreatedResponse } from '../responses';
 import { AuthenticationError, BadRequestError } from '../../utils/error-handling';
 import { logger } from '../../infrastructure/logging/logger';
@@ -77,7 +77,7 @@ export class MfaController extends BaseController {
    * Get all MFA factors for the authenticated user
    * @route GET /mfa/factors
    */
-  getUserFactors = this.handleAsync(async (req: Request, res: Response): Promise<void> => {
+  getUserFactors = this.handleAsync(async (req: ExtendedRequest, res: Response): Promise<void> => {
     // Check if user is authenticated
     if (!req.user) {
       throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
@@ -97,94 +97,100 @@ export class MfaController extends BaseController {
    * Start enrollment for a new MFA factor
    * @route POST /mfa/factors
    */
-  startFactorEnrollment = this.handleAsync(async (req: Request, res: Response): Promise<void> => {
-    // Check if user is authenticated
-    if (!req.user) {
-      throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
+  startFactorEnrollment = this.handleAsync(
+    async (req: ExtendedRequest, res: Response): Promise<void> => {
+      // Check if user is authenticated
+      if (!req.user) {
+        throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
+      }
+
+      const userId = req.user.id;
+      const { factorType, factorName, factorData } = req.body;
+
+      // Get MFA service instance
+      const mfaService = this.getMfaService();
+
+      // Ensure all parameters are defined
+      const safeFactorType = factorType || 'totp';
+      const safeFactorName = factorName || 'Default Factor';
+
+      const result = await mfaService.startFactorEnrollment(
+        userId,
+        safeFactorType,
+        safeFactorName,
+        factorData
+      );
+
+      if (result.success) {
+        sendCreatedResponse(res, 'MFA factor enrollment started', result);
+      } else {
+        sendOkResponse(res, result.message || 'MFA factor enrollment failed', result);
+      }
     }
-
-    const userId = req.user.id;
-    const { factorType, factorName, factorData } = req.body;
-
-    // Get MFA service instance
-    const mfaService = this.getMfaService();
-
-    // Ensure all parameters are defined
-    const safeFactorType = factorType || 'totp';
-    const safeFactorName = factorName || 'Default Factor';
-
-    const result = await mfaService.startFactorEnrollment(
-      userId,
-      safeFactorType,
-      safeFactorName,
-      factorData
-    );
-
-    if (result.success) {
-      sendCreatedResponse(res, 'MFA factor enrollment started', result);
-    } else {
-      sendOkResponse(res, result.message || 'MFA factor enrollment failed', result);
-    }
-  });
+  );
 
   /**
    * Complete enrollment by verifying a new MFA factor
    * @route POST /mfa/factors/:factorId/verify
    */
-  verifyFactorEnrollment = this.handleAsync(async (req: Request, res: Response): Promise<void> => {
-    // Check if user is authenticated
-    if (!req.user) {
-      throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
+  verifyFactorEnrollment = this.handleAsync(
+    async (req: ExtendedRequest, res: Response): Promise<void> => {
+      // Check if user is authenticated
+      if (!req.user) {
+        throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
+      }
+
+      const userId = req.user.id;
+      const { factorId } = req.params;
+      const verificationData = req.body;
+
+      // Get MFA service instance
+      const mfaService = this.getMfaService();
+
+      // Ensure factorId is defined
+      if (!factorId) {
+        throw new BadRequestError('Factor ID is required', 'FACTOR_ID_REQUIRED');
+      }
+
+      const result = await mfaService.completeFactorEnrollment(userId, factorId, verificationData);
+
+      sendOkResponse(
+        res,
+        result.success
+          ? 'MFA factor verified successfully'
+          : result.message || 'MFA factor verification failed',
+        result
+      );
     }
-
-    const userId = req.user.id;
-    const { factorId } = req.params;
-    const verificationData = req.body;
-
-    // Get MFA service instance
-    const mfaService = this.getMfaService();
-
-    // Ensure factorId is defined
-    if (!factorId) {
-      throw new BadRequestError('Factor ID is required', 'FACTOR_ID_REQUIRED');
-    }
-
-    const result = await mfaService.completeFactorEnrollment(userId, factorId, verificationData);
-
-    sendOkResponse(
-      res,
-      result.success
-        ? 'MFA factor verified successfully'
-        : result.message || 'MFA factor verification failed',
-      result
-    );
-  });
+  );
 
   /**
    * Generate an MFA challenge for a specific factor
    * @route POST /mfa/challenge
    */
-  generateChallenge = this.handleAsync(async (req: Request, res: Response): Promise<void> => {
-    const { factorId, metadata: _metadata } = req.body;
+  generateChallenge = this.handleAsync(
+    async (req: ExtendedRequest, res: Response): Promise<void> => {
+      const { factorId, metadata: _metadata } = req.body;
 
-    // Get MFA service instance
-    const mfaService = this.getMfaService();
+      // Get MFA service instance
+      const mfaService = this.getMfaService();
 
-    // Ensure factorId is defined
-    if (!factorId) {
-      throw new BadRequestError('Factor ID is required', 'FACTOR_ID_REQUIRED');
+      // Ensure factorId is defined
+      if (!factorId) {
+        throw new BadRequestError('Factor ID is required', 'FACTOR_ID_REQUIRED');
+      }
+
+      const challenge = await mfaService.generateChallenge(factorId, _metadata);
+
+      sendCreatedResponse(res, 'MFA challenge generated', challenge);
     }
-
-    const challenge = await mfaService.generateChallenge(factorId, _metadata);
-
-    sendCreatedResponse(res, 'MFA challenge generated', challenge);
-  });
+  );
 
   /**
    * Verify an MFA challenge response
    * @route POST /mfa/challenge/:challengeId/verify
    */
-  verifyChallenge = this.handleAsync(async (req: Request, res: Response): Promise<void> => {
+  verifyChallenge = this.handleAsync(async (req: ExtendedRequest, res: Response): Promise<void> => {
     const { challengeId } = req.params;
     const { response: challengeResponse, metadata: _metadata } = req.body;
 
@@ -211,7 +217,7 @@ export class MfaController extends BaseController {
    * Disable an MFA factor
    * @route PUT /mfa/factors/:factorId/disable
    */
-  disableFactor = this.handleAsync(async (req: Request, res: Response): Promise<void> => {
+  disableFactor = this.handleAsync(async (req: ExtendedRequest, res: Response): Promise<void> => {
     // Check if user is authenticated
     if (!req.user) {
       throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
@@ -237,7 +243,7 @@ export class MfaController extends BaseController {
    * Enable a previously disabled MFA factor
    * @route PUT /mfa/factors/:factorId/enable
    */
-  enableFactor = this.handleAsync(async (req: Request, res: Response): Promise<void> => {
+  enableFactor = this.handleAsync(async (req: ExtendedRequest, res: Response): Promise<void> => {
     // Check if user is authenticated
     if (!req.user) {
       throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
@@ -263,7 +269,7 @@ export class MfaController extends BaseController {
    * Delete an MFA factor
    * @route DELETE /mfa/factors/:factorId
    */
-  deleteFactor = this.handleAsync(async (req: Request, res: Response): Promise<void> => {
+  deleteFactor = this.handleAsync(async (req: ExtendedRequest, res: Response): Promise<void> => {
     // Check if user is authenticated
     if (!req.user) {
       throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
@@ -289,72 +295,80 @@ export class MfaController extends BaseController {
    * Regenerate recovery codes
    * @route POST /mfa/recovery-codes/regenerate
    */
-  regenerateRecoveryCodes = this.handleAsync(async (req: Request, res: Response): Promise<void> => {
-    // Check if user is authenticated
-    if (!req.user) {
-      throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
+  regenerateRecoveryCodes = this.handleAsync(
+    async (req: ExtendedRequest, res: Response): Promise<void> => {
+      // Check if user is authenticated
+      if (!req.user) {
+        throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
+      }
+
+      const userId = req.user.id;
+
+      // Get MFA service instance
+      const mfaService = this.getMfaService();
+
+      const recoveryCodes = await mfaService.regenerateRecoveryCodes(userId);
+
+      sendOkResponse(res, 'Recovery codes regenerated successfully', { recoveryCodes });
     }
-
-    const userId = req.user.id;
-
-    // Get MFA service instance
-    const mfaService = this.getMfaService();
-
-    const recoveryCodes = await mfaService.regenerateRecoveryCodes(userId);
-
-    sendOkResponse(res, 'Recovery codes regenerated successfully', { recoveryCodes });
-  });
+  );
 
   /**
    * Get recovery codes
    * @route GET /mfa/recovery-codes
    */
-  getRecoveryCodes = this.handleAsync(async (req: Request, res: Response): Promise<void> => {
-    // Check if user is authenticated
-    if (!req.user) {
-      throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
+  getRecoveryCodes = this.handleAsync(
+    async (req: ExtendedRequest, res: Response): Promise<void> => {
+      // Check if user is authenticated
+      if (!req.user) {
+        throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
+      }
+
+      const userId = req.user.id;
+
+      // Get MFA service instance
+      const mfaService = this.getMfaService();
+
+      // Use regenerateRecoveryCodes to get recovery codes since getRecoveryCodes might not exist
+      // In a real implementation, we would have a separate method to get existing codes
+      const recoveryCodes = await mfaService.regenerateRecoveryCodes(userId);
+
+      sendOkResponse(res, 'Recovery codes retrieved successfully', { recoveryCodes });
     }
-
-    const userId = req.user.id;
-
-    // Get MFA service instance
-    const mfaService = this.getMfaService();
-
-    // Use regenerateRecoveryCodes to get recovery codes since getRecoveryCodes might not exist
-    // In a real implementation, we would have a separate method to get existing codes
-    const recoveryCodes = await mfaService.regenerateRecoveryCodes(userId);
-
-    sendOkResponse(res, 'Recovery codes retrieved successfully', { recoveryCodes });
-  });
+  );
 
   /**
    * Verify a recovery code
    * @route POST /mfa/recovery-codes/verify
    */
-  verifyRecoveryCode = this.handleAsync(async (req: Request, res: Response): Promise<void> => {
-    const { recoveryCode, userId } = req.body;
+  verifyRecoveryCode = this.handleAsync(
+    async (req: ExtendedRequest, res: Response): Promise<void> => {
+      const { recoveryCode, userId } = req.body;
 
-    // Ensure required parameters are provided
-    if (!userId) {
-      throw new BadRequestError('User ID is required', 'USER_ID_REQUIRED');
+      // Ensure required parameters are provided
+      if (!userId) {
+        throw new BadRequestError('User ID is required', 'USER_ID_REQUIRED');
+      }
+
+      if (!recoveryCode) {
+        throw new BadRequestError('Recovery code is required', 'RECOVERY_CODE_REQUIRED');
+      }
+
+      // Get MFA service instance
+      const mfaService = this.getMfaService();
+
+      // Verify the recovery code
+      const result = await mfaService.verifyRecoveryCode(userId, recoveryCode);
+
+      sendOkResponse(
+        res,
+        result.success
+          ? 'Recovery code verified successfully'
+          : 'Recovery code verification failed',
+        result
+      );
     }
-
-    if (!recoveryCode) {
-      throw new BadRequestError('Recovery code is required', 'RECOVERY_CODE_REQUIRED');
-    }
-
-    // Get MFA service instance
-    const mfaService = this.getMfaService();
-
-    // Verify the recovery code
-    const result = await mfaService.verifyRecoveryCode(userId, recoveryCode);
-
-    sendOkResponse(
-      res,
-      result.success ? 'Recovery code verified successfully' : 'Recovery code verification failed',
-      result
-    );
-  });
+  );
 }
 
 // Create and export controller instance

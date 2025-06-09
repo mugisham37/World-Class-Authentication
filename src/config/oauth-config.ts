@@ -1,12 +1,15 @@
 import { z } from 'zod';
 import { validateConfig } from '../utils/validation';
 import { env } from './environment';
+import { loadEncryptionConfig, encryptionConfigSchema } from './encryption.config';
 
 // Initialize environment
 env.initialize();
 
 // Define OAuth config schema with Zod
 const oauthConfigSchema = z.object({
+  // Encryption configuration
+  encryption: encryptionConfigSchema,
   authorizationCodeTtl: z
     .number()
     .int()
@@ -108,8 +111,12 @@ const oauthConfigSchema = z.object({
     .default([]),
 });
 
+// Load encryption configuration
+const encryptionConfig = loadEncryptionConfig();
+
 // Parse and validate environment variables
 const rawConfig = {
+  encryption: encryptionConfig,
   authorizationCodeTtl: env.getNumber('OAUTH_AUTHORIZATION_CODE_TTL'),
   accessTokenTtl: env.getNumber('OAUTH_ACCESS_TOKEN_TTL'),
   refreshTokenTtl: env.getNumber('OAUTH_REFRESH_TOKEN_TTL'),

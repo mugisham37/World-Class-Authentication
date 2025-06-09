@@ -1,4 +1,5 @@
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
+import { BaseController, ExtendedRequest } from './base.controller';
 import { authService } from '../../core/authentication/auth.service';
 import { emailVerificationService } from '../../core/authentication/email-verification.service';
 import { passwordResetService } from '../../core/authentication/password-reset.service';
@@ -7,7 +8,6 @@ import { identityService } from '../../core/identity/identity.service';
 import { logger } from '../../infrastructure/logging/logger';
 import { AuthenticationError, BadRequestError } from '../../utils/error-handling';
 import { sendCreatedResponse, sendOkResponse } from '../responses';
-import { BaseController } from './base.controller';
 import {
   BaseSession,
   BaseAuthUser,
@@ -33,13 +33,6 @@ import {
   validateUsername,
   AUTH_ERROR_CODES,
 } from './types/auth.types';
-
-/**
- * Extended Express Request interface with typed user property
- */
-export interface AuthenticatedRequest extends Request {
-  user?: BaseAuthUser;
-}
 
 /**
  * Cookie configuration for different environments
@@ -181,7 +174,7 @@ export class AuthController extends BaseController {
   /**
    * Extract client information from request
    */
-  private extractClientInfo(req: AuthenticatedRequest) {
+  private extractClientInfo(req: ExtendedRequest) {
     return {
       ipAddress: req.ip || req.connection.remoteAddress || '',
       userAgent: req.headers['user-agent'] || '',
@@ -192,7 +185,7 @@ export class AuthController extends BaseController {
   /**
    * Validate authenticated user
    */
-  private validateAuthenticatedUser(req: AuthenticatedRequest): BaseAuthUser {
+  private validateAuthenticatedUser(req: ExtendedRequest): BaseAuthUser {
     if (!req.user || !isBaseAuthUser(req.user)) {
       throw new AuthenticationError('Not authenticated', AUTH_ERROR_CODES.NOT_AUTHENTICATED);
     }
@@ -203,7 +196,7 @@ export class AuthController extends BaseController {
    * Register a new user
    * @route POST /auth/register
    */
-  register = this.handleAsync(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  register = this.handleAsync(async (req: ExtendedRequest, res: Response): Promise<void> => {
     const validatedData = RequestValidator.validateRegisterRequest(req.body);
 
     try {
@@ -264,7 +257,7 @@ export class AuthController extends BaseController {
    * Authenticate a user
    * @route POST /auth/login
    */
-  login = this.handleAsync(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  login = this.handleAsync(async (req: ExtendedRequest, res: Response): Promise<void> => {
     const validatedData = RequestValidator.validateLoginRequest(req.body);
     const clientInfo = this.extractClientInfo(req);
 
@@ -312,7 +305,7 @@ export class AuthController extends BaseController {
    * Logout current session
    * @route POST /auth/logout
    */
-  logout = this.handleAsync(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  logout = this.handleAsync(async (req: ExtendedRequest, res: Response): Promise<void> => {
     const user = this.validateAuthenticatedUser(req);
     const clientInfo = this.extractClientInfo(req);
 
@@ -350,7 +343,7 @@ export class AuthController extends BaseController {
    * Logout from all sessions
    * @route POST /auth/logout-all
    */
-  logoutAll = this.handleAsync(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  logoutAll = this.handleAsync(async (req: ExtendedRequest, res: Response): Promise<void> => {
     const user = this.validateAuthenticatedUser(req);
     const clientInfo = this.extractClientInfo(req);
 
@@ -386,96 +379,90 @@ export class AuthController extends BaseController {
    * Verify current token
    * @route GET /auth/verify
    */
-  verifyToken = this.handleAsync(
-    async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-      const user = this.validateAuthenticatedUser(req);
+  verifyToken = this.handleAsync(async (req: ExtendedRequest, res: Response): Promise<void> => {
+    const user = this.validateAuthenticatedUser(req);
 
-      sendOkResponse(res, 'Token is valid', {
-        userId: user.id,
-        email: user.email,
-        sessionId: user.sessionId,
-      });
-    }
-  );
+    sendOkResponse(res, 'Token is valid', {
+      userId: user.id,
+      email: user.email,
+      sessionId: user.sessionId,
+    });
+  });
 
   /**
    * Refresh access token
    * @route POST /auth/refresh
    */
-  refreshToken = this.handleAsync(
-    async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-      const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
+  refreshToken = this.handleAsync(async (req: ExtendedRequest, res: Response): Promise<void> => {
+    const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
-      if (!refreshToken || typeof refreshToken !== 'string') {
-        throw new BadRequestError('No refresh token provided', 'NO_REFRESH_TOKEN');
-      }
-
-      const clientInfo = this.extractClientInfo(req);
-
-      try {
-        // Refresh tokens
-        const tokensResult = await authService.refreshTokens(
-          refreshToken,
-          clientInfo.ipAddress,
-          clientInfo.userAgent
-        );
-
-        // Validate service response
-        if (!isTokenRefreshServiceResponse(tokensResult)) {
-          logger.error('Invalid token refresh response from auth service', { tokensResult });
-          throw new Error('Invalid token refresh response');
-        }
-
-        // Set new refresh token cookie
-        res.cookie('refreshToken', tokensResult.refreshToken, this.cookieConfig);
-
-        sendOkResponse(res, 'Token refreshed successfully', {
-          accessToken: tokensResult.accessToken,
-          expiresIn: tokensResult.expiresIn,
-        });
-      } catch (error) {
-        logger.warn('Token refresh failed', {
-          ipAddress: clientInfo.ipAddress,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        throw error;
-      }
+    if (!refreshToken || typeof refreshToken !== 'string') {
+      throw new BadRequestError('No refresh token provided', 'NO_REFRESH_TOKEN');
     }
-  );
+
+    const clientInfo = this.extractClientInfo(req);
+
+    try {
+      // Refresh tokens
+      const tokensResult = await authService.refreshTokens(
+        refreshToken,
+        clientInfo.ipAddress,
+        clientInfo.userAgent
+      );
+
+      // Validate service response
+      if (!isTokenRefreshServiceResponse(tokensResult)) {
+        logger.error('Invalid token refresh response from auth service', { tokensResult });
+        throw new Error('Invalid token refresh response');
+      }
+
+      // Set new refresh token cookie
+      res.cookie('refreshToken', tokensResult.refreshToken, this.cookieConfig);
+
+      sendOkResponse(res, 'Token refreshed successfully', {
+        accessToken: tokensResult.accessToken,
+        expiresIn: tokensResult.expiresIn,
+      });
+    } catch (error) {
+      logger.warn('Token refresh failed', {
+        ipAddress: clientInfo.ipAddress,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  });
 
   /**
    * Verify email with token
    * @route POST /auth/verify-email
    */
-  verifyEmail = this.handleAsync(
-    async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-      const { token } = req.body as VerifyEmailRequestDto;
+  verifyEmail = this.handleAsync(async (req: ExtendedRequest, res: Response): Promise<void> => {
+    const { token } = req.body as VerifyEmailRequestDto;
 
-      if (!token || typeof token !== 'string') {
-        throw new BadRequestError('No verification token provided', 'NO_VERIFICATION_TOKEN');
-      }
-
-      try {
-        const userId = await emailVerificationService.verifyEmail(token);
-
-        sendOkResponse(res, 'Email verified successfully', { userId });
-
-        logger.info('Email verified successfully', { userId });
-      } catch (error) {
-        logger.warn('Email verification failed', {
-          error: error instanceof Error ? error.message : String(error),
-        });
-        throw error;
-      }
+    if (!token || typeof token !== 'string') {
+      throw new BadRequestError('No verification token provided', 'NO_VERIFICATION_TOKEN');
     }
-  );
+
+    try {
+      const userId = await emailVerificationService.verifyEmail(token);
+
+      sendOkResponse(res, 'Email verified successfully', { userId });
+
+      logger.info('Email verified successfully', { userId });
+    } catch (error) {
+      logger.warn('Email verification failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  });
 
   /**
    * Resend verification email
    * @route POST /auth/resend-verification
    */
   resendVerification = this.handleAsync(
-    async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    async (req: ExtendedRequest, res: Response): Promise<void> => {
       const user = this.validateAuthenticatedUser(req);
 
       try {
@@ -507,165 +494,157 @@ export class AuthController extends BaseController {
    * Request password reset
    * @route POST /auth/forgot-password
    */
-  forgotPassword = this.handleAsync(
-    async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-      const { email } = req.body as ForgotPasswordRequestDto;
+  forgotPassword = this.handleAsync(async (req: ExtendedRequest, res: Response): Promise<void> => {
+    const { email } = req.body as ForgotPasswordRequestDto;
 
-      if (!email || typeof email !== 'string') {
-        throw new BadRequestError('Email is required', 'EMAIL_REQUIRED');
-      }
-
-      if (!validateEmail(email)) {
-        throw new BadRequestError('Invalid email format', 'INVALID_EMAIL');
-      }
-
-      const normalizedEmail = email.toLowerCase().trim();
-
-      try {
-        const resetResult = await passwordResetService.createResetToken(normalizedEmail);
-
-        // Validate service response
-        if (!isPasswordResetServiceResponse(resetResult)) {
-          logger.error('Invalid password reset response from service', { resetResult });
-          throw new Error('Invalid password reset response');
-        }
-
-        // Log for development
-        if (!this.isProduction) {
-          logger.info('Password reset token created', {
-            userId: resetResult.userId,
-            email: normalizedEmail,
-            resetToken: resetResult.token,
-          });
-        }
-
-        sendOkResponse(res, 'Password reset instructions sent to your email', {
-          ...(!this.isProduction && { resetToken: resetResult.token }),
-        });
-      } catch (error) {
-        // Log error but don't expose it to client for security
-        logger.warn('Password reset request failed', {
-          email: normalizedEmail,
-          error: error instanceof Error ? error.message : String(error),
-        });
-
-        // Always return success for security reasons
-        sendOkResponse(
-          res,
-          'If your email is registered, you will receive password reset instructions'
-        );
-      }
+    if (!email || typeof email !== 'string') {
+      throw new BadRequestError('Email is required', 'EMAIL_REQUIRED');
     }
-  );
+
+    if (!validateEmail(email)) {
+      throw new BadRequestError('Invalid email format', 'INVALID_EMAIL');
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    try {
+      const resetResult = await passwordResetService.createResetToken(normalizedEmail);
+
+      // Validate service response
+      if (!isPasswordResetServiceResponse(resetResult)) {
+        logger.error('Invalid password reset response from service', { resetResult });
+        throw new Error('Invalid password reset response');
+      }
+
+      // Log for development
+      if (!this.isProduction) {
+        logger.info('Password reset token created', {
+          userId: resetResult.userId,
+          email: normalizedEmail,
+          resetToken: resetResult.token,
+        });
+      }
+
+      sendOkResponse(res, 'Password reset instructions sent to your email', {
+        ...(!this.isProduction && { resetToken: resetResult.token }),
+      });
+    } catch (error) {
+      // Log error but don't expose it to client for security
+      logger.warn('Password reset request failed', {
+        email: normalizedEmail,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      // Always return success for security reasons
+      sendOkResponse(
+        res,
+        'If your email is registered, you will receive password reset instructions'
+      );
+    }
+  });
 
   /**
    * Reset password with token
    * @route POST /auth/reset-password
    */
-  resetPassword = this.handleAsync(
-    async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-      const { token, password } = req.body as ResetPasswordRequestDto;
+  resetPassword = this.handleAsync(async (req: ExtendedRequest, res: Response): Promise<void> => {
+    const { token, password } = req.body as ResetPasswordRequestDto;
 
-      if (!token || typeof token !== 'string') {
-        throw new BadRequestError('Reset token is required', 'TOKEN_REQUIRED');
-      }
-
-      if (!password || typeof password !== 'string') {
-        throw new BadRequestError('New password is required', 'PASSWORD_REQUIRED');
-      }
-
-      if (!validatePassword(password)) {
-        throw new BadRequestError(
-          'Password must be at least 8 characters with uppercase, lowercase, and number',
-          AUTH_ERROR_CODES.PASSWORD_TOO_WEAK
-        );
-      }
-
-      try {
-        const userId = await passwordResetService.resetPassword(token, password);
-
-        sendOkResponse(res, 'Password reset successfully', { userId });
-
-        logger.info('Password reset successfully', { userId });
-      } catch (error) {
-        logger.warn('Password reset failed', {
-          error: error instanceof Error ? error.message : String(error),
-        });
-        throw error;
-      }
+    if (!token || typeof token !== 'string') {
+      throw new BadRequestError('Reset token is required', 'TOKEN_REQUIRED');
     }
-  );
+
+    if (!password || typeof password !== 'string') {
+      throw new BadRequestError('New password is required', 'PASSWORD_REQUIRED');
+    }
+
+    if (!validatePassword(password)) {
+      throw new BadRequestError(
+        'Password must be at least 8 characters with uppercase, lowercase, and number',
+        AUTH_ERROR_CODES.PASSWORD_TOO_WEAK
+      );
+    }
+
+    try {
+      const userId = await passwordResetService.resetPassword(token, password);
+
+      sendOkResponse(res, 'Password reset successfully', { userId });
+
+      logger.info('Password reset successfully', { userId });
+    } catch (error) {
+      logger.warn('Password reset failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  });
 
   /**
    * Change password
    * @route POST /auth/change-password
    */
-  changePassword = this.handleAsync(
-    async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-      const user = this.validateAuthenticatedUser(req);
-      const validatedData = RequestValidator.validateChangePasswordRequest(req.body);
+  changePassword = this.handleAsync(async (req: ExtendedRequest, res: Response): Promise<void> => {
+    const user = this.validateAuthenticatedUser(req);
+    const validatedData = RequestValidator.validateChangePasswordRequest(req.body);
 
-      try {
-        await identityService.changePassword(
-          user.id,
-          validatedData.currentPassword,
-          validatedData.newPassword
-        );
+    try {
+      await identityService.changePassword(
+        user.id,
+        validatedData.currentPassword,
+        validatedData.newPassword
+      );
 
-        sendOkResponse(res, 'Password changed successfully');
+      sendOkResponse(res, 'Password changed successfully');
 
-        logger.info('Password changed successfully', { userId: user.id });
-      } catch (error) {
-        logger.warn('Password change failed', {
-          userId: user.id,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        throw error;
-      }
+      logger.info('Password changed successfully', { userId: user.id });
+    } catch (error) {
+      logger.warn('Password change failed', {
+        userId: user.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
     }
-  );
+  });
 
   /**
    * Get user sessions
    * @route GET /auth/sessions
    */
-  getSessions = this.handleAsync(
-    async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-      const user = this.validateAuthenticatedUser(req);
+  getSessions = this.handleAsync(async (req: ExtendedRequest, res: Response): Promise<void> => {
+    const user = this.validateAuthenticatedUser(req);
 
-      try {
-        const sessionsResult = await sessionService.getUserSessions(user.id);
+    try {
+      const sessionsResult = await sessionService.getUserSessions(user.id);
 
-        // Validate and filter sessions
-        if (!Array.isArray(sessionsResult)) {
-          logger.error('Invalid sessions data received from session service', { sessionsResult });
-          throw new Error('Invalid sessions data received from session service');
-        }
-
-        const validSessions = sessionsResult.filter(isBaseSession) as BaseSession[];
-        const sessionDisplays = validSessions.map(session =>
-          mapToSessionResponse(session, user.sessionId)
-        );
-
-        sendOkResponse(res, 'Sessions retrieved successfully', {
-          sessions: sessionDisplays,
-        });
-      } catch (error) {
-        logger.error('Get sessions failed', {
-          userId: user.id,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        throw error;
+      // Validate and filter sessions
+      if (!Array.isArray(sessionsResult)) {
+        logger.error('Invalid sessions data received from session service', { sessionsResult });
+        throw new Error('Invalid sessions data received from session service');
       }
+
+      const validSessions = sessionsResult.filter(isBaseSession) as BaseSession[];
+      const sessionDisplays = validSessions.map(session =>
+        mapToSessionResponse(session, user.sessionId)
+      );
+
+      sendOkResponse(res, 'Sessions retrieved successfully', {
+        sessions: sessionDisplays,
+      });
+    } catch (error) {
+      logger.error('Get sessions failed', {
+        userId: user.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
     }
-  );
+  });
 
   /**
    * Terminate a specific session
    * @route DELETE /auth/sessions/:id
    */
   terminateSession = this.handleAsync(
-    async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    async (req: ExtendedRequest, res: Response): Promise<void> => {
       const user = this.validateAuthenticatedUser(req);
       const sessionId = req.params['id'];
 
@@ -718,35 +697,33 @@ export class AuthController extends BaseController {
    * Get current user profile
    * @route GET /auth/me
    */
-  getCurrentUser = this.handleAsync(
-    async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-      const user = this.validateAuthenticatedUser(req);
+  getCurrentUser = this.handleAsync(async (req: ExtendedRequest, res: Response): Promise<void> => {
+    const user = this.validateAuthenticatedUser(req);
 
-      try {
-        const userResult = await identityService.getUserById(user.id);
+    try {
+      const userResult = await identityService.getUserById(user.id);
 
-        if (!isBaseUser(userResult)) {
-          throw new BadRequestError('User not found', 'USER_NOT_FOUND');
-        }
-
-        const userProfile = mapToUserProfileResponse(userResult);
-        sendOkResponse(res, 'User profile retrieved successfully', userProfile);
-      } catch (error) {
-        logger.error('Get current user failed', {
-          userId: user.id,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        throw error;
+      if (!isBaseUser(userResult)) {
+        throw new BadRequestError('User not found', 'USER_NOT_FOUND');
       }
+
+      const userProfile = mapToUserProfileResponse(userResult);
+      sendOkResponse(res, 'User profile retrieved successfully', userProfile);
+    } catch (error) {
+      logger.error('Get current user failed', {
+        userId: user.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
     }
-  );
+  });
 
   /**
    * Update user profile
    * @route PUT /auth/me
    */
   updateCurrentUser = this.handleAsync(
-    async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    async (req: ExtendedRequest, res: Response): Promise<void> => {
       const user = this.validateAuthenticatedUser(req);
       const updateData = RequestValidator.validateUpdateProfileRequest(req.body);
 

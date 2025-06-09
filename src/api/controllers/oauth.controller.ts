@@ -9,6 +9,7 @@ import {
 } from '../../utils/error-handling';
 import { logger } from '../../infrastructure/logging/logger';
 import { OAuthService } from '../../core/oauth/oauth.service';
+import { AuthUser, isAuthUser } from './types/auth.types';
 
 // Import the OAuth service
 // In a real application with proper DI, this would be injected
@@ -57,7 +58,7 @@ export class OAuthController extends BaseController {
     }
 
     // Check if user is authenticated
-    if (!req.user) {
+    if (!req.user || !isAuthUser(req.user)) {
       // Store authorization request in session and redirect to login
       // In a real implementation, we would store the request parameters in the session
       // and redirect to the login page
@@ -95,7 +96,7 @@ export class OAuthController extends BaseController {
         error,
         client_id,
         redirect_uri,
-        userId: req.user?.id,
+        userId: req.user && isAuthUser(req.user) ? req.user.id : undefined,
       });
 
       // Handle error by redirecting to client with error

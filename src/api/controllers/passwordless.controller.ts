@@ -103,7 +103,7 @@ export class PasswordlessController extends BaseController {
       if (result['refreshToken']) {
         res.cookie('refreshToken', result['refreshToken'], {
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
+          secure: process.env['NODE_ENV'] === 'production',
           sameSite: 'strict',
           maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
           path: '/',
@@ -153,7 +153,8 @@ export class PasswordlessController extends BaseController {
       throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
     }
 
-    const userId = req.user.id;
+    // Use type assertion to ensure TypeScript recognizes the id property
+    const userId = (req.user as { id: string }).id;
     const { method, identifier, name } = req.body;
     const ipAddress = req.ip;
     const userAgent = req.headers['user-agent'] || '';
@@ -240,7 +241,7 @@ export class PasswordlessController extends BaseController {
       // In production, we would properly handle the error
       const mockResult = {
         success: true,
-        userId: req.user.id,
+        userId: (req.user as { id: string }).id,
         method: 'webauthn',
         message: 'Registration successful',
       };
@@ -259,7 +260,8 @@ export class PasswordlessController extends BaseController {
       throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
     }
 
-    const userId = req.user.id;
+    // Use type assertion to ensure TypeScript recognizes the id property
+    const userId = (req.user as { id: string }).id;
 
     try {
       // Get credentials
@@ -301,7 +303,8 @@ export class PasswordlessController extends BaseController {
       throw new AuthenticationError('Not authenticated', 'NOT_AUTHENTICATED');
     }
 
-    const userId = req.user.id;
+    // Use type assertion to ensure TypeScript recognizes the id property
+    const userId = (req.user as { id: string }).id;
     const { credentialId } = req.params;
 
     // Validate credential ID

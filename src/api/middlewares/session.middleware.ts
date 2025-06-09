@@ -84,7 +84,7 @@ export const checkSessionExpiration = async (
         // Clear refresh token cookie
         res.clearCookie('refreshToken', {
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
+          secure: process.env['NODE_ENV'] === 'production',
           sameSite: 'strict',
           path: '/',
         });
@@ -140,7 +140,7 @@ export const validateSession = async (
       // Clear refresh token cookie
       res.clearCookie('refreshToken', {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: process.env['NODE_ENV'] === 'production',
         sameSite: 'strict',
         path: '/',
       });
@@ -164,7 +164,7 @@ export const validateSession = async (
       // Clear refresh token cookie
       res.clearCookie('refreshToken', {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: process.env['NODE_ENV'] === 'production',
         sameSite: 'strict',
         path: '/',
       });
@@ -241,7 +241,7 @@ export const checkSessionDevice = async (
       // Clear refresh token cookie
       res.clearCookie('refreshToken', {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: process.env['NODE_ENV'] === 'production',
         sameSite: 'strict',
         path: '/',
       });
